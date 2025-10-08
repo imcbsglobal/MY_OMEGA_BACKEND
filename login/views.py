@@ -43,3 +43,7 @@ def me(request):
     return Response({
         "id": u.id, "username": u.username, "email": u.email, "is_superuser": u.is_superuser
     })
+
+
+
+# hjh
