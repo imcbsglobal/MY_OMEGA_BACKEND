@@ -1,8 +1,11 @@
+# login/urls.py
 from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('login/', views.superuser_id_login, name='superuser-id-login'),
-    path('token/refresh/', views.refresh_token, name='token-refresh'),
-    path('me/', views.me, name='me'),
+    path('login/', views.login_view, name='login'),
+
+    path('refresh/', views.refresh_token_view, name='refresh-token'),
+    path('protected/', views.protected_view, name='protected'),
+    path('test/', views.test_view, name='test'),
 ]
