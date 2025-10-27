@@ -101,14 +101,14 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'myomega_db',
         'USER': 'postgres',
-        'PASSWORD': '1234',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',  # Set to your DB server, e.g. 'db.example.com'
         'PORT': '5432',       # Default PostgreSQL port
     }
 }
 
 
-# Password validation
+# Password validation 
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
