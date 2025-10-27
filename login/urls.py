@@ -3,9 +3,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('login/', views.login_view, name='login'),
-
-    path('refresh/', views.refresh_token_view, name='refresh-token'),
-    path('protected/', views.protected_view, name='protected'),
-    path('test/', views.test_view, name='test'),
+    path('login/', views.login_view, name='api-login'),
+    path('refresh/', views.refresh_token_view, name='api-refresh'),
+    path('protected/', views.protected_view, name='api-protected'),
+    # NEW: paste an access/refresh token to login
+    path('token-login/', views.token_login_view, name='api-token-login'),
 ]

@@ -1,60 +1,31 @@
-# User/serializers.py
-
-from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 from .models import AppUser
-
+from django.contrib.auth.hashers import make_password
 
 class AppUserSerializer(serializers.ModelSerializer):
-    """
-    Serializer for AppUser creation, listing and updates.
-
-    - photo is required on create (enforced by the model).
-    - password is write-only and will be hashed on create/update.
-    - user_level limited to Super Admin / Admin / User
-    - id and created_at are read-only
-    """
-    user_level = serializers.ChoiceField(choices=AppUser.Levels.choices)
-    password = serializers.CharField(
-        write_only=True,
-        trim_whitespace=False,
-        required=True,
-        help_text="Plain text password. Will be hashed before saving."
-    )
+    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
+    password = serializers.CharField(write_only=True, required=True, min_length=6)
 
     class Meta:
         model = AppUser
         fields = [
-            'id', 'photo', 'name', 'user_id', 'password',
+            'id', 'photo', 'name', 'email', 'password',
             'user_level', 'job_role', 'phone_number', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
-    def validate_user_id(self, value: str) -> str:
-        """
-        Ensure user_id is unique. When updating, exclude the current instance.
-        """
-        instance = getattr(self, 'instance', None)
-        qs = AppUser.objects.filter(user_id=value)
-        if instance:
-            qs = qs.exclude(pk=instance.pk)
-        if qs.exists():
-            raise serializers.ValidationError("This user_id already exists.")
-        return value
-
     def create(self, validated_data):
-        """
-        Hash the password before saving the AppUser.
-        """
-        raw_password = validated_data.pop('password')
-        validated_data['password'] = make_password(raw_password)
-        return super().create(validated_data)
+        # Hash the password before saving
+        password = validated_data.pop('password', None)
+        if password:
+            validated_data['password'] = make_password(password)
+        instance = super().create(validated_data)
+        return instance
 
     def update(self, instance, validated_data):
-        """
-        Hash password if provided on update. Allow partial updates.
-        """
-        if 'password' in validated_data:
-            raw_password = validated_data.pop('password')
-            validated_data['password'] = make_password(raw_password)
+        # If password is present, hash it
+        password = validated_data.pop('password', None)
+        if password:
+            instance.password = make_password(password)
+        # handle photo: if null passed and you want to remove photo, allow that
         return super().update(instance, validated_data)
