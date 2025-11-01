@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 venv/
-=======
 # Python
 __pycache__/
 *.py[cod]
@@ -9,7 +7,7 @@ __pycache__/
 # Virtual environment
 venv/
 env/
-
+.env
 # IDE / Editor
 .vscode/
 .idea/
@@ -41,4 +39,3 @@ Thumbs.db
 
 # Django
 */migrations/__pycache__/
->>>>>>> origin/sreekutty

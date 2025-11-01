@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from datetime import timedelta
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,12 +44,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',  # Make sure this is added
     'rest_framework', 
-    'rest_framework.authtoken', 
+    'rest_framework.authtoken',
+    'storages',  # Required for R2/S3 storage
     'login',
     'HR',
     'User',
-     'user_controll',
-    
+    'user_controll',
 ]
 
 MIDDLEWARE = [
@@ -149,8 +152,62 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Cloudflare R2 Storage Configuration
+CLOUDFLARE_R2_ENABLED = os.getenv('CLOUDFLARE_R2_ENABLED', 'false').lower() == 'true'
+
+if CLOUDFLARE_R2_ENABLED:
+    # R2 Credentials
+    AWS_ACCESS_KEY_ID = os.getenv('CLOUDFLARE_R2_ACCESS_KEY')
+    AWS_SECRET_ACCESS_KEY = os.getenv('CLOUDFLARE_R2_SECRET_KEY')
+    
+    # R2 Configuration
+    CLOUDFLARE_R2_BUCKET_NAME = os.getenv('CLOUDFLARE_R2_BUCKET')
+    CLOUDFLARE_R2_ENDPOINT = os.getenv('CLOUDFLARE_R2_BUCKET_ENDPOINT')
+    CLOUDFLARE_R2_PUBLIC_URL = os.getenv('CLOUDFLARE_R2_PUBLIC_URL')
+    CLOUDFLARE_R2_ACCOUNT_ID = os.getenv('CLOUDFLARE_R2_ACCOUNT_ID', '')
+    
+    # S3/R2 Settings
+    AWS_STORAGE_BUCKET_NAME = CLOUDFLARE_R2_BUCKET_NAME
+    AWS_S3_ENDPOINT_URL = CLOUDFLARE_R2_ENDPOINT
+    AWS_S3_REGION_NAME = 'auto'  # R2 uses 'auto'
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_QUERYSTRING_AUTH = False  # Don't add auth to URLs
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',  # 1 day cache
+    }
+    
+    # Django 5.x STORAGES setting (replaces DEFAULT_FILE_STORAGE)
+    STORAGES = {
+        "default": {
+            "BACKEND": "myomega_backend.storage_backends.R2MediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    
+    # Media files URL
+    if CLOUDFLARE_R2_PUBLIC_URL:
+        MEDIA_URL = f'{CLOUDFLARE_R2_PUBLIC_URL}/media/'
+        # STATIC_URL = f'{CLOUDFLARE_R2_PUBLIC_URL}/static/'
+    else:
+        MEDIA_URL = f'{CLOUDFLARE_R2_ENDPOINT}/{CLOUDFLARE_R2_BUCKET_NAME}/media/'
+else:
+    # Local storage fallback
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    MEDIA_URL = '/media/'
 
 
 
