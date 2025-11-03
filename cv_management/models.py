@@ -16,6 +16,7 @@ class UserCvData(models.Model):
         ('no', 'No'),
         ('pending', 'Pending'),
     ]
+
     KERALA_DISTRICTS = [
         ('Alappuzha', 'Alappuzha'),
         ('Ernakulam', 'Ernakulam'),
@@ -33,6 +34,7 @@ class UserCvData(models.Model):
         ('Wayanad', 'Wayanad'),
         ('Other', 'Other'),
     ]
+
     # Basic Info
     name = models.CharField(max_length=100)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='O')
@@ -41,11 +43,12 @@ class UserCvData(models.Model):
     # Job Info
     job_title = models.CharField(max_length=100, verbose_name="Job Title")
     place = models.CharField(max_length=100)
-    district = models.CharField(max_length=100,choices=KERALA_DISTRICTS, default='Wayanad')
+    district = models.CharField(max_length=100, choices=KERALA_DISTRICTS, default='Wayanad')
     education = models.CharField(max_length=100)
     experience = models.CharField(max_length=50, verbose_name="Experience (e.g. 5 years)")
 
     # Contact Info
+    email = models.EmailField(unique=True, verbose_name="Email Address")
     phone_number = models.CharField(max_length=15, verbose_name="Phone Number")
     address = models.CharField(max_length=255, blank=True, null=True)
 
@@ -53,24 +56,26 @@ class UserCvData(models.Model):
     cv_file = models.FileField(upload_to='cvs/', null=True, blank=True, verbose_name="CV File")
     cv_source = models.CharField(max_length=50, verbose_name="CV Source", default='Direct')
     interview_status = models.CharField(
-        max_length=10, 
-        choices=INTERVIEW_STATUS_CHOICES, 
+        max_length=10,
+        choices=INTERVIEW_STATUS_CHOICES,
         default='pending',
         verbose_name="Interview Status"
     )
     remarks = models.CharField(max_length=255, blank=True, null=True)
 
     # Meta Info
-    created_user = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, related_name='created_cvs')
-    updated_by = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, related_name='updated_cvs')
+    created_by = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, related_name='created_cvs')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.name} - {self.job_title}"
 
+
 class JobTitle(models.Model):
     title = models.CharField(max_length=100)
-    createdAt= models.DateTimeField(auto_now_add=True)
+    createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
-    
+
+    def __str__(self):
+        return self.title

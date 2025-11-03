@@ -170,16 +170,16 @@ if CLOUDFLARE_R2_ENABLED:
     CLOUDFLARE_R2_ACCOUNT_ID = os.getenv('CLOUDFLARE_R2_ACCOUNT_ID', '')
     
     # S3/R2 Settings
-    AWS_STORAGE_BUCKET_NAME = CLOUDFLARE_R2_BUCKET_NAME
-    AWS_S3_ENDPOINT_URL = CLOUDFLARE_R2_ENDPOINT
-    AWS_S3_REGION_NAME = 'auto'  # R2 uses 'auto'
-    AWS_S3_SIGNATURE_VERSION = 's3v4'
-    AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = 'public-read'
-    AWS_QUERYSTRING_AUTH = False  # Don't add auth to URLs
-    AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',  # 1 day cache
-    }
+    # AWS_STORAGE_BUCKET_NAME = CLOUDFLARE_R2_BUCKET_NAME
+    # AWS_S3_ENDPOINT_URL = CLOUDFLARE_R2_ENDPOINT
+    # AWS_S3_REGION_NAME = 'auto'  # R2 uses 'auto'
+    # AWS_S3_SIGNATURE_VERSION = 's3v4'
+    # AWS_S3_FILE_OVERWRITE = False
+    # AWS_DEFAULT_ACL = 'public-read'
+    # AWS_QUERYSTRING_AUTH = False  # Don't add auth to URLs
+    # AWS_S3_OBJECT_PARAMETERS = {
+    #     'CacheControl': 'max-age=86400',  # 1 day cache
+    # }
     
     # Django 5.x STORAGES setting (replaces DEFAULT_FILE_STORAGE)
     STORAGES = {
