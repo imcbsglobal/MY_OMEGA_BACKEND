@@ -1,18 +1,13 @@
+# user_controll/models.py
 from django.db import models
-
-# Create your models here.
-from django.db import models
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
+from django.conf import settings
+from User.models import AppUser  # Import your actual user model
 
 class MenuItem(models.Model):
-    """
-    Table name: user_controll_menuitem
-    Represents a navigable item (or group) in your sidebar/menu.
-    """
     name = models.CharField(max_length=100)
-    path = models.CharField(max_length=200, unique=True)  # e.g. "/hr/attendance" or "#" for a group
+    key = models.CharField(max_length=100, unique=True)
+    path = models.CharField(max_length=200, blank=True)
+    icon = models.CharField(max_length=50, blank=True)
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="children")
     order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -25,15 +20,21 @@ class MenuItem(models.Model):
 
 
 class UserMenuAccess(models.Model):
-    """
-    Table name: user_controll_usermenuaccess
-    A many-to-many via model linking a user to specific menu items they can access.
-    """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="menu_access")
-    menu_item = models.ForeignKey(MenuItem, on_delete=models.CASCADE, related_name="user_access")
+    # CHANGE THIS: Use AppUser directly instead of settings.AUTH_USER_MODEL
+    user = models.ForeignKey(
+        AppUser,  # Change from settings.AUTH_USER_MODEL to AppUser
+        on_delete=models.CASCADE, 
+        related_name="user_controll_menu_access"
+    )
+    menu_item = models.ForeignKey(
+        MenuItem, 
+        on_delete=models.CASCADE, 
+        related_name="user_access"
+    )
 
     class Meta:
         unique_together = ("user", "menu_item")
+        db_table = "user_controll_usermenuaccess"  # Keep the same table name
 
     def __str__(self):
-        return f"{self.user_id} -> {self.menu_item_id}"
+        return f"{self.user.email} -> {self.menu_item.name}"

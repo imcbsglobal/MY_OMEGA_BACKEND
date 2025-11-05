@@ -1,27 +1,21 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 from .models import MenuItem
 
 User = get_user_model()
 
 class SimpleUserSerializer(serializers.ModelSerializer):
-    """
-    For listing/choosing users in the admin panel.
-    """
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "is_staff", "is_superuser"]
+        fields = ["id", "username", "first_name", "last_name", "email", "is_staff", "is_superuser"]
 
 
 class MenuItemTreeSerializer(serializers.ModelSerializer):
-    """
-    Tree structure for the left sidebar.
-    """
     children = serializers.SerializerMethodField()
 
     class Meta:
         model = MenuItem
-        fields = ["id", "name", "path", "parent", "order", "children"]
+        fields = ["id", "key", "name", "path", "icon", "parent", "order", "children"]
 
     def get_children(self, obj):
         qs = obj.children.filter(is_active=True).order_by("order", "name")
@@ -29,7 +23,7 @@ class MenuItemTreeSerializer(serializers.ModelSerializer):
 
 
 class UserMenuIdsSerializer(serializers.Serializer):
-    """
-    POST body for saving selections.
-    """
-    menu_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=True)
+    menu_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=True
+    )

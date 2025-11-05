@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/', include('login.urls')),  # Include login app URLs
     path('api/', include('User.urls')),
     path("api/user-controll/", include("user_controll.urls")),
+    path('api/hr/', include('HR.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
