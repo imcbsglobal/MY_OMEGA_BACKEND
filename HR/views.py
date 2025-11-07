@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 # HR/views.py - Complete Attendance Views
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -12,8 +9,6 @@ from datetime import datetime
 import calendar
 
 from .models import Attendance, Holiday, LeaveRequest
-
-# FIXED: Changed from .serializers to .Serializer (matching your filename)
 from .Serializers import (
     AttendanceSerializer, PunchInSerializer, PunchOutSerializer,
     AttendanceVerifySerializer, AttendanceUpdateStatusSerializer,
@@ -184,6 +179,104 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 'message': 'No attendance record for today',
                 'date': today
             }, status=status.HTTP_200_OK)
+    
+    # ============= NEW METHODS - ADD THESE =============
+    @action(detail=False, methods=['get'])
+    def my_records(self, request):
+        """
+        Get only MY attendance records (individual user's records)
+        URL: /api/hr/attendance/my_records/
+        """
+        user = request.user
+        
+        # Get month and year from query params
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        
+        # ALWAYS filter by current logged-in user ONLY
+        queryset = Attendance.objects.filter(user=user).select_related('user', 'verified_by')
+        
+        if month and year:
+            queryset = queryset.filter(date__month=month, date__year=year)
+        
+        queryset = queryset.order_by('-date', '-punch_in_time')
+        
+        serializer = AttendanceSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def my_summary(self, request):
+        """
+        Get only MY attendance summary (individual user's summary)
+        URL: /api/hr/attendance/my_summary/
+        """
+        user = request.user
+        month = int(request.query_params.get('month', timezone.now().month))
+        year = int(request.query_params.get('year', timezone.now().year))
+        
+        # ALWAYS use current logged-in user ONLY
+        attendances = Attendance.objects.filter(
+            user=user,
+            date__month=month,
+            date__year=year
+        )
+        
+        # Get holidays for this month
+        holidays = Holiday.objects.filter(
+            date__month=month,
+            date__year=year,
+            is_active=True
+        ).count()
+        
+        # Calculate statistics
+        days_in_month = calendar.monthrange(year, month)[1]
+        
+        full_days_unverified = attendances.filter(
+            status='full',
+            verification_status='unverified'
+        ).count()
+        
+        verified_full_days = attendances.filter(
+            status='full',
+            verification_status='verified'
+        ).count()
+        
+        half_days_unverified = attendances.filter(
+            status='half',
+            verification_status='unverified'
+        ).count()
+        
+        verified_half_days = attendances.filter(
+            status='half',
+            verification_status='verified'
+        ).count()
+        
+        leaves = attendances.filter(status='leave').count()
+        
+        total_working_hours = attendances.aggregate(
+            total=Sum('working_hours')
+        )['total'] or 0
+        
+        marked_days = attendances.count()
+        not_marked = days_in_month - marked_days - holidays
+        
+        return Response({
+            'user_id': user.id,
+            'user_name': user.name,
+            'user_email': user.email,
+            'month': month,
+            'year': year,
+            'total_days': days_in_month,
+            'full_days_unverified': full_days_unverified,
+            'verified_full_days': verified_full_days,
+            'half_days_unverified': half_days_unverified,
+            'verified_half_days': verified_half_days,
+            'leaves': leaves,
+            'not_marked': not_marked,
+            'total_working_hours': round(total_working_hours, 2),
+            'holidays': holidays,
+        })
+    # ============= END NEW METHODS =============
     
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
