@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'HR',
     'User',
     'user_controll',
+    'cv_management',  
 ]
 
 MIDDLEWARE = [

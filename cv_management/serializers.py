@@ -3,18 +3,21 @@ from .models import UserCvData, JobTitle
 
 
 class JobTitleSerializer(serializers.ModelSerializer):
+    
     class Meta:
         model = JobTitle
-        fields = ['id', 'title', 'createdAt', 'updatedAt']
+        fields = ['id', 'title', 'created_at', 'updated_at']
+        read_only_fields = [ 'created_at', 'updated_at']
 
 
 class UserCvDataSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
+    uuid = serializers.UUIDField(read_only=True)
 
     class Meta:
         model = UserCvData
         fields = [
-            'id',
+            'uuid',
             'name',
             'gender',
             'dob',

@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/', include('User.urls')),
     path("api/user-controll/", include("user_controll.urls")),
     path('api/hr/', include('HR.urls')),
+    path('api/cv-management/', include('cv_management.urls')),  # CV Management URLs
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
