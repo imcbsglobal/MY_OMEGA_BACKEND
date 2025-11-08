@@ -2,7 +2,7 @@
 
 ## Base URL
 ```
-https://your-domain.com/api/cv/cvs/
+https://your-domain.com/api/cv-management/
 ```
 
 ## Authentication
@@ -13,8 +13,129 @@ Authorization: Bearer <your_jwt_token>
 
 ## Endpoints
 
-### 1. Get All CVs
-**Endpoint:** `GET /api/cv/cvs/`  
+### Job Title Management
+
+#### 1. Get All Job Titles
+**Endpoint:** `GET /api/cv-management/job-titles/`  
+**Description:** Retrieve a list of all job title records.  
+**Permissions:** Authenticated users only.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "uuid": "string (UUID)",
+      "title": "string",
+      "created_at": "datetime",
+      "updated_at": "datetime"
+    }
+  ]
+}
+```
+
+#### 2. Get Single Job Title
+**Endpoint:** `GET /api/cv-management/job-titles/{uuid}/`  
+**Description:** Retrieve a specific job title record by its UUID.  
+**Permissions:** Authenticated users only.  
+**Parameters:**  
+- `uuid`: UUID of the job title record
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "uuid": "string (UUID)",
+    "title": "string",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+  }
+}
+```
+
+#### 3. Create Job Title
+**Endpoint:** `POST /api/cv-management/job-titles/`  
+**Description:** Create a new job title record.  
+**Permissions:** Authenticated users only.  
+**Content-Type:** `application/json`
+
+**Request Body Fields:**
+- `title`: string (required, unique) - The job title name
+
+**Request Example:**
+```json
+{
+  "title": "Software Developer"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Job title created successfully",
+  "data": {
+    "uuid": "string (UUID)",
+    "title": "Software Developer",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+  }
+}
+```
+
+#### 4. Update Job Title
+**Endpoint:** `PUT /api/cv-management/job-titles/{uuid}/`  
+**Description:** Update an existing job title record.  
+**Permissions:** Authenticated users only.  
+**Parameters:**  
+- `uuid`: UUID of the job title record  
+**Content-Type:** `application/json`
+
+**Request Body:** 
+- `title`: string (optional) - Updated job title name
+
+**Request Example:**
+```json
+{
+  "title": "Senior Software Developer"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Job title updated successfully",
+  "data": {
+    "uuid": "string (UUID)",
+    "title": "Senior Software Developer",
+    "created_at": "datetime",
+    "updated_at": "datetime"
+  }
+}
+```
+
+#### 5. Delete Job Title
+**Endpoint:** `DELETE /api/cv-management/job-titles/{uuid}/`  
+**Description:** Delete a job title record.  
+**Permissions:** Authenticated users only.  
+**Parameters:**  
+- `uuid`: UUID of the job title record
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Job title deleted successfully"
+}
+```
+
+### CV Management
+
+#### 1. Get All CVs
+**Endpoint:** `GET /api/cv-management/cvs/`  
 **Description:** Retrieve a list of all CV records.  
 **Permissions:** Authenticated users only.
 
@@ -48,8 +169,8 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 
-### 2. Get Single CV
-**Endpoint:** `GET /api/cv/cvs/{uuid}/`  
+#### 2. Get Single CV
+**Endpoint:** `GET /api/cv-management/cvs/{uuid}/`  
 **Description:** Retrieve a specific CV record by its UUID.  
 **Permissions:** Authenticated users only.  
 **Parameters:**  
@@ -83,8 +204,8 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 
-### 3. Upload/Create CV
-**Endpoint:** `POST /api/cv/cvs/`  
+#### 3. Upload/Create CV
+**Endpoint:** `POST /api/cv-management/cvs/`  
 **Description:** Create a new CV record with file upload.  
 **Permissions:** Authenticated users only.  
 **Content-Type:** `multipart/form-data`
@@ -135,8 +256,8 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 
-### 4. Edit/Update CV
-**Endpoint:** `PUT /api/cv/cvs/{uuid}/`  
+#### 4. Edit/Update CV
+**Endpoint:** `PUT /api/cv-management/cvs/{uuid}/`  
 **Description:** Update an existing CV record.  
 **Permissions:** Authenticated users only.  
 **Parameters:**  
@@ -157,8 +278,8 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 
-### 5. Delete CV
-**Endpoint:** `DELETE /api/cv/cvs/{uuid}/`  
+#### 5. Delete CV
+**Endpoint:** `DELETE /api/cv-management/cvs/{uuid}/`  
 **Description:** Delete a CV record.  
 **Permissions:** Authenticated users only.  
 **Parameters:**  
@@ -188,7 +309,7 @@ Kerala districts: Alappuzha, Ernakulam, Idukki, Kannur, Kasaragod, Kollam, Kotta
 - `pending`: Pending
 
 ### Job Title
-Currently expects the integer ID of a JobTitle record. You may need to fetch available job titles from `/api/cv/job-titles/` endpoint first.
+Currently expects the integer ID of a JobTitle record. You may need to fetch available job titles from `/api/cv-management/job-titles/` endpoint first.
 
 ### File Upload
 - Supported formats: PDF, DOC, DOCX
@@ -209,3 +330,57 @@ All endpoints return standard HTTP status codes. Common errors:
 - The `created_by` field shows the username of the user who created the record
 - UUIDs are used as primary keys for security
 - Email addresses must be unique across all CV records
+- Job titles must be unique across all records
+
+## Testing Examples
+
+### Create a Job Title
+```bash
+curl -X POST http://127.0.0.1:8000/api/cv-management/job-titles/ \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Software Developer"}'
+```
+
+### Get All Job Titles
+```bash
+curl -X GET http://127.0.0.1:8000/api/cv-management/job-titles/ \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Create a CV (using Job Title ID)
+```bash
+curl -X POST http://127.0.0.1:8000/api/cv-management/cvs/ \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone_number": "+1234567890",
+    "job_title": 1,
+    "place": "New York",
+    "district": "Other",
+    "education": "Bachelor Degree",
+    "experience": "5 years"
+  }'
+```
+
+### Get All CVs
+```bash
+curl -X GET http://127.0.0.1:8000/api/cv-management/cvs/ \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Update a CV
+```bash
+curl -X PUT http://127.0.0.1:8000/api/cv-management/cvs/{uuid}/ \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"experience": "6 years"}'
+```
+
+### Delete a CV
+```bash
+curl -X DELETE http://127.0.0.1:8000/api/cv-management/cvs/{uuid}/ \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
