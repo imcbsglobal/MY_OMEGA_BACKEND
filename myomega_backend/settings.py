@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'HR',
     'User',
     'user_controll',
+    'cv_management',  
 ]
 
 MIDDLEWARE = [
@@ -93,9 +94,9 @@ WSGI_APPLICATION = 'myomega_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'my_omega_db',
+        'NAME': 'myomega_db',
         'USER': 'postgres',
-        'PASSWORD': '1234',
+        'PASSWORD': 'admin',
         'HOST': 'localhost',
         'PORT': '5432',
     }
