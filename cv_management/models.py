@@ -50,8 +50,8 @@ class UserCvData(models.Model):
         ('Other', 'Other'),
     ]
 
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-
+    # uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    id = models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
     # Basic Info
     name = models.CharField(max_length=100)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='O')

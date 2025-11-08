@@ -12,12 +12,12 @@ class JobTitleSerializer(serializers.ModelSerializer):
 
 class UserCvDataSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
-    uuid = serializers.UUIDField(read_only=True)
+    # uuid = serializers.UUIDField(read_only=True)
 
     class Meta:
         model = UserCvData
         fields = [
-            'uuid',
+            'id',
             'name',
             'gender',
             'dob',
