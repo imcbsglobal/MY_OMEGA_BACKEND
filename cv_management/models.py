@@ -27,10 +27,12 @@ class UserCvData(models.Model):
     ]
 
     INTERVIEW_STATUS_CHOICES = [
-        ('yes', 'Yes'),
-        ('no', 'No'),
-        ('pending', 'Pending'),
+    ('pending', 'Pending'),
+    ('ongoing', 'Ongoing'),
+    ('selected', 'Selected'),
+    ('rejected', 'Rejected'),
     ]
+
 
     KERALA_DISTRICTS = [
         ('Alappuzha', 'Alappuzha'),
