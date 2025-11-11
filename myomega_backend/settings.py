@@ -95,9 +95,9 @@ WSGI_APPLICATION = 'myomega_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'myomega_db',
+        'NAME': 'my_omega_db',
         'USER': 'postgres',
-        'PASSWORD': 'admin',
+        'PASSWORD': '12345',
         'HOST': 'localhost',
         'PORT': '5432',
     }
