@@ -20,7 +20,7 @@ Authorization: Bearer <your_jwt_token>
 | GET | `/cvs-for-interview/` | Get all CVs available for interview (dropdown) |
 | POST | `/start-interview/` | Start interview and add CV to Interview table |
 | GET | `/` | List all interviews |
-| GET | `/ongoing-interviews/` | List only ongoing interviews |
+| GET | `/ongoing-interviews/` | List only ongoing interviews (with complete CV data) |
 | GET | `/{id}/` | Get single interview details |
 | PATCH | `/{id}/update-status/` | Update interview status (selected/rejected/pending) |
 | POST/PUT/PATCH | `/{id}/evaluation/` | Create or update interview evaluation |
@@ -277,7 +277,7 @@ curl -X GET "{{baseUrl}}/api/interview-management/" \
 
 **Endpoint:** `GET /api/interview-management/ongoing-interviews/`
 
-**Description:** Get all interviews where the CV status is currently `ongoing`. Use this endpoint to display the list of interviews in progress.
+**Description:** Get all interviews where the CV status is currently `ongoing`. Returns complete CV data including CV file URLs and all candidate details. Use this endpoint to display the list of interviews in progress.
 
 **Success Response (200 OK):**
 ```json
@@ -290,12 +290,23 @@ curl -X GET "{{baseUrl}}/api/interview-management/" \
       "candidate": {
         "id": "ea3d16d9-dbd6-4fc3-9d40-b35f6dcc5914",
         "name": "John Doe",
+        "gender": "M",
+        "dob": "1990-01-15",
         "job_title": 1,
-        "job_title_name": "Software Developer",
         "place": "Kochi",
+        "district": "Ernakulam",
+        "education": "Bachelor of Computer Science",
+        "experience": "5 years",
         "email": "john@example.com",
         "phone_number": "+91 9876543210",
-        "interview_status": "ongoing"
+        "address": "123 Main Street, Kochi, Kerala",
+        "cv_file": "/media/cvs/john_doe_cv.pdf",
+        "cv_source": "LinkedIn",
+        "interview_status": "ongoing",
+        "remarks": "Strong technical background",
+        "created_by": "admin",
+        "created_at": "2025-11-01T08:00:00Z",
+        "updated_at": "2025-11-10T09:30:00Z"
       },
       "interviewer_name": "Jane Smith",
       "scheduled_at": "2025-11-15T10:00:00Z",

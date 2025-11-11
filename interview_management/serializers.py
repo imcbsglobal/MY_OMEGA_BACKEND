@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import Interview, InterviewEvaluation
 from cv_management.models import UserCvData
+from cv_management.serializers import UserCvDataSerializer
 from User.models import AppUser
+from django.utils import timezone
 
 
 # For dropdown to select one user to interview
@@ -27,7 +29,7 @@ class UserCvDropSerializer(serializers.ModelSerializer):
 class StartInterviewSerializer(serializers.Serializer):
     """Serializer for starting an interview - changes CV status to ongoing"""
     candidate_id = serializers.UUIDField(required=True)
-    scheduled_at = serializers.DateTimeField(required=True)
+    scheduled_at = serializers.DateTimeField(default=timezone.now)
     interviewer_id = serializers.IntegerField(required=False, allow_null=True)
     
     def validate_candidate_id(self, value):
@@ -106,7 +108,7 @@ class InterviewTableSerializer(serializers.ModelSerializer):
 # For getting ongoing interviews only
 class OngoingInterviewSerializer(serializers.ModelSerializer):
     """Serializer specifically for ongoing interviews"""
-    candidate = UserCvDropSerializer(read_only=True)
+    candidate = UserCvDataSerializer(read_only=True)
     interviewer_name = serializers.SerializerMethodField()
     evaluation_completed = serializers.SerializerMethodField()
     

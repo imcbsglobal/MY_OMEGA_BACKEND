@@ -49,16 +49,16 @@ def error_response(message, error_code, details=None, status_code=status.HTTP_40
 class InterviewManagementViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing interviews
-    
-    Endpoints:
+
+    Endpoints (under /api/interview-management/):
     - GET /cvs-for-interview/ - Get all CVs available for interview (dropdown)
     - POST /start-interview/ - Start interview (change CV status to ongoing and add CV details to Interview table)
-    - GET /interviews/ - List all interviews
-    - GET /ongoing-interviews/ - List only ongoing interviews
-    - GET /interviews/{id}/ - Get interview details
-    - PATCH /interviews/{id}/update-status/ - Update interview status
-    - POST/PUT /interviews/{id}/evaluation/ - Create/Update evaluation
-    - DELETE /interviews/{id}/ - Delete interview
+    - GET / - List all interviews
+    - GET /ongoing-interviews/ - List only ongoing interviews (with complete CV data)
+    - GET /{id}/ - Get interview details
+    - PATCH /{id}/update-status/ - Update interview status
+    - POST/PUT/PATCH /{id}/evaluation/ - Create/Update evaluation
+    - DELETE /{id}/ - Delete interview
     """
     queryset = Interview.objects.select_related(
         'candidate', 'candidate__job_title', 'interviewer'
@@ -209,6 +209,7 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
         """
         Get all interviews with ongoing status
         Shows only interviews where CV status is 'ongoing'
+        Returns complete CV data including CV file URLs and all candidate details
         """
         try:
             # Get CVs with ongoing status
@@ -224,7 +225,6 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
             ongoing_interviews = self.get_queryset().filter(
                 candidate__in=ongoing_cvs
             ).order_by('-scheduled_at')
-            
             serializer = self.get_serializer(ongoing_interviews, many=True)
             
             return success_response(
