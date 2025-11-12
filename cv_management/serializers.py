@@ -12,6 +12,8 @@ class JobTitleSerializer(serializers.ModelSerializer):
 
 class UserCvDataSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
+    job_title = serializers.SerializerMethodField() 
+    
     # uuid = serializers.UUIDField(read_only=True)
 
     class Meta:
@@ -38,6 +40,10 @@ class UserCvDataSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def get_job_title(self, obj):
+        """Return the job title name from the related JobTitle object"""
+        return obj.job_title.title if obj.job_title else None
 
     def create(self, validated_data):
         """Automatically set created_by from request user"""
