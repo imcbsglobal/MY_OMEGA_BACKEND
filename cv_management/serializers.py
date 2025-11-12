@@ -7,15 +7,13 @@ class JobTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobTitle
         fields = ['id', 'title', 'created_at', 'updated_at']
-        read_only_fields = [ 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
 
 
 class UserCvDataSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
-    job_title = serializers.SerializerMethodField() 
+    job_title = serializers.CharField()  # ✅ Change to CharField to accept string
     
-    # uuid = serializers.UUIDField(read_only=True)
-
     class Meta:
         model = UserCvData
         fields = [
@@ -41,9 +39,36 @@ class UserCvDataSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by']
     
-    def get_job_title(self, obj):
-        """Return the job title name from the related JobTitle object"""
-        return obj.job_title.title if obj.job_title else None
+    def validate_job_title(self, value):
+        """
+        Accept both ID (integer) and title name (string)
+        Convert to JobTitle object for database storage
+        """
+        # If it's an integer or digit string, treat as ID
+        if isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
+            try:
+                return JobTitle.objects.get(pk=int(value))
+            except JobTitle.DoesNotExist:
+                raise serializers.ValidationError(f"Job title with ID '{value}' does not exist.")
+        
+        # If it's a string, treat as title name (case-insensitive)
+        if isinstance(value, str):
+            try:
+                return JobTitle.objects.get(title__iexact=value.strip())
+            except JobTitle.DoesNotExist:
+                raise serializers.ValidationError(f"Job title '{value}' does not exist. Please use an existing job title.")
+            except JobTitle.MultipleObjectsReturned:
+                raise serializers.ValidationError(f"Multiple job titles found with name '{value}'. Please use ID instead.")
+        
+        raise serializers.ValidationError("Invalid job title format. Provide either an ID or title name.")
+    
+    def to_representation(self, instance):
+        """Override to return job title name instead of ID"""
+        representation = super().to_representation(instance)
+        # Replace job_title ID with title name
+        if instance.job_title:
+            representation['job_title'] = instance.job_title.title
+        return representation
 
     def create(self, validated_data):
         """Automatically set created_by from request user"""
@@ -53,7 +78,7 @@ class UserCvDataSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        """Custom update logic (optional)"""
+        """Custom update logic"""
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
