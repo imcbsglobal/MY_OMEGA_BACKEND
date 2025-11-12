@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     'HR',
     'User',
     'user_controll',
+    'cv_management',  
+    "interview_management"
 ]
 
 MIDDLEWARE = [
@@ -95,7 +97,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'my_omega_db',
         'USER': 'postgres',
-        'PASSWORD': '1234',
+        'PASSWORD': '12345',
         'HOST': 'localhost',
         'PORT': '5432',
     }

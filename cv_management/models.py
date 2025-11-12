@@ -1,5 +1,20 @@
 from django.db import models
 from User.models import AppUser
+import uuid
+
+
+class JobTitle(models.Model):
+    """Job Title model with UUID for secure access"""
+    title = models.CharField(max_length=100,unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        db_table = "job_titles"
+        verbose_name_plural = "Job Titles"
 
 
 class UserCvData(models.Model):
@@ -12,10 +27,12 @@ class UserCvData(models.Model):
     ]
 
     INTERVIEW_STATUS_CHOICES = [
-        ('yes', 'Yes'),
-        ('no', 'No'),
-        ('pending', 'Pending'),
+    ('pending', 'Pending'),
+    ('ongoing', 'Ongoing'),
+    ('selected', 'Selected'),
+    ('rejected', 'Rejected'),
     ]
+
 
     KERALA_DISTRICTS = [
         ('Alappuzha', 'Alappuzha'),
@@ -35,13 +52,21 @@ class UserCvData(models.Model):
         ('Other', 'Other'),
     ]
 
+    # uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    id = models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
     # Basic Info
     name = models.CharField(max_length=100)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='O')
     dob = models.DateField(verbose_name="Date of Birth", null=True, blank=True)
 
     # Job Info
-    job_title = models.CharField(max_length=100, verbose_name="Job Title")
+    job_title = models.ForeignKey(
+        JobTitle, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name='cv_data',
+        verbose_name="Job Title"
+    )
     place = models.CharField(max_length=100)
     district = models.CharField(max_length=100, choices=KERALA_DISTRICTS, default='Wayanad')
     education = models.CharField(max_length=100)
@@ -69,13 +94,9 @@ class UserCvData(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
+        
         return f"{self.name} - {self.job_title}"
-
-
-class JobTitle(models.Model):
-    title = models.CharField(max_length=100)
-    createdAt = models.DateTimeField(auto_now_add=True)
-    updatedAt = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.title
+    
+    class Meta:
+        db_table = "user_cv_data"
+        verbose_name_plural = "User CV Data"
