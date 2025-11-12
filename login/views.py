@@ -177,7 +177,7 @@ def _has_user_control_in_tree(menu_tree):
                 return True
     return False
 
-# login/views.py - FIXED VERSION WITH IMAGE SUPPORT
+# login/views.py - Updated login_view function
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -188,7 +188,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    """Login with image field support"""
+    """
+    Login with menu-based access control.
+    
+    - Django superusers (is_superuser=True): Get ALL menus
+    - ALL other users (including Admin/Super Admin): Get only assigned menus
+    """
     try:
         email = request.data.get('email')
         password = request.data.get('password')
@@ -199,7 +204,6 @@ def login_view(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Import here to avoid circular imports
         from User.models import AppUser
         
         # Get user
@@ -236,12 +240,21 @@ def login_view(request):
                 print(f"Warning: Could not get photo URL: {e}")
                 photo_url = None
         
-        # Get menus
-        is_admin = user.user_level in ('Super Admin', 'Admin')
+        # Determine access level
+        is_django_superuser = user.is_superuser  # Django superuser
+        is_app_admin = user.user_level in ('Super Admin', 'Admin')  # AppUser admin
+        
+        print(f"\n[LOGIN] User: {user.email}")
+        print(f"[LOGIN] is_superuser (Django): {is_django_superuser}")
+        print(f"[LOGIN] user_level (AppUser): {user.user_level}")
+        print(f"[LOGIN] is_app_admin: {is_app_admin}")
+        
+        # Get menus based on user type
         allowed_menus = []
         
-        if is_admin:
-            # Admin gets all menus
+        if is_django_superuser:
+            # Django superuser gets ALL menus
+            print(f"[LOGIN] Django superuser - loading ALL menus")
             try:
                 from user_controll.models import MenuItem
                 all_menus = MenuItem.objects.filter(
@@ -260,15 +273,17 @@ def login_view(request):
                     }
                     for m in all_menus
                 ]
+                print(f"[LOGIN] Loaded {len(allowed_menus)} menus for Django superuser")
             except Exception as e:
                 print(f"Warning: Could not load menus: {e}")
                 allowed_menus = []
         else:
-            # Regular user gets assigned menus
+            # ALL other users (including Admin/Super Admin) get assigned menus only
+            print(f"[LOGIN] Regular user/AppUser admin - loading ASSIGNED menus only")
             try:
                 from user_controll.models import UserMenuAccess
                 user_menus = UserMenuAccess.objects.filter(
-                    user_id=user.id,
+                    user=user,
                     menu_item__is_active=True,
                     menu_item__parent__isnull=True
                 ).select_related('menu_item').order_by('menu_item__order')
@@ -284,11 +299,12 @@ def login_view(request):
                     }
                     for a in user_menus
                 ]
+                print(f"[LOGIN] Loaded {len(allowed_menus)} assigned menus")
             except Exception as e:
                 print(f"Warning: Could not load menus: {e}")
                 allowed_menus = []
         
-        # Build response with ALL fields properly serialized
+        # Build response
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
@@ -299,15 +315,17 @@ def login_view(request):
                 'user_level': user.user_level,
                 'job_role': user.job_role or '',
                 'phone_number': user.phone_number or '',
-                'photo': photo_url,  # Safe to include now
+                'photo': photo_url,
                 'is_staff': user.is_staff,
                 'is_superuser': user.is_superuser,
-                'is_admin': is_admin,
+                'is_django_superuser': is_django_superuser,  # Add this flag
+                'is_app_admin': is_app_admin,  # Add this flag
             },
             'user_level': user.user_level,
             'allowed_menus': allowed_menus,
-            'is_admin': is_admin,
-            'can_access_control_panel': is_admin
+            'is_django_superuser': is_django_superuser,
+            'is_app_admin': is_app_admin,
+            'can_access_control_panel': is_django_superuser or is_app_admin,
         })
         
     except Exception as e:
@@ -322,7 +340,6 @@ def login_view(request):
             {'error': f'Login failed: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

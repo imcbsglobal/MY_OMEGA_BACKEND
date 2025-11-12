@@ -268,3 +268,142 @@ class Break(models.Model):
     break_start = models.DateTimeField()
     break_end = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)    
+
+
+
+
+# Add these models to your HR/models.py file
+
+class LateRequest(models.Model):
+    """
+    Model to store late arrival requests from employees
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    user = models.ForeignKey(
+        AppUser,
+        on_delete=models.CASCADE,
+        related_name='late_requests',
+        help_text='User requesting late arrival'
+    )
+    date = models.DateField(help_text='Date of late arrival')
+    late_by_minutes = models.IntegerField(
+        help_text='How many minutes late',
+        validators=[MinValueValidator(1), MaxValueValidator(240)]  # Max 4 hours
+    )
+    reason = models.TextField(help_text='Reason for late arrival')
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text='Request status'
+    )
+    
+    # Admin response
+    reviewed_by = models.ForeignKey(
+        AppUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_late_requests',
+        help_text='Admin who reviewed the request'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    admin_comment = models.TextField(blank=True, null=True)
+    
+    # System fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'hr_late_request'
+        verbose_name = 'Late Request'
+        verbose_name_plural = 'Late Requests'
+        ordering = ['-created_at']
+        unique_together = ['user', 'date']
+    
+    def __str__(self):
+        return f"{self.user.name} - Late by {self.late_by_minutes} mins on {self.date}"
+    
+    @property
+    def late_time_display(self):
+        """Display late time in hours and minutes"""
+        hours = self.late_by_minutes // 60
+        minutes = self.late_by_minutes % 60
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+
+
+class EarlyRequest(models.Model):
+    """
+    Model to store early departure requests from employees
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    user = models.ForeignKey(
+        AppUser,
+        on_delete=models.CASCADE,
+        related_name='early_requests',
+        help_text='User requesting early departure'
+    )
+    date = models.DateField(help_text='Date of early departure')
+    early_by_minutes = models.IntegerField(
+        help_text='How many minutes early',
+        validators=[MinValueValidator(1), MaxValueValidator(240)]  # Max 4 hours
+    )
+    reason = models.TextField(help_text='Reason for early departure')
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text='Request status'
+    )
+    
+    # Admin response
+    reviewed_by = models.ForeignKey(
+        AppUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_early_requests',
+        help_text='Admin who reviewed the request'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    admin_comment = models.TextField(blank=True, null=True)
+    
+    # System fields
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'hr_early_request'
+        verbose_name = 'Early Request'
+        verbose_name_plural = 'Early Requests'
+        ordering = ['-created_at']
+        unique_together = ['user', 'date']
+    
+    def __str__(self):
+        return f"{self.user.name} - Early by {self.early_by_minutes} mins on {self.date}"
+    
+    @property
+    def early_time_display(self):
+        """Display early time in hours and minutes"""
+        hours = self.early_by_minutes // 60
+        minutes = self.early_by_minutes % 60
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+
+
+
+
+    

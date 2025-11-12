@@ -148,10 +148,12 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
             )
 
 
+# user_controll/views.py - Updated MyMenuView class
+
 def serialize_node(node, allowed_ids=None):
     """
     Convert a MenuItem to dict, including only children that are allowed_ids (if provided).
-    If allowed_ids is None -> include all active children (admin path).
+    If allowed_ids is None -> include all active children (Django superuser path).
     """
     base = {
         "id": node.id,
@@ -165,18 +167,17 @@ def serialize_node(node, allowed_ids=None):
 
     children = list(node.children.filter(is_active=True).order_by("order", "name"))
     if allowed_ids is None:
-        # admin: keep all children
+        # Django superuser: keep all children
         base["children"] = [serialize_node(c, None) for c in children]
         return base
 
-    # regular user: keep only children that are allowed (or have allowed descendants)
+    # Regular user: keep only children that are allowed (or have allowed descendants)
     kept = []
     for c in children:
         child_serialized = serialize_node(c, allowed_ids)
         # keep the node if itself is allowed OR it has any kept children
         if c.id in allowed_ids or child_serialized["children"]:
             kept.append(child_serialized)
-    # keep current node even if it wasn't directly assigned, as long as it has visible children
     base["children"] = kept
     return base
 
@@ -184,28 +185,28 @@ def serialize_node(node, allowed_ids=None):
 class MyMenuView(APIView):
     """
     Returns the menu tree for the currently authenticated user.
-    - Super Admin/Admin get the full tree
-    - Regular users get only their assigned menus
+    
+    - Django superusers (is_superuser=True): Get FULL menu tree
+    - ALL other users (including Admin/Super Admin): Get only assigned menus
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
         
-        # Get user level from AppUser model
+        # Get user attributes
         user_level = getattr(user, 'user_level', 'User')
+        is_django_superuser = user.is_superuser
+        is_app_admin = user_level in ('Super Admin', 'Admin')
         
         print(f"[MyMenuView] User: {user.email}")
         print(f"[MyMenuView] User Level: {user_level}")
-        print(f"[MyMenuView] is_superuser: {user.is_superuser}")
-        print(f"[MyMenuView] is_staff: {user.is_staff}")
+        print(f"[MyMenuView] is_superuser (Django): {is_django_superuser}")
+        print(f"[MyMenuView] is_app_admin: {is_app_admin}")
         
-        # Check if user is Admin or Super Admin
-        is_admin = user_level in ('Super Admin', 'Admin')
-        
-        # Super Admin and Admin: return full active tree
-        if is_admin:
-            print(f"[MyMenuView] ✓ User is {user_level}, returning FULL menu tree")
+        # ONLY Django superusers get full tree
+        if is_django_superuser:
+            print(f"[MyMenuView] ✓ Django superuser - returning FULL menu tree")
             roots = (MenuItem.objects
                      .filter(is_active=True, parent__isnull=True)
                      .prefetch_related('children')
@@ -213,13 +214,13 @@ class MyMenuView(APIView):
             data = [serialize_node(r, None) for r in roots]
             return Response({
                 "menu": data,
-                "is_admin": True,
+                "is_django_superuser": True,
+                "is_app_admin": is_app_admin,
                 "user_level": user_level
             })
 
-        # Regular users: filter by assigned menu ids
-        print(f"[MyMenuView] User is regular user, checking assigned menus...")
-        # FIXED: Use user=user instead of user_id=user.id
+        # ALL other users (including Admin/Super Admin): filter by assigned menus
+        print(f"[MyMenuView] Regular user/AppUser admin - checking assigned menus...")
         allowed_ids = set(
             UserMenuAccess.objects
             .filter(user=user, menu_item__is_active=True)
@@ -233,7 +234,8 @@ class MyMenuView(APIView):
             print(f"[MyMenuView] ✗ No menus assigned to this user")
             return Response({
                 "menu": [],
-                "is_admin": False,
+                "is_django_superuser": False,
+                "is_app_admin": is_app_admin,
                 "user_level": user_level,
                 "message": "No menus assigned. Contact administrator."
             })
@@ -250,9 +252,10 @@ class MyMenuView(APIView):
             if r.id in allowed_ids or node["children"]:
                 data.append(node)
 
-        print(f"[MyMenuView] ✓ Returning {len(data)} root menus for regular user")
+        print(f"[MyMenuView] ✓ Returning {len(data)} root menus")
         return Response({
             "menu": data,
-            "is_admin": False,
+            "is_django_superuser": False,
+            "is_app_admin": is_app_admin,
             "user_level": user_level
         })
