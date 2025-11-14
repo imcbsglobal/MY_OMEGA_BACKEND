@@ -51,7 +51,8 @@ def offer_letter_list_create(request):
         
         serializer = OfferLetterSerializer(queryset, many=True)
         return success_response(
-            message=f"Found {len(serializer.data)} offer letter(s)",
+            # message=f"Found {len(serializer.data)} offer letter(s)",
+            message=f"offer letter(s)",
             data=serializer.data
         )
     

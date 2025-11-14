@@ -11,7 +11,7 @@ class OfferLetter(models.Model):
         ('draft','Draft')
     ]
 
-    cadidate = models.OneToOneField(
+    candidate = models.OneToOneField(
         UserCvData,
         on_delete=models.CASCADE,
         related_name='offer_letter',
