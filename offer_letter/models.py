@@ -19,11 +19,12 @@ class OfferLetter(models.Model):
     )
 
     position = models.CharField(max_length=100)
-    salary = models.DecimalField(max_length=10,decimal_places=2)
+    department= models.CharField(max_length=100)
+    salary = models.DecimalField(max_digits=10, decimal_places=2)
     joining_data = models.DateField()
     notice_period= models.IntegerField()
 
-    subject = models.CharField(max_length=200,default="Job Offer Letter")  
+    subject = models.CharField(default="Job Offer Letter")  
     body = models.TextField()
     terms_condition = models.TextField(blank=True)
     
@@ -31,11 +32,23 @@ class OfferLetter(models.Model):
 
     candidate_status = models.CharField(max_length=20,choices=STATUS_CHOICES,default='draft')
     rejection_status = models.TextField(blank=True)
-
+    
+    work_start_time = models.TimeField(null=True, blank=True)
+    work_end_time = models.TimeField(null=True, blank=True)
+    
     # Metadata
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+   
     class Meta:
-        ordering = ['-created_at']
+            ordering = ['-created_at']
+        
+    def __str__(self):
+            return f"Offer Letter for {self.candidate.name} - {self.position}"
+        
+    def save(self, *args, **kwargs):
+            # Auto-set position from candidate's job title if not set
+            if not self.position and self.candidate.job_title:
+                self.position = self.candidate.job_title.title
+            super().save(*args, **kwargs)
