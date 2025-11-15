@@ -10,13 +10,4 @@ urlpatterns = [
     
     # Get selected candidates available for offer letters
     path('selected-candidates/', views.selected_candidates_list, name='selected-candidates-list'),
-    
-    # Send offer letter
-    path('<int:pk>/send-offer/', views.send_offer, name='send-offer'),
-    
-    # Accept offer letter
-    path('<int:pk>/accept-offer/', views.accept_offer, name='accept-offer'),
-    
-    # Reject offer letter
-    path('<int:pk>/reject-offer/', views.reject_offer, name='reject-offer'),
 ]

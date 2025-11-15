@@ -26,10 +26,6 @@ Authorization: Bearer <access_token>
 | GET | `/api/offer-letter/<id>/` | Get offer letter details |
 | PUT/PATCH | `/api/offer-letter/<id>/` | Update offer letter |
 | DELETE | `/api/offer-letter/<id>/` | Delete offer letter |
-| GET | `/api/offer-letter/selected-candidates/` | Get selected candidates |
-| POST | `/api/offer-letter/<id>/send-offer/` | Send offer letter |
-| POST | `/api/offer-letter/<id>/accept-offer/` | Accept offer (candidate) |
-| POST | `/api/offer-letter/<id>/reject-offer/` | Reject offer (candidate) |
 
 ---
 
@@ -377,189 +373,28 @@ Authorization: Bearer <access_token>
 
 ---
 
-### 7. Send Offer Letter
-**POST** `/api/offer-letter/<id>/send-offer/`
+## Status Management
 
-Mark an offer letter as sent. Changes status from 'draft' to 'sent'.
+### Available Status Values
 
-#### Request Example
-```http
-POST /api/offer-letter/1/send-offer/
-Authorization: Bearer <access_token>
-```
+| Status | Description |
+|--------|-------------|
+| `draft` | Offer letter created but not sent |
+| `sent` | Offer letter sent to candidate |
+| `willing` | Candidate accepted the offer |
+| `not_willing` | Candidate rejected the offer |
 
-#### Response Example (200 OK)
+### Managing Status
+
+The `candidate_status` field can be updated directly using the PUT/PATCH endpoints:
+
 ```json
 {
-  "success": true,
-  "message": "Offer letter marked as sent",
-  "data": {
-    "id": 1,
-    "candidate_status": "sent",
-    "updated_at": "2025-11-14T12:00:00Z",
-    ...
-  }
+  "candidate_status": "sent"
 }
 ```
 
-#### Error Responses
-
-**400 Bad Request** - Invalid Status
-```json
-{
-  "success": false,
-  "message": "Only draft offers can be sent",
-  "error": "INVALID_STATUS"
-}
-```
-
-**404 Not Found**
-```json
-{
-  "success": false,
-  "message": "Offer letter not found",
-  "error": "NOT_FOUND"
-}
-```
-
----
-
-### 8. Accept Offer Letter
-**POST** `/api/offer-letter/<id>/accept-offer/`
-
-Accept an offer letter. Changes status from 'sent' to 'willing'.
-
-**Note:** This endpoint is typically used by the candidate to accept the offer.
-
-#### Request Example
-```http
-POST /api/offer-letter/1/accept-offer/
-Authorization: Bearer <access_token>
-```
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "message": "Offer letter accepted successfully",
-  "data": {
-    "id": 1,
-    "candidate_status": "willing",
-    "updated_at": "2025-11-14T15:30:00Z",
-    ...
-  }
-}
-```
-
-#### Error Responses
-
-**400 Bad Request** - Invalid Status
-```json
-{
-  "success": false,
-  "message": "Only sent offers can be accepted",
-  "error": "INVALID_STATUS"
-}
-```
-
-**404 Not Found**
-```json
-{
-  "success": false,
-  "message": "Offer letter not found",
-  "error": "NOT_FOUND"
-}
-```
-
----
-
-### 9. Reject Offer Letter
-**POST** `/api/offer-letter/<id>/reject-offer/`
-
-Reject an offer letter. Changes status from 'sent' to 'not_willing'.
-
-**Note:** This endpoint is typically used by the candidate to reject the offer.
-
-#### Request Body
-```json
-{
-  "rejection_reason": "Candidate found a better opportunity"
-}
-```
-
-#### Field Descriptions
-- `rejection_reason` (string, optional): Reason for rejection (stored in `rejection_status` field)
-
-#### Request Example
-```http
-POST /api/offer-letter/1/reject-offer/
-Authorization: Bearer <access_token>
-Content-Type: application/json
-
-{
-  "rejection_reason": "Accepted another offer with better compensation"
-}
-```
-
-#### Response Example (200 OK)
-```json
-{
-  "success": true,
-  "message": "Offer letter rejected",
-  "data": {
-    "id": 1,
-    "candidate_status": "not_willing",
-    "rejection_status": "Accepted another offer with better compensation",
-    "updated_at": "2025-11-14T16:00:00Z",
-    ...
-  }
-}
-```
-
-#### Error Responses
-
-**400 Bad Request** - Invalid Status
-```json
-{
-  "success": false,
-  "message": "Only sent offers can be rejected",
-  "error": "INVALID_STATUS"
-}
-```
-
-**404 Not Found**
-```json
-{
-  "success": false,
-  "message": "Offer letter not found",
-  "error": "NOT_FOUND"
-}
-```
-
----
-
-## Status Flow
-
-```
-draft ──► sent ──► willing (accepted)
-              └──► not_willing (rejected)
-```
-
-### Status Descriptions
-
-| Status | Description | Can Transition To |
-|--------|-------------|-------------------|
-| `draft` | Offer letter created but not sent | `sent` |
-| `sent` | Offer letter sent to candidate | `willing`, `not_willing` |
-| `willing` | Candidate accepted the offer | - (final state) |
-| `not_willing` | Candidate rejected the offer | - (final state) |
-
-### Status Transition Rules
-
-1. **Only 'draft' offers can be sent** - Use `/send-offer/` endpoint
-2. **Only 'sent' offers can be accepted** - Use `/accept-offer/` endpoint
-3. **Only 'sent' offers can be rejected** - Use `/reject-offer/` endpoint
-4. **Once accepted or rejected, status cannot be changed**
+**Note:** Status management is flexible and can be updated as needed through the standard update endpoints
 
 ---
 
@@ -664,27 +499,11 @@ Content-Type: application/json
 
 {
   "salary": 65000.00,
-  "notice_period": 45
+  "notice_period": 45,
+  "candidate_status": "sent"
 }
 
-# Step 5: Send the offer to candidate
-POST /api/offer-letter/1/send-offer/
-Authorization: Bearer <your_token>
-
-# Step 6a: Candidate accepts the offer
-POST /api/offer-letter/1/accept-offer/
-Authorization: Bearer <candidate_or_admin_token>
-
-# OR Step 6b: Candidate rejects the offer
-POST /api/offer-letter/1/reject-offer/
-Authorization: Bearer <candidate_or_admin_token>
-Content-Type: application/json
-
-{
-  "rejection_reason": "Pursuing other opportunities"
-}
-
-# Step 7: Check final status
+# Step 5: Check final status
 GET /api/offer-letter/1/
 Authorization: Bearer <your_token>
 ```
@@ -719,10 +538,14 @@ curl -X GET http://localhost:8000/api/offer-letter/ \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-### Send Offer Letter
+### Update Offer Letter Status
 ```bash
-curl -X POST http://localhost:8000/api/offer-letter/1/send-offer/ \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+curl -X PATCH http://localhost:8000/api/offer-letter/1/ \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "candidate_status": "sent"
+  }'
 ```
 
 ---
