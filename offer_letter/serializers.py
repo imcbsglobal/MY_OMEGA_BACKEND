@@ -19,24 +19,28 @@ class OfferLetterSerializer(serializers.ModelSerializer):
             'candidate_status', 'rejection_status',
             'created_by', 'created_by_name', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'created_by', 'created_by_name']
-        extra_kwargs = {
-            'candidate':{'required':False}
-        }
+        # Make candidate read-only during updates since it's a OneToOneField and shouldn't change
+        read_only_fields = ['candidate', 'created_at', 'updated_at', 'created_by', 'created_by_name']
 
     def validate_candidate(self, value):
         """Ensure candidate has selected status"""
-        # If updating and candidate hasn't changed, skip all validation
-        if self.instance and self.instance.candidate == value:
-            return value
+        # IMPORTANT: If updating and candidate is the same, skip all validation
+        if self.instance:
+            # Compare UUID strings to handle both UUID objects and string comparisons
+            current_candidate_id = str(self.instance.candidate.id)
+            new_candidate_id = str(value.id) if hasattr(value, 'id') else str(value)
+            
+            if current_candidate_id == new_candidate_id:
+                return value
             
         # Check interview status
         if hasattr(value, 'interview_status') and value.interview_status != 'selected':
             raise serializers.ValidationError("Offer letters can only be created for candidates with 'selected' status.")
         
-        # Check if offer letter already exists for this candidate (excluding current instance)
+        # Check if offer letter already exists for this candidate (excluding current instance during update)
         queryset = OfferLetter.objects.filter(candidate=value)
         if self.instance:
+            # Exclude the current offer letter instance
             queryset = queryset.exclude(pk=self.instance.pk)
         
         if queryset.exists():
@@ -56,7 +60,7 @@ class OfferLetterSerializer(serializers.ModelSerializer):
         """Custom update to handle OneToOne relationship properly"""
         # If candidate in validated_data is the same as current, remove it to avoid OneToOne error
         if 'candidate' in validated_data:
-            if validated_data['candidate'] == instance.candidate:
+            if str(validated_data['candidate'].id) == str(instance.candidate.id):
                 validated_data.pop('candidate')
         
         # Update all other fields
