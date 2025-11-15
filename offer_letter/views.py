@@ -57,12 +57,12 @@ def offer_letter_list_create(request):
         )
     
     elif request.method == 'POST':
-        serializer = OfferLetterCreateSerializer(data=request.data)
+        serializer = OfferLetterCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             with transaction.atomic():
                 offer_letter = serializer.save()
                 return success_response(
-                    message=f"Offer letter created successfully for {offer_letter.candidate.name}",
+                    message=f"Added to Offer letter Table {offer_letter.candidate.name}",
                     data=OfferLetterSerializer(offer_letter).data,
                     status_code=status.HTTP_201_CREATED
                 )
@@ -99,14 +99,15 @@ def offer_letter_detail(request, pk):
         )
     
     elif request.method in ['PUT', 'PATCH']:
-        serializer = OfferLetterSerializer(offer_letter, data=request.data, partial=True)
+        partial = request.method == 'PATCH'
+        serializer = OfferLetterSerializer(offer_letter, data=request.data, partial=partial,context={'request':request})
+
         if serializer.is_valid():
-            with transaction.atomic():
-                updated_offer = serializer.save()
-                return success_response(
-                    message="Offer letter updated successfully",
-                    data=OfferLetterSerializer(updated_offer).data
-                )
+            serializer.save()
+            return success_response(
+                message="Offer letter updated successfully",
+                data=serializer.data
+            )
         return error_response(
             message="Invalid data provided",
             error_code="VALIDATION_ERROR",
