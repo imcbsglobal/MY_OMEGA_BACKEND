@@ -40,7 +40,7 @@ Authorization: Bearer <access_token>
 | `position` | String | Yes | Job position (max 100 chars) |
 | `department` | String | Yes | Department name (max 100 chars) |
 | `salary` | Decimal | Yes | Salary amount (max digits: 10, decimal places: 2) |
-| `joining_date` | Date | Yes | Expected joining date (YYYY-MM-DD) |
+| `joining_data` | Date | Yes | Expected joining date (YYYY-MM-DD) |
 | `notice_period` | Integer | Yes | Notice period in days |
 | `subject` | String | No | Email/letter subject (default: "Job Offer Letter") |
 | `body` | Text | Yes | Offer letter body content |
@@ -88,7 +88,7 @@ Authorization: Bearer <access_token>
       "position": "Software Engineer",
       "department": "IT",
       "salary": "50000.00",
-      "joining_date": "2025-12-01",
+      "joining_data": "2025-12-01",
       "notice_period": 30,
       "subject": "Job Offer - Software Engineer",
       "body": "We are pleased to offer you the position...",
@@ -121,7 +121,7 @@ Create a new offer letter for a selected candidate.
   "position": "Software Engineer",
   "department": "IT",
   "salary": 50000.00,
-  "joining_date": "2025-12-01",
+  "joining_data": "2025-12-01",
   "notice_period": 30,
   "subject": "Job Offer - Software Engineer Position",
   "body": "Dear [Candidate Name],\n\nWe are pleased to offer you the position of Software Engineer at our company...",
@@ -136,7 +136,7 @@ Create a new offer letter for a selected candidate.
 - `position` (string, required): Job position being offered
 - `department` (string, required): Department name
 - `salary` (decimal, required): Salary amount
-- `joining_date` (date, required): Expected joining date (format: YYYY-MM-DD, must be future date)
+- `joining_data` (date, required): Expected joining date (format: YYYY-MM-DD, must be future date)
 - `notice_period` (integer, required): Notice period in days
 - `subject` (string, optional): Email/letter subject (default: "Job Offer Letter")
 - `body` (text, required): Offer letter body content
@@ -158,7 +158,7 @@ Create a new offer letter for a selected candidate.
     "position": "Software Engineer",
     "department": "IT",
     "salary": "50000.00",
-    "joining_date": "2025-12-01",
+    "joining_data": "2025-12-01",
     "notice_period": 30,
     "subject": "Job Offer - Software Engineer Position",
     "body": "Dear John Doe...",
@@ -184,7 +184,7 @@ Create a new offer letter for a selected candidate.
   "error": "VALIDATION_ERROR",
   "details": {
     "candidate": ["Offer letters can only be created for candidates with 'selected' status."],
-    "joining_date": ["Joining date must be in the future."]
+    "joining_data": ["Joining date must be in the future."]
   }
 }
 ```
@@ -221,7 +221,7 @@ Authorization: Bearer <access_token>
     "position": "Software Engineer",
     "department": "IT",
     "salary": "50000.00",
-    "joining_date": "2025-12-01",
+    "joining_data": "2025-12-01",
     "notice_period": 30,
     "subject": "Job Offer - Software Engineer",
     "body": "We are pleased to offer you...",
@@ -429,7 +429,7 @@ The `candidate_status` field can be updated directly using the PUT/PATCH endpoin
 - OneToOne relationship means each candidate can have only one offer letter
 
 ### 2. Date Validation
-- `joining_date` must be in the future
+- `joining_data` must be in the future
 - Validation is performed in the serializer
 
 ### 3. Automatic Fields
@@ -458,55 +458,11 @@ The `candidate_status` field can be updated directly using the PUT/PATCH endpoin
 
 ---
 
-## Complete Workflow Example
+## Complete Workflow
 
-### Step-by-Step Process
+For the complete end-to-end recruitment workflow from CV submission to offer letter, see: [Complete Recruitment Workflow](./complete_recruitment_workflow.md)
 
-```bash
-# Step 1: Get list of selected candidates
-GET /api/offer-letter/selected-candidates/
-Authorization: Bearer <your_token>
-
-# Response will contain candidate_id to use in next step
-
-# Step 2: Create offer letter for a selected candidate
-POST /api/offer-letter/
-Authorization: Bearer <your_token>
-Content-Type: application/json
-
-{
-  "candidate": "candidate-uuid-from-step-1",
-  "position": "Software Engineer",
-  "department": "Engineering",
-  "salary": 60000.00,
-  "joining_date": "2025-12-15",
-  "notice_period": 30,
-  "subject": "Job Offer - Software Engineer",
-  "body": "Dear Candidate,\n\nWe are delighted to offer you...",
-  "terms_condition": "1. Employment contingent on background check\n2. Probation period of 6 months",
-  "work_start_time": "09:00:00",
-  "work_end_time": "18:00:00"
-}
-
-# Step 3: Review the created offer (Optional)
-GET /api/offer-letter/1/
-Authorization: Bearer <your_token>
-
-# Step 4: Update if needed (Optional)
-PATCH /api/offer-letter/1/
-Authorization: Bearer <your_token>
-Content-Type: application/json
-
-{
-  "salary": 65000.00,
-  "notice_period": 45,
-  "candidate_status": "sent"
-}
-
-# Step 5: Check final status
-GET /api/offer-letter/1/
-Authorization: Bearer <your_token>
-```
+This document focuses specifically on the Offer Letter Management API endpoints.
 
 ---
 
@@ -522,7 +478,7 @@ curl -X POST http://localhost:8000/api/offer-letter/ \
     "position": "Backend Developer",
     "department": "Engineering",
     "salary": 55000.00,
-    "joining_date": "2025-12-01",
+    "joining_data": "2025-12-01",
     "notice_period": 30,
     "subject": "Job Offer - Backend Developer",
     "body": "Dear Candidate, We are pleased to offer you...",
@@ -602,4 +558,4 @@ All API responses follow this standard format:
 
 ---
 
-**Last Updated:** November 14, 2025
+**Last Updated:** November 15, 2025
