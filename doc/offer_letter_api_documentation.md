@@ -26,6 +26,7 @@ Authorization: Bearer <access_token>
 | GET | `/api/offer-letter/<id>/` | Get offer letter details |
 | PUT/PATCH | `/api/offer-letter/<id>/` | Update offer letter |
 | DELETE | `/api/offer-letter/<id>/` | Delete offer letter |
+| GET | `/api/offer-letter/selected-candidates/` | Get selected candidates for offer letters |
 
 ---
 
