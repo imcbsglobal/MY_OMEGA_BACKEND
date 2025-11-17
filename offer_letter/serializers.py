@@ -7,6 +7,7 @@ class OfferLetterSerializer(serializers.ModelSerializer):
     candidate_name = serializers.CharField(source='candidate.name', read_only=True)
     candidate_email = serializers.CharField(source='candidate.email', read_only=True)
     candidate_phone = serializers.CharField(source='candidate.phone_number', read_only=True)
+    candidate_cv = serializers.FileField(source='candidate.cv_file',read_only=True)
     created_by_name = serializers.CharField(source='created_by.email', read_only=True)
     
     class Meta:
@@ -16,11 +17,12 @@ class OfferLetterSerializer(serializers.ModelSerializer):
             'position', 'department', 'salary', 'joining_data', 'notice_period',
             'work_start_time', 'work_end_time',
             'subject', 'body', 'terms_condition', 'pdf_file',
+            'candidate_cv',
             'candidate_status', 'rejection_status',
             'created_by', 'created_by_name', 'created_at', 'updated_at'
         ]
-        # Make candidate read-only during updates since it's a OneToOneField and shouldn't change
-        read_only_fields = ['candidate', 'created_at', 'updated_at', 'created_by', 'created_by_name']
+    # Make candidate and candidate_cv read-only during updates since they shouldn't change
+    read_only_fields = ['candidate', 'candidate_cv', 'created_at', 'updated_at', 'created_by', 'created_by_name']
 
     def validate_candidate(self, value):
         """Ensure candidate has selected status"""
@@ -89,6 +91,19 @@ class OfferLetterCreateSerializer(serializers.ModelSerializer):
         if request and hasattr(request, 'user'):
             validated_data['created_by'] = request.user
         return super().create(validated_data)
+
+    def validate_candidate(self, value):
+        """Ensure candidate has selected status and doesn't already have an offer"""
+        # Check interview status
+        if hasattr(value, 'interview_status') and value.interview_status != 'selected':
+            raise serializers.ValidationError("Offer letters can only be created for candidates with 'selected' status.")
+
+        # Check if offer letter already exists for this candidate
+        if OfferLetter.objects.filter(candidate=value).exists():
+            raise serializers.ValidationError("An offer letter already exists for this candidate.")
+
+        return value
+
 
 
 class SelectedCandidatesSerializer(serializers.ModelSerializer):
