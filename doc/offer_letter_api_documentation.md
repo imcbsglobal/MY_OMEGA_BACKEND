@@ -47,6 +47,8 @@ Authorization: Bearer <access_token>
 | `body` | Text | Yes | Offer letter body content |
 | `terms_condition` | Text | No | Terms and conditions |
 | `pdf_file` | File | No | Generated PDF file (upload to `offer_letters/`) |
+| `candidate_cv` | File / URL | No | Candidate CV file (URL to uploaded CV) |
+
 | `candidate_status` | String | No | Status: `draft`, `sent`, `willing`, `not_willing` (default: `draft`) |
 | `rejection_status` | Text | No | Reason for rejection |
 | `work_start_time` | Time | No | Daily work start time (HH:MM:SS) |
@@ -94,7 +96,8 @@ Authorization: Bearer <access_token>
       "subject": "Job Offer - Software Engineer",
       "body": "We are pleased to offer you the position...",
       "terms_condition": "1. This offer is contingent upon...",
-      "pdf_file": null,
+  "pdf_file": null,
+  "candidate_cv": "https://pub-6135d70162b542fb895c54cf94077310.r2.dev/media/cvs/sample_MkmBDtD.pdf",
       "candidate_status": "sent",
       "rejection_status": "",
       "work_start_time": "09:00:00",
@@ -164,7 +167,8 @@ Create a new offer letter for a selected candidate.
     "subject": "Job Offer - Software Engineer Position",
     "body": "Dear John Doe...",
     "terms_condition": "1. This offer is contingent...",
-    "pdf_file": null,
+  "pdf_file": null,
+  "candidate_cv": "https://pub-6135d70162b542fb895c54cf94077310.r2.dev/media/cvs/sample_MkmBDtD.pdf",
     "candidate_status": "draft",
     "rejection_status": "",
     "work_start_time": "09:00:00",
@@ -227,7 +231,8 @@ Authorization: Bearer <access_token>
     "subject": "Job Offer - Software Engineer",
     "body": "We are pleased to offer you...",
     "terms_condition": "Terms and conditions...",
-    "pdf_file": null,
+  "pdf_file": null,
+  "candidate_cv": "https://pub-6135d70162b542fb895c54cf94077310.r2.dev/media/cvs/sample_MkmBDtD.pdf",
     "candidate_status": "draft",
     "rejection_status": "",
     "work_start_time": "09:00:00",
