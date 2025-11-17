@@ -102,5 +102,5 @@ class SelectedCandidatesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Interview
         fields = [
-            'id', 'candidate_id', 'name', 'phone_number', 'job_title_name', 'status'
+            'id', 'candidate_id', 'name', 'phone_number', 'job_title_name', 'status','email'
         ]
