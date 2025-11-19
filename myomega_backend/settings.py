@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'cv_management',  
     "interview_management",
     'employee_management',
+    "offer_letter"
 ]
 
 MIDDLEWARE = [
