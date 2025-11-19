@@ -407,3 +407,47 @@ class EarlyRequest(models.Model):
 
 
     
+# HR/models.py (add near other models)
+from django.db import models
+from django.utils import timezone
+from User.models import AppUser  # already present in your file
+
+class AttendanceBreak(models.Model):
+    user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name='breaks')
+    attendance = models.ForeignKey('Attendance', on_delete=models.CASCADE, related_name='attendance_breaks')
+
+    break_start = models.DateTimeField()
+    break_end = models.DateTimeField(null=True, blank=True)
+
+    duration_minutes = models.IntegerField(null=True, blank=True)
+    duration_display = models.CharField(max_length=32, null=True, blank=True)
+
+    note = models.TextField(null=True, blank=True)
+    location = models.CharField(max_length=255, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'hr_attendance_break'
+        ordering = ['-break_start']
+
+    def calculate_duration(self):
+        if self.break_start and self.break_end:
+            seconds = (self.break_end - self.break_start).total_seconds()
+            mins = int(seconds // 60)
+            self.duration_minutes = mins
+            hours = mins // 60
+            mins_r = mins % 60
+            self.duration_display = f"{hours}h {mins_r}m" if hours else f"{mins_r}m"
+            return self.duration_minutes
+        return None
+
+    def save(self, *args, **kwargs):
+        if self.break_start and self.break_end:
+            self.calculate_duration()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"AttendanceBreak {self.id} - {self.user} - {self.break_start:%Y-%m-%d %H:%M}"
+
+    

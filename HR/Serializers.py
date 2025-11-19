@@ -691,3 +691,17 @@ class EarlyRequestCreateSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("early_by_minutes must be greater than 0.")
         return value
+
+
+
+
+# in /mnt/data/Serializers.py (or your existing serializers file)
+from rest_framework import serializers
+from .models import AttendanceBreak
+
+class BreakSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AttendanceBreak
+        fields = ("id", "attendance", "break_start", "break_end", "duration_minutes", "note", "location")
+        read_only_fields = ("id", "break_start", "break_end", "duration_minutes")
+

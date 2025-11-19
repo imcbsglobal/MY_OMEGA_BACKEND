@@ -1,6 +1,7 @@
-# HR/urls.py - Apply menu-based permissions
+# HR/urls.py - FIXED: Remove duplicate endpoint registrations
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
 from .views import (
     AttendanceViewSet, HolidayViewSet, LeaveRequestViewSet,
     LateRequestViewSet, EarlyRequestViewSet,
@@ -11,7 +12,6 @@ from .views import (
 router = DefaultRouter()
 
 # Register viewsets with menu_key set
-# The HasMenuAccess permission will check for 'attendance' menu access
 attendance_viewset = AttendanceViewSet
 attendance_viewset.menu_key = 'attendance'
 router.register(r'attendance', attendance_viewset, basename='attendance')
@@ -23,7 +23,6 @@ router.register(r'holidays', holiday_viewset, basename='holiday')
 leave_viewset = LeaveRequestViewSet
 leave_viewset.menu_key = 'attendance'
 router.register(r'leave-requests', leave_viewset, basename='leave-request')
-
 
 late_viewset = LateRequestViewSet
 late_viewset.menu_key = 'attendance'
@@ -38,3 +37,13 @@ urlpatterns = [
     path('reverse-geocode/', reverse_geocode, name='reverse-geocode'),
     path('reverse-geocode-bigdata/', reverse_geocode_bigdata, name='reverse-geocode-bigdata'),
 ]
+
+# NOTES:
+# Break endpoints are automatically registered via @action decorators in AttendanceViewSet:
+#   - GET  /api/hr/attendance/active_break/
+#   - POST /api/hr/attendance/start_break/
+#   - POST /api/hr/attendance/end_break/
+#   - GET  /api/hr/attendance/today_breaks/
+#   - GET  /api/hr/attendance/break_summary/
+#
+# DO NOT add them again here as standalone paths - this causes 405/404 errors!

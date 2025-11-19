@@ -1,20 +1,27 @@
-# HR/views.py - FIXED: Remove hardcoded admin checks from AttendanceViewSet
-from rest_framework import viewsets, status
+# HR/views.py - COMPLETE CLEANED VERSION
+from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Sum
+from django.db import transaction
 from django.utils import timezone
 from datetime import datetime, time
 import calendar
 import requests
 
-from .models import Attendance, Holiday, LeaveRequest
+from .models import (
+    Attendance, Holiday, LeaveRequest, LateRequest, 
+    EarlyRequest, AttendanceBreak
+)
 from .Serializers import (
     AttendanceSerializer, PunchInSerializer, PunchOutSerializer,
     AttendanceVerifySerializer, AttendanceUpdateStatusSerializer,
     HolidaySerializer, LeaveRequestSerializer,
     LeaveRequestCreateSerializer, LeaveRequestReviewSerializer,
+    LateRequestSerializer, LateRequestCreateSerializer,
+    EarlyRequestSerializer, EarlyRequestCreateSerializer,
+    BreakSerializer
 )
 from User.models import AppUser
 
@@ -22,19 +29,14 @@ from User.models import AppUser
 class AttendanceViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing Attendance records
-    
-    IMPORTANT: Set menu_key in your urls.py or use HasMenuAccess permission
-    to control access via menu system. DO NOT add hardcoded admin checks here.
     """
     queryset = Attendance.objects.all().select_related('user', 'verified_by')
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated]
-    
-    # Set this in urls.py for menu-based access control
     menu_key = 'attendance'
     
     def _is_admin(self, user):
-        """Helper to check if user is admin - use this instead of inline checks"""
+        """Helper to check if user is admin"""
         return (
             user.user_level in ('Super Admin', 'Admin') or 
             user.is_staff or 
@@ -46,17 +48,14 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Attendance.objects.select_related('user', 'verified_by')
         
-        # Admin can see all, users see only their own
         is_admin = self._is_admin(user)
         if not is_admin:
             queryset = queryset.filter(user=user)
         
-        # Filter by user_id (for admin)
         user_id = self.request.query_params.get('user_id')
         if user_id and is_admin:
             queryset = queryset.filter(user_id=user_id)
         
-        # Filter by date range
         from_date = self.request.query_params.get('from_date')
         to_date = self.request.query_params.get('to_date')
         if from_date:
@@ -64,18 +63,15 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if to_date:
             queryset = queryset.filter(date__lte=to_date)
         
-        # Filter by month and year
         month = self.request.query_params.get('month')
         year = self.request.query_params.get('year')
         if month and year:
             queryset = queryset.filter(date__month=month, date__year=year)
         
-        # Filter by status
         att_status = self.request.query_params.get('status')
         if att_status:
             queryset = queryset.filter(status=att_status)
         
-        # Filter by verification status
         verification_status = self.request.query_params.get('verification_status')
         if verification_status:
             queryset = queryset.filter(verification_status=verification_status)
@@ -84,14 +80,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def punch_in(self, request):
-        """Punch in action - URL: /api/hr/attendance/punch_in/"""
+        """Punch in action"""
         serializer = PunchInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user = request.user
         today = timezone.now().date()
         
-        # Check if already punched in today
         existing = Attendance.objects.filter(user=user, date=today).first()
         if existing and existing.punch_in_time:
             return Response(
@@ -99,7 +94,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Create or update attendance
         attendance, created = Attendance.objects.get_or_create(
             user=user,
             date=today,
@@ -128,14 +122,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def punch_out(self, request):
-        """Punch out action - URL: /api/hr/attendance/punch_out/"""
+        """Punch out action"""
         serializer = PunchOutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user = request.user
         today = timezone.now().date()
         
-        # Get today's attendance
         try:
             attendance = Attendance.objects.get(user=user, date=today)
         except Attendance.DoesNotExist:
@@ -156,7 +149,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Update attendance
         attendance.punch_out_time = timezone.now()
         attendance.punch_out_location = serializer.validated_data['location']
         attendance.punch_out_latitude = serializer.validated_data['latitude']
@@ -167,7 +159,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             else:
                 attendance.note = serializer.validated_data['note']
         
-        # Calculate working hours
         attendance.calculate_working_hours()
         
         if attendance.working_hours >= 7.5:
@@ -184,7 +175,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def today_status(self, request):
-        """Get today's attendance status - URL: /api/hr/attendance/today_status/"""
+        """Get today's attendance status"""
         user = request.user
         today = timezone.now().date()
         
@@ -200,49 +191,40 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def my_records(self, request):
-        """Get only MY attendance records - URL: /api/hr/attendance/my_records/"""
+        """Get only MY attendance records"""
         user = request.user
-        
-        # Get month and year from query params
         month = request.query_params.get('month')
         year = request.query_params.get('year')
         
-        # ALWAYS filter by current logged-in user ONLY
         queryset = Attendance.objects.filter(user=user).select_related('user', 'verified_by')
         
         if month and year:
             queryset = queryset.filter(date__month=month, date__year=year)
         
         queryset = queryset.order_by('-date', '-punch_in_time')
-        
         serializer = AttendanceSerializer(queryset, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def my_summary(self, request):
-        """Get only MY attendance summary - URL: /api/hr/attendance/my_summary/"""
+        """Get only MY attendance summary"""
         user = request.user
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
         
-        # ALWAYS use current logged-in user ONLY
         attendances = Attendance.objects.filter(
             user=user,
             date__month=month,
             date__year=year
         )
         
-        # Get holidays for this month
         holidays = Holiday.objects.filter(
             date__month=month,
             date__year=year,
             is_active=True
         ).count()
         
-        # Count Sundays in the month
         sundays = self._count_sundays(year, month)
-        
-        # Calculate statistics
         days_in_month = calendar.monthrange(year, month)[1]
         
         full_days_unverified = attendances.filter(
@@ -303,12 +285,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
-        """
-        Verify attendance (Admin only) - URL: /api/hr/attendance/{id}/verify/
-        
-        Note: Access control handled by menu permissions.
-        Only users with 'attendance' menu access can call this.
-        """
+        """Verify attendance (Admin only)"""
         if not self._is_admin(request.user):
             return Response(
                 {'error': 'Only admins can verify attendance'},
@@ -319,7 +296,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         serializer = AttendanceVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # Handle incomplete attendance (no punch out)
         if attendance.punch_in_time and not attendance.punch_out_time:
             punch_in_date = attendance.punch_in_time.date()
             duty_end = attendance.user.duty_time_end if attendance.user.duty_time_end else time(18, 0)
@@ -334,7 +310,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             else:
                 attendance.admin_note = auto_note
         
-        # Calculate working hours if we have both times
         if attendance.punch_in_time and attendance.punch_out_time:
             attendance.calculate_working_hours()
             if attendance.working_hours >= 7.5 and attendance.status not in ['leave', 'wfh']:
@@ -360,11 +335,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
-        """
-        Update attendance status (Admin only) - URL: /api/hr/attendance/{id}/update_status/
-        
-        Note: Access control handled by menu permissions.
-        """
+        """Update attendance status (Admin only)"""
         if not self._is_admin(request.user):
             return Response(
                 {'error': 'Only admins can update attendance status'},
@@ -379,7 +350,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         new_status = serializer.validated_data['status']
         admin_note = serializer.validated_data.get('admin_note', '')
         
-        # Handle incomplete attendance when changing to full day
         if new_status == 'full' and attendance.punch_in_time and not attendance.punch_out_time:
             punch_in_date = attendance.punch_in_time.date()
             duty_end = attendance.user.duty_time_end if attendance.user.duty_time_end else time(18, 0)
@@ -409,11 +379,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def mark_leave(self, request):
-        """
-        Mark a day as leave (Admin only) - URL: /api/hr/attendance/mark_leave/
-        
-        Note: Access control handled by menu permissions.
-        """
+        """Mark a day as leave (Admin only)"""
         if not self._is_admin(request.user):
             return Response(
                 {'error': 'Only admins can mark leave'},
@@ -469,12 +435,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        """
-        Get attendance summary - URL: /api/hr/attendance/summary/
-        
-        Note: Regular users can only view their own summary.
-        Admins can view any user's summary by passing user_id.
-        """
+        """Get attendance summary"""
         user_id = request.query_params.get('user_id', request.user.id)
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
@@ -556,22 +517,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def monthly_grid(self, request):
-        """
-        Get monthly attendance grid - URL: /api/hr/attendance/monthly_grid/
-        
-        FIXED: Removed hardcoded admin check.
-        Access control now handled by menu permissions in urls.py
-        Any user with 'attendance' menu access can view the grid.
-        """
+        """Get monthly attendance grid"""
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
         
         days_in_month = calendar.monthrange(year, month)[1]
-        
-        # Get all active users
         users = AppUser.objects.filter(is_active=True).order_by('name')
         
-        # Get all holidays
         holidays = set(Holiday.objects.filter(
             date__month=month,
             date__year=year,
@@ -581,22 +533,18 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         result = []
         
         for user in users:
-            # Get attendance for this user
             attendances = Attendance.objects.filter(
                 user=user,
                 date__month=month,
                 date__year=year
             )
             
-            # Create attendance dict by day
             attendance_dict = {att.date.day: att for att in attendances}
-            
-            # Build attendance array
             attendance_array = []
+            
             for day in range(1, days_in_month + 1):
                 current_date = datetime(year, month, day).date()
                 
-                # Check if it's Sunday
                 if current_date.weekday() == 6:
                     attendance_array.append('sunday')
                 elif current_date in holidays:
@@ -604,7 +552,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 elif day in attendance_dict:
                     att = attendance_dict[day]
                     
-                    # Recalculate and auto-correct status if needed
                     needs_save = False
                     if att.punch_in_time and att.punch_out_time:
                         old_hours = att.working_hours
@@ -612,7 +559,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         
                         att.calculate_working_hours()
                         
-                        # Auto-correct status based on actual working hours
                         if att.working_hours >= 7.5 and att.status not in ['leave', 'wfh']:
                             if att.status != 'full':
                                 att.status = 'full'
@@ -625,7 +571,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         if needs_save or old_hours != att.working_hours:
                             att.save()
                     
-                    # Determine display status
                     if not att.punch_in_time:
                         attendance_array.append('not-marked')
                     elif att.punch_in_time and not att.punch_out_time:
@@ -634,7 +579,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         else:
                             attendance_array.append('half')
                     else:
-                        # Both punch in and punch out exist
                         if att.verification_status == 'verified':
                             if att.status == 'full':
                                 attendance_array.append('verified')
@@ -670,6 +614,179 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             })
         
         return Response(result)
+    
+    # -------------------------
+    # BREAK MANAGEMENT ACTIONS
+    # -------------------------
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def active_break(self, request):
+        """Get active break for current user"""
+        user = request.user
+        active = AttendanceBreak.objects.filter(
+            user=user, 
+            break_end__isnull=True
+        ).order_by('-break_start').first()
+        
+        if not active:
+            return Response({"has_active_break": False}, status=status.HTTP_200_OK)
+        
+        return Response({
+            "has_active_break": True, 
+            "break": BreakSerializer(active).data
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @transaction.atomic
+    def start_break(self, request):
+        """Start a break"""
+        user = request.user
+        attendance = Attendance.objects.filter(
+            user=user, 
+            date=timezone.localdate()
+        ).first()
+        
+        if not attendance or not attendance.punch_in_time:
+            return Response(
+                {"error": "Must punch in first"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if attendance.punch_out_time:
+            return Response(
+                {"error": "Already punched out"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if AttendanceBreak.objects.filter(user=user, break_end__isnull=True).exists():
+            return Response(
+                {"error": "Active break exists"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        br = AttendanceBreak.objects.create(
+            user=user,
+            attendance=attendance,
+            break_start=timezone.now(),
+            location=request.data.get('location', None),
+            note=request.data.get('note', '')
+        )
+        
+        return Response({
+            "success": True, 
+            "break": BreakSerializer(br).data
+        }, status=status.HTTP_201_CREATED)
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @transaction.atomic
+    def end_break(self, request):
+        """End active break"""
+        user = request.user
+        br = AttendanceBreak.objects.filter(
+            user=user, 
+            break_end__isnull=True
+        ).order_by('-break_start').first()
+        
+        if not br:
+            return Response(
+                {"error": "No active break"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        br.break_end = timezone.now()
+        if 'note' in request.data:
+            br.note = (br.note or '') + '\n' + str(request.data.get('note'))
+        if 'location' in request.data:
+            br.location = request.data.get('location')
+        
+        br.calculate_duration()
+        br.save(update_fields=['break_end', 'duration_minutes', 'duration_display', 'note', 'location'])
+        
+        return Response({
+            "success": True, 
+            "break": BreakSerializer(br).data
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def today_breaks(self, request):
+        """Get today's breaks for current user"""
+        user = request.user
+        today = timezone.localdate()
+        attendance = Attendance.objects.filter(user=user, date=today).first()
+        
+        if not attendance:
+            return Response({
+                "breaks": [], 
+                "total_breaks": 0, 
+                "total_break_minutes": 0, 
+                "total_break_display": "0m"
+            }, status=status.HTTP_200_OK)
+        
+        qs = AttendanceBreak.objects.filter(attendance=attendance).order_by('break_start')
+        serializer = BreakSerializer(qs, many=True)
+        total_minutes = sum([b.duration_minutes or 0 for b in qs])
+        hours = total_minutes // 60
+        mins = total_minutes % 60
+        total_display = f"{hours}h {mins}m" if hours else f"{mins}m"
+        
+        return Response({
+            "breaks": serializer.data,
+            "total_breaks": qs.count(),
+            "total_break_minutes": total_minutes,
+            "total_break_display": total_display
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def break_summary(self, request):
+        """Get break summary for a month"""
+        month = int(request.query_params.get('month', timezone.localdate().month))
+        year = int(request.query_params.get('year', timezone.localdate().year))
+        
+        if month < 1 or month > 12:
+            return Response(
+                {"error": "Invalid month"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        days_in_month = calendar.monthrange(year, month)[1]
+        total_minutes = 0
+        total_breaks = 0
+        breaks_by_date = []
+        
+        for day in range(1, days_in_month + 1):
+            d = timezone.datetime(year, month, day).date()
+            atts = Attendance.objects.filter(date=d)
+            day_qs = AttendanceBreak.objects.filter(
+                attendance__in=atts
+            ).order_by('break_start')
+            count = day_qs.count()
+            mins = sum([b.duration_minutes or 0 for b in day_qs])
+            total_minutes += mins
+            total_breaks += count
+            
+            breaks_by_date.append({
+                "date": d,
+                "count": count,
+                "total_minutes": mins,
+                "breaks": BreakSerializer(day_qs, many=True).data
+            })
+        
+        avg = (total_minutes // total_breaks) if total_breaks else 0
+        hours = total_minutes // 60
+        mins_r = total_minutes % 60
+        total_display = f"{hours}h {mins_r}m" if hours else f"{mins_r}m"
+        avg_display = f"{avg//60}h {avg%60}m" if avg >= 60 else f"{avg}m"
+        
+        return Response({
+            "total_breaks": total_breaks,
+            "completed_breaks": total_breaks,
+            "active_breaks": AttendanceBreak.objects.filter(break_end__isnull=True).count(),
+            "total_break_minutes": total_minutes,
+            "total_break_display": total_display,
+            "average_break_minutes": avg,
+            "average_break_display": avg_display,
+            "breaks_by_date": breaks_by_date
+        }, status=status.HTTP_200_OK)
 
 
 class HolidayViewSet(viewsets.ModelViewSet):
@@ -902,7 +1019,179 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         })
 
 
+class LateRequestViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing Late Requests"""
+    queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
+    serializer_class = LateRequestSerializer
+    permission_classes = [IsAuthenticated]
+    menu_key = 'attendance'
+
+    def _is_admin(self, user):
+        return (
+            user.user_level in ('Super Admin', 'Admin') or
+            user.is_staff or user.is_superuser
+        )
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = LateRequest.objects.select_related('user', 'reviewed_by')
+        is_admin = self._is_admin(user)
+        if not is_admin:
+            queryset = queryset.filter(user=user)
+
+        date = self.request.query_params.get('date')
+        if date:
+            queryset = queryset.filter(date=date)
+        req_status = self.request.query_params.get('status')
+        if req_status:
+            queryset = queryset.filter(status=req_status)
+
+        month = self.request.query_params.get('month')
+        year = self.request.query_params.get('year')
+        if month and year:
+            queryset = queryset.filter(date__month=month, date__year=year)
+
+        return queryset.order_by('-created_at')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return LateRequestCreateSerializer
+        return LateRequestSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='my-requests')
+    def my_requests(self, request):
+        qs = LateRequest.objects.filter(user=request.user).order_by('-created_at')
+        serializer = LateRequestSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='review')
+    def review(self, request, pk=None):
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can review'}, status=status.HTTP_403_FORBIDDEN)
+        instance = self.get_object()
+        if instance.status != 'pending':
+            return Response({'error': f'Already {instance.status}'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = LeaveRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance.status = serializer.validated_data['status']
+        instance.admin_comment = serializer.validated_data.get('admin_comment', '')
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+        instance.save()
+        return Response(LateRequestSerializer(instance).data)
+
+    @action(detail=True, methods=['post'], url_path='override-review')
+    def override_review(self, request, pk=None):
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can override'}, status=status.HTTP_403_FORBIDDEN)
+        instance = self.get_object()
+        serializer = LeaveRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        prev = instance.status
+        instance.status = serializer.validated_data['status']
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+        note_parts = []
+        if serializer.validated_data.get('admin_comment'):
+            note_parts.append(serializer.validated_data.get('admin_comment'))
+        note_parts.append(f"[OVERRIDE by {request.user.name if hasattr(request.user, 'name') else request.user.username} at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] changed from {prev}")
+        combined = "\n".join(note_parts)
+        instance.admin_comment = f"{instance.admin_comment}\n{combined}" if instance.admin_comment else combined
+        instance.save()
+        return Response(LateRequestSerializer(instance).data)
+
+
+class EarlyRequestViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing Early Requests"""
+    queryset = EarlyRequest.objects.all().select_related('user', 'reviewed_by')
+    serializer_class = EarlyRequestSerializer
+    permission_classes = [IsAuthenticated]
+    menu_key = 'attendance'
+
+    def _is_admin(self, user):
+        return (
+            user.user_level in ('Super Admin', 'Admin') or
+            user.is_staff or user.is_superuser
+        )
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = EarlyRequest.objects.select_related('user', 'reviewed_by')
+        is_admin = self._is_admin(user)
+        if not is_admin:
+            queryset = queryset.filter(user=user)
+
+        date = self.request.query_params.get('date')
+        if date:
+            queryset = queryset.filter(date=date)
+        req_status = self.request.query_params.get('status')
+        if req_status:
+            queryset = queryset.filter(status=req_status)
+
+        month = self.request.query_params.get('month')
+        year = self.request.query_params.get('year')
+        if month and year:
+            queryset = queryset.filter(date__month=month, date__year=year)
+
+        return queryset.order_by('-created_at')
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return EarlyRequestCreateSerializer
+        return EarlyRequestSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='my-requests')
+    def my_requests(self, request):
+        qs = EarlyRequest.objects.filter(user=request.user).order_by('-created_at')
+        serializer = EarlyRequestSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='review')
+    def review(self, request, pk=None):
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can review'}, status=status.HTTP_403_FORBIDDEN)
+        instance = self.get_object()
+        if instance.status != 'pending':
+            return Response({'error': f'Already {instance.status}'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = LeaveRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance.status = serializer.validated_data['status']
+        instance.admin_comment = serializer.validated_data.get('admin_comment', '')
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+        instance.save()
+        return Response(EarlyRequestSerializer(instance).data)
+
+    @action(detail=True, methods=['post'], url_path='override-review')
+    def override_review(self, request, pk=None):
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can override'}, status=status.HTTP_403_FORBIDDEN)
+        instance = self.get_object()
+        serializer = LeaveRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        prev = instance.status
+        instance.status = serializer.validated_data['status']
+        instance.reviewed_by = request.user
+        instance.reviewed_at = timezone.now()
+        note_parts = []
+        if serializer.validated_data.get('admin_comment'):
+            note_parts.append(serializer.validated_data.get('admin_comment'))
+        note_parts.append(f"[OVERRIDE by {request.user.name if hasattr(request.user, 'name') else request.user.username} at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] changed from {prev}")
+        combined = "\n".join(note_parts)
+        instance.admin_comment = f"{instance.admin_comment}\n{combined}" if instance.admin_comment else combined
+        instance.save()
+        return Response(EarlyRequestSerializer(instance).data)
+
+
+# -------------------------
 # Reverse Geocoding Functions
+# -------------------------
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def reverse_geocode(request):
@@ -1019,184 +1308,3 @@ def reverse_geocode_bigdata(request):
             'longitude': longitude,
             'error': str(e)
         })
-
-
-
-
-
-
-from .models import LateRequest, EarlyRequest
-from .Serializers import (
-    # ... existing imports ...
-    LateRequestSerializer, LateRequestCreateSerializer,
-    EarlyRequestSerializer, EarlyRequestCreateSerializer,
-    LeaveRequestReviewSerializer
-)
-
-class LateRequestViewSet(viewsets.ModelViewSet):
-    queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
-    serializer_class = LateRequestSerializer
-    permission_classes = [IsAuthenticated]
-    menu_key = 'attendance'
-
-    def _is_admin(self, user):
-        return (
-            user.user_level in ('Super Admin', 'Admin') or
-            user.is_staff or user.is_superuser
-        )
-
-    def get_queryset(self):
-        user = self.request.user
-        queryset = LateRequest.objects.select_related('user', 'reviewed_by')
-        is_admin = self._is_admin(user)
-        if not is_admin:
-            queryset = queryset.filter(user=user)
-
-        # filters (date, status, month/year)
-        date = self.request.query_params.get('date')
-        if date:
-            queryset = queryset.filter(date=date)
-        req_status = self.request.query_params.get('status')
-        if req_status:
-            queryset = queryset.filter(status=req_status)
-
-        month = self.request.query_params.get('month')
-        year = self.request.query_params.get('year')
-        if month and year:
-            queryset = queryset.filter(date__month=month, date__year=year)
-
-        return queryset.order_by('-created_at')
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return LateRequestCreateSerializer
-        return LateRequestSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-    @action(detail=False, methods=['get'], url_path='my-requests')
-    def my_requests(self, request):
-        qs = LateRequest.objects.filter(user=request.user).order_by('-created_at')
-        serializer = LateRequestSerializer(qs, many=True)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'], url_path='review')
-    def review(self, request, pk=None):
-        if not self._is_admin(request.user):
-            return Response({'error': 'Only admins can review'}, status=status.HTTP_403_FORBIDDEN)
-        instance = self.get_object()
-        if instance.status != 'pending':
-            return Response({'error': f'Already {instance.status}'}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = LeaveRequestReviewSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        instance.status = serializer.validated_data['status']
-        instance.admin_comment = serializer.validated_data.get('admin_comment', '')
-        instance.reviewed_by = request.user
-        instance.reviewed_at = timezone.now()
-        instance.save()
-        return Response(LateRequestSerializer(instance).data)
-
-    @action(detail=True, methods=['post'], url_path='override-review')
-    def override_review(self, request, pk=None):
-        if not self._is_admin(request.user):
-            return Response({'error': 'Only admins can override'}, status=status.HTTP_403_FORBIDDEN)
-        instance = self.get_object()
-        serializer = LeaveRequestReviewSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        prev = instance.status
-        instance.status = serializer.validated_data['status']
-        instance.reviewed_by = request.user
-        instance.reviewed_at = timezone.now()
-        note_parts = []
-        if serializer.validated_data.get('admin_comment'):
-            note_parts.append(serializer.validated_data.get('admin_comment'))
-        note_parts.append(f"[OVERRIDE by {request.user.name if hasattr(request.user, 'name') else request.user.username} at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] changed from {prev}")
-        combined = "\n".join(note_parts)
-        instance.admin_comment = f"{instance.admin_comment}\n{combined}" if instance.admin_comment else combined
-        instance.save()
-        return Response(LateRequestSerializer(instance).data)
-
-
-class EarlyRequestViewSet(viewsets.ModelViewSet):
-    queryset = EarlyRequest.objects.all().select_related('user', 'reviewed_by')
-    serializer_class = EarlyRequestSerializer
-    permission_classes = [IsAuthenticated]
-    menu_key = 'attendance'
-
-    def _is_admin(self, user):
-        return (
-            user.user_level in ('Super Admin', 'Admin') or
-            user.is_staff or user.is_superuser
-        )
-
-    def get_queryset(self):
-        user = self.request.user
-        queryset = EarlyRequest.objects.select_related('user', 'reviewed_by')
-        is_admin = self._is_admin(user)
-        if not is_admin:
-            queryset = queryset.filter(user=user)
-
-        date = self.request.query_params.get('date')
-        if date:
-            queryset = queryset.filter(date=date)
-        req_status = self.request.query_params.get('status')
-        if req_status:
-            queryset = queryset.filter(status=req_status)
-
-        month = self.request.query_params.get('month')
-        year = self.request.query_params.get('year')
-        if month and year:
-            queryset = queryset.filter(date__month=month, date__year=year)
-
-        return queryset.order_by('-created_at')
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return EarlyRequestCreateSerializer
-        return EarlyRequestSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-    @action(detail=False, methods=['get'], url_path='my-requests')
-    def my_requests(self, request):
-        qs = EarlyRequest.objects.filter(user=request.user).order_by('-created_at')
-        serializer = EarlyRequestSerializer(qs, many=True)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'], url_path='review')
-    def review(self, request, pk=None):
-        if not self._is_admin(request.user):
-            return Response({'error': 'Only admins can review'}, status=status.HTTP_403_FORBIDDEN)
-        instance = self.get_object()
-        if instance.status != 'pending':
-            return Response({'error': f'Already {instance.status}'}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = LeaveRequestReviewSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        instance.status = serializer.validated_data['status']
-        instance.admin_comment = serializer.validated_data.get('admin_comment', '')
-        instance.reviewed_by = request.user
-        instance.reviewed_at = timezone.now()
-        instance.save()
-        return Response(EarlyRequestSerializer(instance).data)
-
-    @action(detail=True, methods=['post'], url_path='override-review')
-    def override_review(self, request, pk=None):
-        if not self._is_admin(request.user):
-            return Response({'error': 'Only admins can override'}, status=status.HTTP_403_FORBIDDEN)
-        instance = self.get_object()
-        serializer = LeaveRequestReviewSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        prev = instance.status
-        instance.status = serializer.validated_data['status']
-        instance.reviewed_by = request.user
-        instance.reviewed_at = timezone.now()
-        note_parts = []
-        if serializer.validated_data.get('admin_comment'):
-            note_parts.append(serializer.validated_data.get('admin_comment'))
-        note_parts.append(f"[OVERRIDE by {request.user.name if hasattr(request.user, 'name') else request.user.username} at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] changed from {prev}")
-        combined = "\n".join(note_parts)
-        instance.admin_comment = f"{instance.admin_comment}\n{combined}" if instance.admin_comment else combined
-        instance.save()
-        return Response(EarlyRequestSerializer(instance).data)
