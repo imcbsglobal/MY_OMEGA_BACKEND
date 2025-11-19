@@ -29,7 +29,7 @@ urlpatterns = [
     path('api/cv-management/', include('cv_management.urls')), 
     path('api/interview-management/',include('interview_management.urls')),
     path('api/offer-letter/',include("offer_letter.urls")),
-    path('api/certificate/',include('certicate_hub.urls'))
+    path('api/certificate/',include('certificate_hub.urls'))
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
