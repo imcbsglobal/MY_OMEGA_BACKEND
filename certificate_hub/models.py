@@ -1,6 +1,6 @@
 from django.db import models
 from User.models import AppUser
-
+from offer_letter.models import OfferLetter
 
 class SalaryCertificate(models.Model):
 
@@ -38,4 +38,39 @@ class SalaryCertificate(models.Model):
 
 
 class ExperienceCertificate(models.Model):
-    
+    employee=models.ForeignKey(
+        AppUser,
+        on_delete=models.SET_NULL,
+        verbose_name='employee',
+        related_name='employee'
+    )
+    offer_letter = models.ForeignKey(
+    OfferLetter,
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="Experience Certificate"
+    )
+    generated_by = models.ForeignKey(
+        AppUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_salary_certificate",
+        verbose_name="generated_by"
+    )
+
+    #fallback if offer letter not provided
+    joining_date = models.DateField(null=True,blank=True)
+    issue_date = models.DateField(auto_now_add=True)
+
+    class Meta :
+        verbose_name = "Experience certificate"
+        verbose_name_plural = "Experience certificate"
+    def save(self, *args ,**kwargs ):
+        if self.offer_letter and not self.joining_date:
+            self.joining_date = getattr(self.offer_letter,'joining_date',None)
+        super.save(*args , **kwargs)
+    def __str__(self):
+        return f"Experience Certificate fro {self.employee}"
+

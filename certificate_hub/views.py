@@ -24,7 +24,28 @@ def error_response(message, error_code='ERROR', details=None, status_code=status
         'details': details
     }, status=status_code)
 
+@api_view(['GET'])
+def employee_list(request):
+    """Get all employees (AppUser) available for salary certificates"""
+    employees = AppUser.objects.filter()
+    
+    # Simple serialization for employee list
+    data = [{
+        'id': emp.id,
+        'name': emp.name,
+        'email': emp.email,
+        'job_title': emp.job_title,
+        'joining_date': emp.joining_date,
+        'address': emp.address
+    } for emp in employees]
+    
+    return success_response(
+        message=f"Found {len(data)} active employee(s)",
+        data=data
+    )
 
+
+#Salary Certificate
 @api_view(['GET', 'POST'])
 def salary_certificate_list_create(request):
     """
@@ -115,22 +136,7 @@ def salary_certificate_detail(request, pk):
         )
 
 
-@api_view(['GET'])
-def employee_list(request):
-    """Get all employees (AppUser) available for salary certificates"""
-    employees = AppUser.objects.filter()
+#Experience Certificate
+@api_view(['GET','POST'])
+def experience_certificate_list_create(request):
     
-    # Simple serialization for employee list
-    data = [{
-        'id': emp.id,
-        'name': emp.name,
-        'email': emp.email,
-        'job_title': emp.job_title,
-        'joining_date': emp.joining_date,
-        'address': emp.address
-    } for emp in employees]
-    
-    return success_response(
-        message=f"Found {len(data)} active employee(s)",
-        data=data
-    )

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SalaryCertificate
+from .models import SalaryCertificate,ExperienceCertificate
 from User.models import AppUser
 
 
@@ -40,3 +40,11 @@ class SalaryCertificateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Salary must be greater than zero.")
         return value
     
+
+class ExperienceCertificateSerializer(serializers.ModelSerializer):
+    offer_letter_joining = serializers.DateField(source='offer_letter.joining_data',read_only=True)
+
+    class Meta:
+        model:ExperienceCertificate
+        fields = ['id', 'employee', 'offer_letter', 'offer_letter_joining', 'joining_date', 'issued_date','generated_by']
+        read_only_fields = ['issued_date', 'offer_letter_joining']
