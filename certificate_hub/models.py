@@ -38,25 +38,26 @@ class SalaryCertificate(models.Model):
 
 
 class ExperienceCertificate(models.Model):
-    employee=models.ForeignKey(
+    employee = models.ForeignKey(
         AppUser,
         on_delete=models.SET_NULL,
+        null=True,
         verbose_name='employee',
-        related_name='employee'
+        related_name='experience_certificates'
     )
     offer_letter = models.ForeignKey(
-    OfferLetter,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name="Experience Certificate"
+        OfferLetter,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='experience_certificates'
     )
     generated_by = models.ForeignKey(
         AppUser,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="generated_salary_certificate",
+        related_name="generated_experience_certificates",
         verbose_name="generated_by"
     )
 
@@ -67,10 +68,12 @@ class ExperienceCertificate(models.Model):
     class Meta :
         verbose_name = "Experience certificate"
         verbose_name_plural = "Experience certificate"
-    def save(self, *args ,**kwargs ):
+    def save(self, *args, **kwargs):
         if self.offer_letter and not self.joining_date:
-            self.joining_date = getattr(self.offer_letter,'joining_date',None)
-        super.save(*args , **kwargs)
+            # Note: OfferLetter field is 'joining_data' not 'joining_date'
+            self.joining_date = getattr(self.offer_letter, 'joining_data', None)
+        super().save(*args, **kwargs)
+    
     def __str__(self):
-        return f"Experience Certificate fro {self.employee}"
+        return f"Experience Certificate for {self.employee}"
 
