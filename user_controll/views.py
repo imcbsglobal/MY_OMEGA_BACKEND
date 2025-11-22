@@ -1,159 +1,277 @@
 # user_controll/views.py
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.conf import settings
-from rest_framework import permissions, viewsets, status
-from rest_framework.decorators import action
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
+from User.models import AppUser
 from .models import MenuItem, UserMenuAccess
-from .permissions import IsSuperAdmin
 from .serializers import (
     SimpleUserSerializer,
     MenuItemTreeSerializer,
     UserMenuIdsSerializer,
+    MenuItemSerializer,
+    UserMenuAccessSerializer,
+    AssignMenusPayloadSerializer,
 )
-
-# Get the user model
-User = settings.AUTH_USER_MODEL
-from User.models import AppUser
+from .permissions import IsSuperAdmin
 
 
+# -------------------------------------------
+# Admin viewset: list users, menu tree, get/set user menus
+# -------------------------------------------
 class AdminUserMenuViewSet(viewsets.ViewSet):
-    """
-    Admin endpoints for managing user menu permissions.
-    Only accessible by superusers/staff or users with 'user_control' menu access.
-    """
     permission_classes = [IsSuperAdmin]
 
     def users(self, request):
-        """Get list of all users"""
+        """GET /admin/users/  -> list AppUser"""
         qs = AppUser.objects.all().order_by("-date_joined")
         return Response(SimpleUserSerializer(qs, many=True).data)
 
     def menu_tree(self, request):
-        """Get complete menu tree structure"""
+        """GET /admin/menu-tree/  -> full active menu tree"""
         roots = MenuItem.objects.filter(
-            parent__isnull=True, 
+            parent__isnull=True,
             is_active=True
         ).order_by("order", "name")
         return Response(MenuItemTreeSerializer(roots, many=True).data)
 
     def get_user_menus(self, request, user_id=None):
-        """Get menu IDs assigned to a specific user"""
+        """
+        GET /admin/user/<user_id>/menus/
+        Returns existing menu assignments for user.
+
+        If per-action rows exist:
+          { "menu_perms": [ { menu_id, key, name, can_view, can_edit, can_delete }, ... ] }
+
+        Otherwise (legacy behavior):
+          { "menu_ids": [1,2,3] }
+        """
         try:
             user = AppUser.objects.get(id=user_id)
         except AppUser.DoesNotExist:
             return Response(
-                {"detail": "User not found"}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
-        
-        # FIXED: Use user=user instead of user_id=user_id
-        menu_ids = list(
-            UserMenuAccess.objects.filter(user=user)
-            .values_list("menu_item_id", flat=True)
-        )
-        
-        return Response({"menu_ids": menu_ids})
+
+        perms_qs = UserMenuAccess.objects.filter(user=user).select_related("menu_item")
+
+        if perms_qs.exists():
+            serializer = UserMenuAccessSerializer(perms_qs, many=True)
+            return Response({"menu_perms": serializer.data})
+        else:
+            menu_ids = list(
+                UserMenuAccess.objects.filter(user=user).values_list(
+                    "menu_item_id", flat=True
+                )
+            )
+            return Response({"menu_ids": menu_ids})
 
     def set_user_menus(self, request, user_id=None):
-        """Set menu permissions for a specific user"""
-        print(f"\n[set_user_menus] Starting for user_id: {user_id}")
-        print(f"[set_user_menus] Request data: {request.data}")
-        
+        """
+        POST /admin/user/<user_id>/menus/
+
+        Accepts either:
+          { "menu_ids": [1,2,3] }
+
+        OR per-action payload:
+          {
+            "items": [
+              { "menu_id": 1, "can_view": true, "can_edit": false, "can_delete": false },
+              ...
+            ]
+          }
+
+        OR:
+          { "all": true }  -> assign all active menus with full permissions.
+        """
         try:
             user = AppUser.objects.get(id=user_id)
-            print(f"[set_user_menus] Found user: {user.email}")
         except AppUser.DoesNotExist:
-            print(f"[set_user_menus] ERROR: User not found")
             return Response(
-                {"detail": "User not found"}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
-        
-        # Validate input
+
+        # IMPORTANT FIX:
+        # We do NOT short-circuit for Admin / Super Admin / superuser here.
+        # Everyone can have explicit UserMenuAccess rows now.
+
+        # Per-action payload (items or all)
+        if "items" in request.data or "all" in request.data:
+            serializer = AssignMenusPayloadSerializer(
+                data={**request.data, "user_id": user.id}
+            )
+            if not serializer.is_valid():
+                return Response(
+                    {"detail": "Invalid data", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            data = serializer.validated_data
+            assigned = 0
+
+            try:
+                with transaction.atomic():
+                    # clear existing assignments
+                    UserMenuAccess.objects.filter(user=user).delete()
+
+                    # all = True -> full permissions to every active menu
+                    if data.get("all"):
+                        menus = MenuItem.objects.filter(is_active=True)
+                        bulk = [
+                            UserMenuAccess(
+                                user=user,
+                                menu_item=m,
+                                can_view=True,
+                                can_edit=True,
+                                can_delete=True,
+                            )
+                            for m in menus
+                        ]
+                        if bulk:
+                            UserMenuAccess.objects.bulk_create(bulk)
+                        assigned = len(bulk)
+                    else:
+                        items = data.get("items", [])
+                        bulk = []
+                        menu_ids = set()
+
+                        # direct items
+                        for it in items:
+                            mid = it["menu_id"]
+                            menu_ids.add(mid)
+                            bulk.append(
+                                UserMenuAccess(
+                                    user=user,
+                                    menu_item_id=mid,
+                                    can_view=it.get("can_view", False),
+                                    can_edit=it.get("can_edit", False),
+                                    can_delete=it.get("can_delete", False),
+                                )
+                            )
+
+                        # ensure parents present with at least can_view=True
+                        parent_ids = set()
+                        for mid in list(menu_ids):
+                            try:
+                                m = MenuItem.objects.get(id=mid)
+                            except MenuItem.DoesNotExist:
+                                continue
+                            p = m.parent
+                            while p:
+                                if p.id not in menu_ids and p.id not in parent_ids:
+                                    parent_ids.add(p.id)
+                                p = p.parent
+
+                        for pid in parent_ids:
+                            bulk.append(
+                                UserMenuAccess(
+                                    user=user,
+                                    menu_item_id=pid,
+                                    can_view=True,
+                                    can_edit=False,
+                                    can_delete=False,
+                                )
+                            )
+
+                        if bulk:
+                            UserMenuAccess.objects.bulk_create(bulk)
+                            assigned = len(bulk)
+
+                return Response(
+                    {"detail": "Assigned", "assigned_count": assigned},
+                    status=status.HTTP_200_OK,
+                )
+            except Exception as e:
+                return Response(
+                    {"detail": f"Error assigning menus: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        # Legacy / simple payload: { "menu_ids": [...] }
         serializer = UserMenuIdsSerializer(data=request.data)
         if not serializer.is_valid():
-            print(f"[set_user_menus] Validation error: {serializer.errors}")
             return Response(
-                {"detail": "Invalid data", "errors": serializer.errors}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Invalid data", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         menu_ids = set(serializer.validated_data["menu_ids"])
-        print(f"[set_user_menus] Validated menu_ids: {menu_ids}")
-        
-        # Validate that all menu IDs exist
+
+        # Validate IDs exist
         if menu_ids:
             valid_ids = set(
-                MenuItem.objects.filter(id__in=menu_ids)
-                .values_list("id", flat=True)
+                MenuItem.objects.filter(id__in=menu_ids).values_list(
+                    "id", flat=True
+                )
             )
             invalid_ids = menu_ids - valid_ids
             if invalid_ids:
-                print(f"[set_user_menus] ERROR: Invalid menu IDs: {invalid_ids}")
                 return Response(
-                    {"detail": f"Invalid menu IDs: {invalid_ids}"}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"detail": f"Invalid menu IDs: {invalid_ids}"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-        
-        # Automatically include parent menus when child is selected
+
+        # include parents
         final_menu_ids = set(menu_ids)
-        for menu_id in menu_ids:
+        for menu_id in list(menu_ids):
             try:
                 menu = MenuItem.objects.get(id=menu_id)
-                # Add all parent menus
-                current = menu.parent
-                while current:
-                    final_menu_ids.add(current.id)
-                    current = current.parent
             except MenuItem.DoesNotExist:
-                pass
-        
-        print(f"[set_user_menus] Final menu_ids (with parents): {final_menu_ids}")
-        
-        # Update user menu access atomically
+                continue
+            current = menu.parent
+            while current:
+                final_menu_ids.add(current.id)
+                current = current.parent
+
         try:
             with transaction.atomic():
-                # FIXED: Use user=user instead of user_id=user_id
-                deleted_count = UserMenuAccess.objects.filter(user=user).delete()[0]
-                print(f"[set_user_menus] Deleted {deleted_count} existing access records")
-                
-                # Create new access records
+                UserMenuAccess.objects.filter(user=user).delete()
                 if final_menu_ids:
-                    bulk_create = [
-                        UserMenuAccess(user=user, menu_item_id=menu_id)
-                        for menu_id in final_menu_ids
+                    bulk = [
+                        UserMenuAccess(
+                            user=user,
+                            menu_item_id=mid,
+                            can_view=True,
+                            can_edit=False,
+                            can_delete=False,
+                        )
+                        for mid in final_menu_ids
                     ]
-                    created = UserMenuAccess.objects.bulk_create(bulk_create)
-                    print(f"[set_user_menus] Created {len(created)} new access records")
-            
-            print(f"[set_user_menus] SUCCESS: Updated menu permissions for {user.email}")
-            return Response({
-                "ok": True, 
-                "menu_ids": list(final_menu_ids),
-                "message": f"Successfully updated menu permissions for {user.email}"
-            })
-            
+                    UserMenuAccess.objects.bulk_create(bulk)
+                    return Response(
+                        {
+                            "ok": True,
+                            "menu_ids": list(final_menu_ids),
+                            "message": f"Successfully updated menu permissions for {user.email}",
+                        }
+                    )
+                else:
+                    return Response(
+                        {
+                            "ok": True,
+                            "menu_ids": [],
+                            "message": f"Cleared menu permissions for {user.email}",
+                        }
+                    )
         except Exception as e:
-            print(f"[set_user_menus] ERROR during save: {str(e)}")
-            import traceback
-            traceback.print_exc()
             return Response(
-                {"detail": f"Error saving menus: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"detail": f"Error saving menus: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
-# user_controll/views.py - Updated MyMenuView class
-
-def serialize_node(node, allowed_ids=None):
+# -------------------------------------------
+# MyMenuView - returns menu tree filtered for current user
+# -------------------------------------------
+def _serialize_node_with_perms(node, allowed_map=None):
     """
-    Convert a MenuItem to dict, including only children that are allowed_ids (if provided).
-    If allowed_ids is None -> include all active children (Django superuser path).
+    allowed_map: dict menu_id -> { can_view, can_edit, can_delete }
+    If allowed_map is None, include all nodes and set all permissions True (superuser).
     """
     base = {
         "id": node.id,
@@ -162,100 +280,321 @@ def serialize_node(node, allowed_ids=None):
         "path": node.path,
         "icon": node.icon,
         "order": node.order,
-        "children": []
+        "children": [],
     }
 
-    children = list(node.children.filter(is_active=True).order_by("order", "name"))
-    if allowed_ids is None:
-        # Django superuser: keep all children
-        base["children"] = [serialize_node(c, None) for c in children]
+    # superuser-style: allowed_map is None => full access and all children
+    if allowed_map is None:
+        base["allowed_actions"] = {
+            "can_view": True,
+            "can_edit": True,
+            "can_delete": True,
+        }
+        children = node.children.filter(is_active=True).order_by("order", "name")
+        base["children"] = [
+            _serialize_node_with_perms(c, None) for c in children
+        ]
         return base
 
-    # Regular user: keep only children that are allowed (or have allowed descendants)
-    kept = []
-    for c in children:
-        child_serialized = serialize_node(c, allowed_ids)
-        # keep the node if itself is allowed OR it has any kept children
-        if c.id in allowed_ids or child_serialized["children"]:
-            kept.append(child_serialized)
-    base["children"] = kept
+    perms = allowed_map.get(node.id, {})
+    base["allowed_actions"] = {
+        "can_view": bool(perms.get("can_view", False)),
+        "can_edit": bool(perms.get("can_edit", False)),
+        "can_delete": bool(perms.get("can_delete", False)),
+    }
+
+    children = node.children.filter(is_active=True).order_by("order", "name")
+    serialized_children = [
+        _serialize_node_with_perms(c, allowed_map) for c in children
+    ]
+
+    # Keep child if it can_view OR if it has any children (so parents of allowed nodes stay)
+    kept_children = []
+    for c in serialized_children:
+        if c["allowed_actions"]["can_view"] or c["children"]:
+            kept_children.append(c)
+
+    base["children"] = kept_children
     return base
 
 
 class MyMenuView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        user_level = getattr(user, "user_level", "User")
+        is_django_superuser = user.is_superuser
+        is_app_admin = user_level in ("Super Admin", "Admin")
+
+        # Django superuser gets full menu tree w/ full permissions on every node
+        if is_django_superuser:
+            roots = MenuItem.objects.filter(
+                is_active=True, parent__isnull=True
+            ).order_by("order", "name")
+            data = [_serialize_node_with_perms(r, None) for r in roots]
+            return Response(
+                {
+                    "menu": data,
+                    "is_django_superuser": True,
+                    "is_app_admin": is_app_admin,
+                    "user_level": user_level,
+                }
+            )
+
+        # everyone else -> use explicit UserMenuAccess rows
+        allowed_qs = UserMenuAccess.objects.filter(
+            user=user, menu_item__is_active=True
+        )
+        allowed_map = {
+            a.menu_item_id: {
+                "can_view": a.can_view,
+                "can_edit": a.can_edit,
+                "can_delete": a.can_delete,
+            }
+            for a in allowed_qs
+        }
+
+        if not allowed_map:
+            return Response(
+                {
+                    "menu": [],
+                    "is_django_superuser": False,
+                    "is_app_admin": is_app_admin,
+                    "user_level": user_level,
+                    "message": "No menus assigned. Contact administrator.",
+                }
+            )
+
+        roots = MenuItem.objects.filter(
+            is_active=True, parent__isnull=True
+        ).order_by("order", "name")
+
+        data = []
+        for r in roots:
+            node = _serialize_node_with_perms(r, allowed_map)
+            # keep node if it itself is allowed or if it has any visible children
+            if r.id in allowed_map or node["children"]:
+                data.append(node)
+
+        return Response(
+            {
+                "menu": data,
+                "is_django_superuser": False,
+                "is_app_admin": is_app_admin,
+                "user_level": user_level,
+            }
+        )
+
+
+# -------------------------------------------
+# Menu item CRUD (admin)
+# -------------------------------------------
+class AdminMenuItemListCreate(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request):
+        serializer = MenuItemSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Invalid data", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        item = serializer.save()
+        return Response(
+            MenuItemTreeSerializer(item).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminMenuItemDetail(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def put(self, request, menu_id):
+        menu = get_object_or_404(MenuItem, id=menu_id)
+        serializer = MenuItemSerializer(menu, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Invalid data", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        menu = serializer.save()
+        return Response(MenuItemTreeSerializer(menu).data)
+
+    def delete(self, request, menu_id):
+        menu = get_object_or_404(MenuItem, id=menu_id)
+        menu.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+
+
+from .models import ApprovalCategory, UserApprovalPermission
+from .serializers import (
+    # ... your existing imports ...
+    ApprovalCategorySerializer,
+    UserApprovalPermissionSerializer,
+    BulkAssignApprovalSerializer,
+)
+
+
+class AdminApprovalViewSet(viewsets.ViewSet):
+    """Admin endpoints for managing approval permissions"""
+    permission_classes = [IsSuperAdmin]
+
+    def list_categories(self, request):
+        """GET /admin/approval-categories/"""
+        categories = ApprovalCategory.objects.filter(is_active=True).order_by('order', 'name')
+        serializer = ApprovalCategorySerializer(categories, many=True)
+        return Response(serializer.data)
+
+    def get_user_approvals(self, request, user_id=None):
+        """GET /admin/user/<user_id>/approvals/"""
+        try:
+            user = AppUser.objects.get(id=user_id)
+        except AppUser.DoesNotExist:
+            return Response(
+                {"detail": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        permissions = UserApprovalPermission.objects.filter(
+            user=user,
+            category__is_active=True
+        ).select_related('category')
+
+        serializer = UserApprovalPermissionSerializer(permissions, many=True)
+        return Response({
+            "user_id": user.id,
+            "username": user.username or user.email,
+            "permissions": serializer.data
+        })
+
+    def set_user_approvals(self, request, user_id=None):
+        """POST /admin/user/<user_id>/approvals/"""
+        try:
+            user = AppUser.objects.get(id=user_id)
+        except AppUser.DoesNotExist:
+            return Response(
+                {"detail": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = BulkAssignApprovalSerializer(
+            data={**request.data, "user_id": user.id}
+        )
+        
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Invalid data", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = serializer.validated_data
+
+        try:
+            with transaction.atomic():
+                # Clear existing permissions
+                UserApprovalPermission.objects.filter(user=user).delete()
+
+                assigned_count = 0
+
+                if data.get('assign_all'):
+                    # Assign all categories with full permissions
+                    categories = ApprovalCategory.objects.filter(is_active=True)
+                    bulk = [
+                        UserApprovalPermission(
+                            user=user,
+                            category=cat,
+                            can_approve=True,
+                            can_reject=True,
+                            can_view_all=True
+                        )
+                        for cat in categories
+                    ]
+                    if bulk:
+                        UserApprovalPermission.objects.bulk_create(bulk)
+                        assigned_count = len(bulk)
+                else:
+                    # Assign specific permissions
+                    permissions = data.get('permissions', [])
+                    bulk = []
+                    
+                    for perm in permissions:
+                        category_id = perm['category_id']
+                        
+                        try:
+                            category = ApprovalCategory.objects.get(
+                                id=category_id,
+                                is_active=True
+                            )
+                        except ApprovalCategory.DoesNotExist:
+                            continue
+
+                        # Only create if at least one permission is granted
+                        if perm.get('can_approve') or perm.get('can_reject') or perm.get('can_view_all'):
+                            bulk.append(
+                                UserApprovalPermission(
+                                    user=user,
+                                    category=category,
+                                    can_approve=perm.get('can_approve', False),
+                                    can_reject=perm.get('can_reject', False),
+                                    can_view_all=perm.get('can_view_all', False)
+                                )
+                            )
+                    
+                    if bulk:
+                        UserApprovalPermission.objects.bulk_create(bulk)
+                        assigned_count = len(bulk)
+
+                return Response({
+                    "detail": "Approval permissions updated",
+                    "assigned_count": assigned_count
+                }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"detail": f"Error assigning approvals: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+# Add this to the END of your user_controll/views.py file
+
+from .approval_helpers import get_user_approval_permissions
+
+
+class MyApprovalsView(APIView):
     """
-    Returns the menu tree for the currently authenticated user.
+    GET /api/user-controll/my-approvals/
     
-    - Django superusers (is_superuser=True): Get FULL menu tree
-    - ALL other users (including Admin/Super Admin): Get only assigned menus
+    Returns current user's approval permissions.
+    Used by LeaveManagement.jsx to show/hide approval controls.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        
-        # Get user attributes
-        user_level = getattr(user, 'user_level', 'User')
-        is_django_superuser = user.is_superuser
-        is_app_admin = user_level in ('Super Admin', 'Admin')
-        
-        print(f"[MyMenuView] User: {user.email}")
-        print(f"[MyMenuView] User Level: {user_level}")
-        print(f"[MyMenuView] is_superuser (Django): {is_django_superuser}")
-        print(f"[MyMenuView] is_app_admin: {is_app_admin}")
-        
-        # ONLY Django superusers get full tree
-        if is_django_superuser:
-            print(f"[MyMenuView] ✓ Django superuser - returning FULL menu tree")
-            roots = (MenuItem.objects
-                     .filter(is_active=True, parent__isnull=True)
-                     .prefetch_related('children')
-                     .order_by("order", "name"))
-            data = [serialize_node(r, None) for r in roots]
-            return Response({
-                "menu": data,
-                "is_django_superuser": True,
-                "is_app_admin": is_app_admin,
-                "user_level": user_level
-            })
+        is_superuser = getattr(user, 'is_superuser', False)
 
-        # ALL other users (including Admin/Super Admin): filter by assigned menus
-        print(f"[MyMenuView] Regular user/AppUser admin - checking assigned menus...")
-        allowed_ids = set(
-            UserMenuAccess.objects
-            .filter(user=user, menu_item__is_active=True)
-            .values_list("menu_item_id", flat=True)
-        )
-        
-        print(f"[MyMenuView] Allowed menu IDs: {allowed_ids}")
+        # Get all approval permissions using helper
+        permissions_dict = get_user_approval_permissions(user)
 
-        # If nothing assigned, return empty
-        if not allowed_ids:
-            print(f"[MyMenuView] ✗ No menus assigned to this user")
-            return Response({
-                "menu": [],
-                "is_django_superuser": False,
-                "is_app_admin": is_app_admin,
-                "user_level": user_level,
-                "message": "No menus assigned. Contact administrator."
-            })
+        # Format for frontend
+        permissions_list = [
+            {
+                'category_key': key,
+                'can_approve': perms['can_approve'],
+                'can_reject': perms['can_reject'],
+                'can_view_all': perms['can_view_all']
+            }
+            for key, perms in permissions_dict.items()
+        ]
 
-        # Start at active root nodes; serialize with allowed_ids filter
-        roots = (MenuItem.objects
-                 .filter(is_active=True, parent__isnull=True)
-                 .prefetch_related('children')
-                 .order_by("order", "name"))
-        data = []
-        for r in roots:
-            node = serialize_node(r, allowed_ids)
-            # show a root if it is allowed OR it has any allowed descendants
-            if r.id in allowed_ids or node["children"]:
-                data.append(node)
-
-        print(f"[MyMenuView] ✓ Returning {len(data)} root menus")
         return Response({
-            "menu": data,
-            "is_django_superuser": False,
-            "is_app_admin": is_app_admin,
-            "user_level": user_level
+            'is_superuser': is_superuser,
+            'is_admin': False,  # App admins don't get automatic access
+            'all_permissions': is_superuser,  # Only superusers have all perms
+            'permissions': permissions_list
         })
