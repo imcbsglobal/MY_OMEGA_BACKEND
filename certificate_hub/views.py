@@ -4,8 +4,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import transaction
 from .models import SalaryCertificate, ExperienceCertificate
-from .serializers import SalaryCertificateSerializer ,ExperienceCertificateSerializer
-from User.models import AppUser
+from .serializers import SalaryCertificateSerializer, ExperienceCertificateSerializer
+from employee_management.models import Employee
 
 
 def success_response(message, data=None, status_code=status.HTTP_200_OK):
@@ -26,17 +26,19 @@ def error_response(message, error_code='ERROR', details=None, status_code=status
 
 @api_view(['GET'])
 def employee_list(request):
-    """Get all employees (AppUser) available for salary certificates"""
-    employees = AppUser.objects.filter()
+    """Get all active employees available for certificates"""
+    employees = Employee.objects.filter(is_active=True).select_related('user')
     
     # Simple serialization for employee list
     data = [{
         'id': emp.id,
-        'name': emp.name,
-        'email': emp.email,
-        'job_title': emp.job_title,
-        'joining_date': emp.joining_date,
-        'address': emp.address
+        'employee_id': emp.employee_id,
+        'name': emp.full_name,
+        'email': emp.user.email if emp.user else None,
+        'designation': emp.designation,
+        'department': emp.department,
+        'date_of_joining': emp.date_of_joining,
+        'location': emp.location
     } for emp in employees]
     
     return success_response(

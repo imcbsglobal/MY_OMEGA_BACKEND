@@ -1,14 +1,15 @@
 from rest_framework import serializers
-from .models import SalaryCertificate,ExperienceCertificate
-from User.models import AppUser
+from .models import SalaryCertificate, ExperienceCertificate
+from employee_management.models import Employee
 
 
 class SalaryCertificateSerializer(serializers.ModelSerializer):
-    emp_name = serializers.CharField(source='employee.name', read_only=True)
-    emp_address = serializers.CharField(source='employee.address', read_only=True)
-    emp_joining_date = serializers.DateField(source='employee.joining_date', read_only=True)
-    emp_email = serializers.EmailField(source='employee.email', read_only=True)
-    emp_job_title = serializers.CharField(source='employee.job_title', read_only=True)
+    emp_name = serializers.CharField(source='employee.full_name', read_only=True)
+    emp_email = serializers.EmailField(source='employee.user.email', read_only=True)
+    emp_designation = serializers.CharField(source='employee.designation', read_only=True)
+    emp_department = serializers.CharField(source='employee.department', read_only=True)
+    emp_joining_date = serializers.DateField(source='employee.date_of_joining', read_only=True)
+    emp_location = serializers.CharField(source='employee.location', read_only=True)
     generated_by_name = serializers.CharField(source='generated_by.name', read_only=True)
     
     class Meta:
@@ -18,9 +19,10 @@ class SalaryCertificateSerializer(serializers.ModelSerializer):
             'employee',
             'emp_name',
             'emp_email',
-            'emp_address',
+            'emp_designation',
+            'emp_department',
             'emp_joining_date',
-            'emp_job_title',
+            'emp_location',
             'salary',
             'issued_date',
             'generated_by',
@@ -42,10 +44,11 @@ class SalaryCertificateSerializer(serializers.ModelSerializer):
     
 
 class ExperienceCertificateSerializer(serializers.ModelSerializer):
-    emp_name = serializers.CharField(source='employee.name', read_only=True)
-    emp_email = serializers.EmailField(source='employee.email', read_only=True)
-    emp_address = serializers.CharField(source='employee.address', read_only=True)
-    emp_job_title = serializers.CharField(source='employee.job_title', read_only=True)
+    emp_name = serializers.CharField(source='employee.full_name', read_only=True)
+    emp_email = serializers.EmailField(source='employee.user.email', read_only=True)
+    emp_designation = serializers.CharField(source='employee.designation', read_only=True)
+    emp_department = serializers.CharField(source='employee.department', read_only=True)
+    emp_location = serializers.CharField(source='employee.location', read_only=True)
     offer_letter_joining = serializers.DateField(source='offer_letter.joining_data', read_only=True)
     generated_by_name = serializers.CharField(source='generated_by.name', read_only=True)
 
@@ -56,8 +59,9 @@ class ExperienceCertificateSerializer(serializers.ModelSerializer):
             'employee',
             'emp_name',
             'emp_email',
-            'emp_address',
-            'emp_job_title',
+            'emp_designation',
+            'emp_department',
+            'emp_location',
             'offer_letter',
             'offer_letter_joining',
             'joining_date',
