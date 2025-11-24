@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     'cv_management',  
     "interview_management",
     "offer_letter",
-    'certificate_hub'
+    'certificate_hub',
     'employee_management',
 ]
 
@@ -100,7 +100,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'my_omega_db',
         'USER': 'postgres',
-        'PASSWORD': '1234',
+        'PASSWORD': '12345',
         'HOST': 'localhost',
         'PORT': '5432',
     }

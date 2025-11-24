@@ -1,11 +1,12 @@
 from django.db import models
-from User.models import AppUser
+from django.conf import settings
+from employee_management.models import Employee
 from offer_letter.models import OfferLetter
 
 class SalaryCertificate(models.Model):
 
     employee = models.ForeignKey(
-        AppUser,
+        Employee,
         on_delete=models.CASCADE,
         related_name='salary_certificates',
         verbose_name='Employee'
@@ -16,7 +17,7 @@ class SalaryCertificate(models.Model):
         verbose_name="Salary Amount"
     )
     generated_by = models.ForeignKey(
-        AppUser,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -39,7 +40,7 @@ class SalaryCertificate(models.Model):
 
 class ExperienceCertificate(models.Model):
     employee = models.ForeignKey(
-        AppUser,
+        Employee,
         on_delete=models.SET_NULL,
         null=True,
         verbose_name='employee',
@@ -53,7 +54,7 @@ class ExperienceCertificate(models.Model):
         related_name='experience_certificates'
     )
     generated_by = models.ForeignKey(
-        AppUser,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

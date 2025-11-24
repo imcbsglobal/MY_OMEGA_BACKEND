@@ -29,7 +29,7 @@ urlpatterns = [
     path('api/cv-management/', include('cv_management.urls')), 
     path('api/interview-management/',include('interview_management.urls')),
     path('api/offer-letter/',include("offer_letter.urls")),
-    path('api/certificate/',include('certificate_hub.urls'))
+    path('api/certificate/',include('certificate_hub.urls')),
     path('api/employee-management/', include('employee_management.urls')),
 ]
 if settings.DEBUG:
