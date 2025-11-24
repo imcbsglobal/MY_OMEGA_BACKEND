@@ -34,7 +34,7 @@ Authorization: Bearer <access_token>
 
 **Endpoint:** `GET /api/certificate/employees/`
 
-**Description:** Get all employees available for certificate creation.
+**Description:** Get all active employees available for certificate creation.
 
 **Request Headers:**
 ```
@@ -49,19 +49,23 @@ Authorization: Bearer <access_token>
   "data": [
     {
       "id": 1,
+      "employee_id": "EMP001",
       "name": "John Doe",
       "email": "john@example.com",
-      "job_title": "Software Engineer",
-      "joining_date": "2024-01-15",
-      "address": "123 Main St, City, Country"
+      "designation": "Software Engineer",
+      "department": "IT",
+      "date_of_joining": "2024-01-15",
+      "location": "New York"
     },
     {
       "id": 2,
+      "employee_id": "EMP002",
       "name": "Jane Smith",
       "email": "jane@example.com",
-      "job_title": "HR Manager",
-      "joining_date": "2023-05-20",
-      "address": "456 Oak Ave, City, Country"
+      "designation": "HR Manager",
+      "department": "Human Resources",
+      "date_of_joining": "2023-05-20",
+      "location": "Boston"
     }
   ]
 }
@@ -96,15 +100,16 @@ GET /api/certificate/salary-certificates/?employee=3
   "data": [
     {
       "id": 1,
-      "employee": 3,
+      "employee": 1,
       "emp_name": "John Doe",
       "emp_email": "john@example.com",
-      "emp_address": "123 Main St, City, Country",
+      "emp_designation": "Software Engineer",
+      "emp_department": "IT",
       "emp_joining_date": "2024-01-15",
-      "emp_job_title": "Software Engineer",
+      "emp_location": "New York",
       "salary": "50000.00",
-      "issued_date": "2024-11-21",
-      "generated_by": 1,
+      "issued_date": "2024-11-24",
+      "generated_by": 2,
       "generated_by_name": "Admin User"
     }
   ]
@@ -140,15 +145,16 @@ Content-Type: application/json
   "message": "Salary certificate created for John Doe",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
     "emp_joining_date": "2024-01-15",
-    "emp_job_title": "Software Engineer",
+    "emp_location": "New York",
     "salary": "50000.00",
-    "issued_date": "2024-11-21",
-    "generated_by": 1,
+    "issued_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -186,15 +192,16 @@ Authorization: Bearer <access_token>
   "message": "Salary certificate retrieved successfully",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
     "emp_joining_date": "2024-01-15",
-    "emp_job_title": "Software Engineer",
+    "emp_location": "New York",
     "salary": "50000.00",
-    "issued_date": "2024-11-21",
-    "generated_by": 1,
+    "issued_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -238,15 +245,16 @@ Content-Type: application/json
   "message": "Salary certificate updated successfully",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
     "emp_joining_date": "2024-01-15",
-    "emp_job_title": "Software Engineer",
+    "emp_location": "New York",
     "salary": "55000.00",
-    "issued_date": "2024-11-21",
-    "generated_by": 1,
+    "issued_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -344,16 +352,17 @@ GET /api/certificate/experience-certificates/?employee=3
   "data": [
     {
       "id": 1,
-      "employee": 3,
+      "employee": 1,
       "emp_name": "John Doe",
       "emp_email": "john@example.com",
-      "emp_address": "123 Main St, City, Country",
-      "emp_job_title": "Software Engineer",
+      "emp_designation": "Software Engineer",
+      "emp_department": "IT",
+      "emp_location": "New York",
       "offer_letter": 5,
       "offer_letter_joining": "2024-01-15",
       "joining_date": "2024-01-15",
-      "issue_date": "2024-11-21",
-      "generated_by": 1,
+      "issue_date": "2024-11-24",
+      "generated_by": 2,
       "generated_by_name": "Admin User"
     }
   ]
@@ -397,16 +406,17 @@ Content-Type: application/json
   "message": "Experience certificate created for John Doe",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
-    "emp_job_title": "Software Engineer",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
+    "emp_location": "New York",
     "offer_letter": 5,
     "offer_letter_joining": "2024-01-15",
     "joining_date": "2024-01-15",
-    "issue_date": "2024-11-21",
-    "generated_by": 1,
+    "issue_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -444,16 +454,17 @@ Authorization: Bearer <access_token>
   "message": "Experience certificate retrieved successfully",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
-    "emp_job_title": "Software Engineer",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
+    "emp_location": "New York",
     "offer_letter": 5,
     "offer_letter_joining": "2024-01-15",
     "joining_date": "2024-01-15",
-    "issue_date": "2024-11-21",
-    "generated_by": 1,
+    "issue_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -498,16 +509,17 @@ Content-Type: application/json
   "message": "Experience certificate updated successfully",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
-    "emp_job_title": "Software Engineer",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
+    "emp_location": "New York",
     "offer_letter": 5,
     "offer_letter_joining": "2024-01-15",
     "joining_date": "2024-01-15",
-    "issue_date": "2024-11-21",
-    "generated_by": 1,
+    "issue_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -541,16 +553,17 @@ Content-Type: application/json
   "message": "Experience certificate updated successfully",
   "data": {
     "id": 1,
-    "employee": 3,
+    "employee": 1,
     "emp_name": "John Doe",
     "emp_email": "john@example.com",
-    "emp_address": "123 Main St, City, Country",
-    "emp_job_title": "Software Engineer",
+    "emp_designation": "Software Engineer",
+    "emp_department": "IT",
+    "emp_location": "New York",
     "offer_letter": 5,
     "offer_letter_joining": "2024-01-15",
     "joining_date": "2024-02-01",
-    "issue_date": "2024-11-21",
-    "generated_by": 1,
+    "issue_date": "2024-11-24",
+    "generated_by": 2,
     "generated_by_name": "Admin User"
   }
 }
@@ -585,20 +598,31 @@ Authorization: Bearer <access_token>
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | id | Integer | Auto | Primary key |
-| employee | Integer | Yes | Employee ID (FK to AppUser) |
+| employee | Integer | Yes | Employee ID (FK to Employee) |
 | salary | Decimal | Yes | Salary amount (must be > 0) |
 | issued_date | Date | Auto | Certificate issue date |
-| generated_by | Integer | Auto | User who generated certificate |
+| generated_by | Integer | Auto | User who generated certificate (FK to AppUser) |
+| emp_name | String | Read-only | Employee full name |
+| emp_email | String | Read-only | Employee email |
+| emp_designation | String | Read-only | Employee designation |
+| emp_department | String | Read-only | Employee department |
+| emp_joining_date | Date | Read-only | Employee joining date |
+| emp_location | String | Read-only | Employee location |
 
 ### Experience Certificate
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | id | Integer | Auto | Primary key |
-| employee | Integer | No | Employee ID (FK to AppUser) |
+| employee | Integer | No | Employee ID (FK to Employee) |
 | offer_letter | Integer | No | Offer letter ID (FK to OfferLetter) |
 | joining_date | Date | No | Manual joining date (fallback) |
 | issue_date | Date | Auto | Certificate issue date |
-| generated_by | Integer | Auto | User who generated certificate |
+| generated_by | Integer | Auto | User who generated certificate (FK to AppUser) |
+| emp_name | String | Read-only | Employee full name |
+| emp_email | String | Read-only | Employee email |
+| emp_designation | String | Read-only | Employee designation |
+| emp_department | String | Read-only | Employee department |
+| emp_location | String | Read-only | Employee location |
 
 **Note:** If `offer_letter` is provided, `joining_date` is automatically populated from the offer letter's `joining_data` field on save.
 
