@@ -75,7 +75,7 @@ def salary_certificate_list_create(request):
                 # Auto-set generated_by to current user
                 salary_certificate = serializer.save(generated_by=request.user)
                 return success_response(
-                    message=f"Salary certificate created for {salary_certificate.employee.name}",
+                    message=f"Salary certificate created for {salary_certificate.employee.full_name}",
                     data=SalaryCertificateSerializer(salary_certificate).data,
                     status_code=status.HTTP_201_CREATED
                 )
@@ -131,7 +131,7 @@ def salary_certificate_detail(request, pk):
         )
     
     elif request.method == 'DELETE':
-        employee_name = salary_certificate.employee.name
+        employee_name = salary_certificate.employee.full_name
         salary_certificate.delete()
         return success_response(
             message=f"Salary certificate for {employee_name} deleted successfully"
@@ -166,7 +166,7 @@ def experience_certificate_list_create(request):
                 # Auto-set generated_by to current user
                 experience_certificate = serializer.save(generated_by=request.user)
                 return success_response(
-                    message=f"Experience certificate created for {experience_certificate.employee.name}",
+                    message=f"Experience certificate created for {experience_certificate.employee.full_name}",
                     data=ExperienceCertificateSerializer(experience_certificate).data,
                     status_code=status.HTTP_201_CREATED
                 )
@@ -222,7 +222,7 @@ def experience_certificate_detail(request, pk):
         )
     
     elif request.method == 'DELETE':
-        employee_name = experience_certificate.employee.name if experience_certificate.employee else "Unknown"
+        employee_name = experience_certificate.employee.full_name if experience_certificate.employee else "Unknown"
         experience_certificate.delete()
         return success_response(
             message=f"Experience certificate for {employee_name} deleted successfully"
