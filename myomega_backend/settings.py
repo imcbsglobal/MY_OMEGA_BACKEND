@@ -21,9 +21,6 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-f7up&g(x(1zgk4t*lmp%!hz46o&9id4=ekxuo84r9(in$3q%9e'
 
@@ -98,10 +95,10 @@ WSGI_APPLICATION = 'myomega_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'my_omega_db',
-        'USER': 'postgres',
-        'PASSWORD': 'info@imc',
-        'HOST': '88.222.212.14',
+        'NAME': os.getenv('DATABASE_NAME'),
+        'USER': os.getenv('DATABASE_USER'),
+        'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+        'HOST': os.getenv('DATABASE_HOST'),
         'PORT': '5432',
     }
 }
@@ -156,17 +153,6 @@ if CLOUDFLARE_R2_ENABLED:
     CLOUDFLARE_R2_PUBLIC_URL = os.getenv('CLOUDFLARE_R2_PUBLIC_URL')
     CLOUDFLARE_R2_ACCOUNT_ID = os.getenv('CLOUDFLARE_R2_ACCOUNT_ID', '')
     
-    # S3/R2 Settings
-    # AWS_STORAGE_BUCKET_NAME = CLOUDFLARE_R2_BUCKET_NAME
-    # AWS_S3_ENDPOINT_URL = CLOUDFLARE_R2_ENDPOINT
-    # AWS_S3_REGION_NAME = 'auto'  # R2 uses 'auto'
-    # AWS_S3_SIGNATURE_VERSION = 's3v4'
-    # AWS_S3_FILE_OVERWRITE = False
-    # AWS_DEFAULT_ACL = 'public-read'
-    # AWS_QUERYSTRING_AUTH = False  # Don't add auth to URLs
-    # AWS_S3_OBJECT_PARAMETERS = {
-    #     'CacheControl': 'max-age=86400',  # 1 day cache
-    # }
     
     # Django 5.x STORAGES setting (replaces DEFAULT_FILE_STORAGE)
     STORAGES = {
@@ -198,7 +184,6 @@ else:
 
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
