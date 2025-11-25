@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-f7up&g(x(1zgk4t*lmp%!hz46o&9id4=ekxuo84r9(in$3q%9e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['myomega.imcbs.com', 'localhost', '127.0.0.1']
 
 
 # Application definition
