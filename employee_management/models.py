@@ -28,6 +28,14 @@ class Employee(models.Model):
         verbose_name='Employee ID'
     )
     
+    # NEW: Employee Avatar/Photo
+    avatar = models.ImageField(
+        upload_to='employees/avatars/',
+        null=True,
+        blank=True,
+        help_text='Employee photo/avatar'
+    )
+    
     # Employment Details
     employment_status = models.CharField(
         max_length=64, 
@@ -115,7 +123,7 @@ class Employee(models.Model):
         help_text='12-digit Aadhar number'
     )
 
-    # UPDATED: Employee Location and Work Details
+    # Employee Location and Work Details
     location = models.CharField(
         max_length=255, 
         null=True, 
