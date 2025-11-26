@@ -4,7 +4,7 @@ botocore==1.40.64
 certifi==2025.11.12
 charset-normalizer==3.4.4
 Django==5.2.7
-django-cor s-headers==4.9.0
+django-cors-headers==4.9.0
 django-storages==1.14.6
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
