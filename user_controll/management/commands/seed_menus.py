@@ -6,6 +6,11 @@ class Command(BaseCommand):
     help = 'Seed menu items matching your HR System structure'
 
     def handle(self, *args, **options):
+        # First, let's clear old menu items to avoid conflicts
+        self.stdout.write("Clearing existing menu items...")
+        MenuItem.objects.all().delete()
+        self.stdout.write(self.style.SUCCESS("✓ Cleared existing menu items"))
+        
         # Define your exact menu structure
         menus = [
             {
@@ -16,46 +21,157 @@ class Command(BaseCommand):
                 "order": 1,
                 "children": [
                     {
+                        "name": "CV Management",
+                        "key": "hr_cv",
+                        "path": "/cv-management",
+                        "icon": "📋",
+                        "order": 1,
+                    },
+                    {
                         "name": "Interview Management",
                         "key": "hr_interview",
-                        "path": "/hr/interview-management",
+                        "path": "/interview-management",
                         "icon": "👤",
-                        "order": 1,
+                        "order": 2,
                     },
                     {
                         "name": "Offer Letter",
                         "key": "hr_offer_letter",
-                        "path": "/hr/offer-letter",
+                        "path": "/offer-letter",
                         "icon": "📄",
-                        "order": 2,
+                        "order": 3,
                     },
                     {
                         "name": "Employee Management",
                         "key": "hr_employee",
-                        "path": "/hr/employee-management",
+                        "path": "/employee-management",
                         "icon": "👥",
-                        "order": 3,
-                    },
-                    {
-                        "name": "Attendance Management",
-                        "key": "hr_attendance",
-                        "path": "/hr/attendance",
-                        "icon": "📊",
                         "order": 4,
                     },
                     {
-                        "name": "Punch In / Punch Out",
-                        "key": "hr_punch",
-                        "path": "/hr/PunchinPunchout",
-                        "icon": "FaUserClock",
+                        "name": "Experience Certificate",
+                        "key": "hr_experience",
+                        "path": "/experience-certificate",
+                        "icon": "🎓",
                         "order": 5,
+                    },
+                    {
+                        "name": "Salary Certificate",
+                        "key": "hr_salary",
+                        "path": "/salary-certificate",
+                        "icon": "💰",
+                        "order": 6,
+                    },
+                    {
+                        "name": "Attendance",
+                        "key": "hr_attendance",
+                        "path": "#",
+                        "icon": "📊",
+                        "order": 7,
+                        "children": [
+                            {
+                                "name": "Attendance Management",
+                                "key": "attendance_mgmt",
+                                "path": "/attendance-management",
+                                "icon": "📊",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Attendance Summary",
+                                "key": "attendance_summary",
+                                "path": "/attendance-summary",
+                                "icon": "📈",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Punch In / Punch Out",
+                                "key": "punch_in_out",
+                                "path": "/punch-in-out",
+                                "icon": "⏰",
+                                "order": 3,
+                            },
+                        ]
                     },
                     {
                         "name": "Leave Management",
                         "key": "hr_leave",
-                        "path": "/hr/leave-management",
-                        "icon": "FaCalendarCheck",
-                        "order": 6,
+                        "path": "#",
+                        "icon": "🗓️",
+                        "order": 8,
+                        "children": [
+                            {
+                                "name": "Leave Management",
+                                "key": "leave_mgmt",
+                                "path": "/leave-management",
+                                "icon": "🗓️",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Request Leave",
+                                "key": "request_leave",
+                                "path": "/leave-management/add",
+                                "icon": "📝",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Leave List",
+                                "key": "leave_list",
+                                "path": "/leave-management/leave-list",
+                                "icon": "📋",
+                                "order": 3,
+                            },
+                            {
+                                "name": "Early List",
+                                "key": "early_list",
+                                "path": "/leave-management/early-list",
+                                "icon": "🌅",
+                                "order": 4,
+                            },
+                            {
+                                "name": "Late List",
+                                "key": "late_list",
+                                "path": "/leave-management/late-list",
+                                "icon": "🌆",
+                                "order": 5,
+                            },
+                            {
+                                "name": "Break List",
+                                "key": "break_list",
+                                "path": "/leave-management/break-list",
+                                "icon": "☕",
+                                "order": 6,
+                            },
+                        ]
+                    },
+                    {
+                        "name": "Requests",
+                        "key": "hr_requests",
+                        "path": "#",
+                        "icon": "📝",
+                        "order": 9,
+                        "children": [
+                            {
+                                "name": "Leave Request",
+                                "key": "leave_request",
+                                "path": "/hr/request/leave",
+                                "icon": "🗓️",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Late Request",
+                                "key": "late_request",
+                                "path": "/hr/request/late",
+                                "icon": "⏰",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Early Request",
+                                "key": "early_request",
+                                "path": "/hr/request/early",
+                                "icon": "🌅",
+                                "order": 3,
+                            },
+                        ]
                     },
                 ]
             },
@@ -67,18 +183,34 @@ class Command(BaseCommand):
                 "order": 2,
                 "children": [
                     {
-                        "name": "User List",
-                        "key": "user_list",
-                        "path": "/user/list",
-                        "icon": "FaUsersCog",
+                        "name": "Add User",
+                        "key": "add_user",
+                        "path": "/add-user",
+                        "icon": "➕",
                         "order": 1,
                     },
                     {
                         "name": "User Control",
                         "key": "user_control",
-                        "path": "/admin/user-control",
+                        "path": "/user-control",
                         "icon": "🔒",
                         "order": 2,
+                    },
+                ]
+            },
+            {
+                "name": "Master Data",
+                "key": "master",
+                "path": "#",
+                "icon": "⚙️",
+                "order": 3,
+                "children": [
+                    {
+                        "name": "Job Titles",
+                        "key": "job_titles",
+                        "path": "/master/job-titles",
+                        "icon": "💼",
+                        "order": 1,
                     },
                 ]
             },
