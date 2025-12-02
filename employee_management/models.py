@@ -1,4 +1,4 @@
-# employee_management/models.py
+# employee_management/models.py - COMPLETE WITH PHONE NUMBER
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -26,6 +26,23 @@ class Employee(models.Model):
         blank=True,
         help_text='Employee ID (defaults to User ID, can be customized)',
         verbose_name='Employee ID'
+    )
+    
+    # NEW: Employee Phone Number for WhatsApp notifications
+    phone_number = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text='Employee contact number (WhatsApp enabled)',
+        verbose_name='Phone Number'
+    )
+    
+    # Employee Avatar/Photo
+    avatar = models.ImageField(
+        upload_to='employees/avatars/',
+        null=True,
+        blank=True,
+        help_text='Employee photo/avatar'
     )
     
     # Employment Details
@@ -115,7 +132,7 @@ class Employee(models.Model):
         help_text='12-digit Aadhar number'
     )
 
-    # UPDATED: Employee Location and Work Details
+    # Employee Location and Work Details
     location = models.CharField(
         max_length=255, 
         null=True, 

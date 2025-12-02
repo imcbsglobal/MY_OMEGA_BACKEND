@@ -1,0 +1,331 @@
+# whatsapp_service/utils.py
+"""
+Helper utilities for WhatsApp messaging.
+Used by:
+- whatsapp_service.views (punch in/out, generic request)
+- HR.signals (attendance, leave, late, early)
+"""
+
+import logging
+from typing import Optional
+
+from django.conf import settings
+
+from .services.whatsapp_client import send_text, WhatsAppClientError
+from . import admin_numbers
+
+logger = logging.getLogger(__name__)
+
+
+# ================== LOW-LEVEL SEND HELPERS ==================
+
+def send_whatsapp_notification(phone_number: str, message: str):
+    """
+    Send WhatsApp notification with error handling.
+    Returns provider result (dict) or None on failure.
+    """
+    if not phone_number:
+        logger.warning("send_whatsapp_notification called with empty phone_number")
+        return None
+
+    try:
+        result = send_text(phone_number, message)
+        logger.info("WhatsApp sent to %s: %s", phone_number, message[:80])
+        return result
+    except WhatsAppClientError as e:
+        logger.error("WhatsApp error for %s: %s", phone_number, str(e))
+        return None
+    except Exception as e:
+        logger.exception("Unexpected error sending WhatsApp to %s: %s", phone_number, str(e))
+        return None
+
+
+def get_user_phone(user) -> Optional[str]:
+    """
+    Get user's WhatsApp-compatible phone number as a string.
+    Now checks BOTH user.phone_number AND Employee model phone.
+    
+    Priority:
+    1. User.phone_number (if available)
+    2. Employee.phone_number (from employee_management)
+    3. Employee.emergency_contact_phone (backup)
+    4. None
+    """
+    if not user:
+        return None
+
+    # Optional preference flag
+    if hasattr(user, "whatsapp_notifications") and not user.whatsapp_notifications:
+        return None
+
+    def normalize_phone(phone):
+        """Helper to normalize phone number"""
+        if not phone:
+            return None
+        s = str(phone).strip()
+        if not s:
+            return None
+        # Light normalization – if it's numeric without +, prepend +
+        raw = s.replace(" ", "").replace("-", "")
+        if not s.startswith("+") and raw.isdigit():
+            s = "+" + raw
+        return s
+
+    # First, try user.phone_number
+    phone = getattr(user, "phone_number", None)
+    if phone:
+        normalized = normalize_phone(phone)
+        if normalized:
+            return normalized
+    
+    # Second, try to get phone from Employee model
+    try:
+        # Import here to avoid circular imports
+        from employee_management.models import Employee
+        
+        # Try to get employee record linked to this user
+        employee = Employee.objects.filter(user=user).first()
+        if employee:
+            # Priority 1: Employee's direct phone number
+            emp_phone = getattr(employee, 'phone_number', None)
+            if emp_phone:
+                normalized = normalize_phone(emp_phone)
+                if normalized:
+                    logger.info(f"Using employee phone for user {user.id}: {normalized}")
+                    return normalized
+            
+            # Priority 2: Emergency contact phone as fallback
+            emp_phone = getattr(employee, 'emergency_contact_phone', None)
+            if emp_phone:
+                normalized = normalize_phone(emp_phone)
+                if normalized:
+                    logger.info(f"Using emergency contact phone for user {user.id}: {normalized}")
+                    return normalized
+    except Exception as e:
+        logger.warning(f"Could not fetch employee phone for user {user.id}: {e}")
+    
+    return None
+
+
+def notify_hr_admin(message: str):
+    """
+    Notify HR admins using numbers defined in admin_numbers.py.
+
+    Priority:
+    1. HR_ADMIN_NUMBERS
+    2. HR_MAIN_NUMBER
+    3. settings.WHATSAPP_PHONE_NUMBER (last fallback)
+    """
+    if not message:
+        return
+
+    numbers = admin_numbers.get_hr_admin_numbers()
+    if not numbers:
+        main = admin_numbers.get_hr_main_number()
+        if main:
+            numbers = [main]
+        else:
+            default = getattr(settings, "WHATSAPP_PHONE_NUMBER", None)
+            if default:
+                numbers = [default]
+
+    for num in numbers:
+        send_whatsapp_notification(num, message)
+
+
+# ================== MESSAGE FORMATTERS ==================
+# These are used by HR.signals.py
+
+def _user_name(user) -> str:
+    return getattr(user, "name", None) or getattr(user, "username", "User")
+
+
+def _safe_date(dt) -> str:
+    try:
+        if dt:
+            return dt.strftime("%d %b %Y")
+    except Exception:
+        pass
+    return "Not specified"
+
+
+def format_punch_message(user, action, location, time):
+    """
+    Format punch in/out message.
+    action: "PUNCH IN" or "PUNCH OUT"
+    """
+    user_name = _user_name(user)
+    location = location or "Not recorded"
+    time = time or "Not recorded"
+
+    return f"""📍 Attendance Alert
+
+Employee: {user_name}
+Action: {action}
+Time: {time}
+Location: {location}
+
+Thank you!"""
+
+
+def format_leave_request_message(leave_request):
+    """
+    Format leave request submission message (to employee + HR).
+    """
+    user_name = _user_name(leave_request.user)
+
+    if hasattr(leave_request, "get_leave_type_display"):
+        leave_type = leave_request.get_leave_type_display()
+    else:
+        leave_type = getattr(leave_request, "leave_type", "Leave")
+
+    from_date = _safe_date(getattr(leave_request, "from_date", None))
+    to_date = _safe_date(getattr(leave_request, "to_date", None))
+    days = getattr(leave_request, "total_days", None) or "Not specified"
+    reason = getattr(leave_request, "reason", "") or "No reason provided"
+
+    return f"""📋 Leave Request Submitted
+
+Employee: {user_name}
+Type: {leave_type}
+From: {from_date}
+To: {to_date}
+Days: {days}
+Reason: {reason}
+
+Status: Pending Approval"""
+
+
+def format_leave_approval_message(leave_request, approved_by):
+    """
+    Format leave approval/rejection message (to employee).
+    """
+    user_name = _user_name(leave_request.user)
+    approver_name = _user_name(approved_by)
+
+    if hasattr(leave_request, "get_leave_type_display"):
+        leave_type = leave_request.get_leave_type_display()
+    else:
+        leave_type = getattr(leave_request, "leave_type", "Leave")
+
+    if hasattr(leave_request, "get_status_display"):
+        status_display = leave_request.get_status_display()
+    else:
+        status_display = getattr(leave_request, "status", "")
+
+    from_date = _safe_date(getattr(leave_request, "from_date", None))
+    to_date = _safe_date(getattr(leave_request, "to_date", None))
+    days = getattr(leave_request, "total_days", None) or "Not specified"
+    reason = getattr(leave_request, "reason", "") or "No reason provided"
+
+    status_flag = "✅ APPROVED" if getattr(leave_request, "status", "") == "approved" else "❌ REJECTED"
+
+    return f"""📋 Leave Request {status_flag}
+
+Employee: {user_name}
+Type: {leave_type}
+From: {from_date}
+To: {to_date}
+Days: {days}
+Reason: {reason}
+
+Status: {status_display}
+Approved/Updated by: {approver_name}"""
+
+
+def format_late_request_message(late_request):
+    """
+    Format late-coming request submission message.
+    """
+    user_name = _user_name(late_request.user)
+    reason = getattr(late_request, "reason", "") or "No reason provided"
+    late_by = getattr(late_request, "late_by_minutes", None)
+    late_text = f"{late_by} minutes" if late_by is not None else "Not specified"
+    date = _safe_date(getattr(late_request, "date", None))
+
+    return f"""⏰ Late Coming Request Submitted
+
+Employee: {user_name}
+Date: {date}
+Late By: {late_text}
+Reason: {reason}
+
+Status: Pending Approval"""
+
+
+def format_late_approval_message(late_request, approved_by):
+    """
+    Format late-coming approval/rejection message.
+    """
+    user_name = _user_name(late_request.user)
+    approver_name = _user_name(approved_by)
+    reason = getattr(late_request, "reason", "") or "No reason provided"
+    late_by = getattr(late_request, "late_by_minutes", None)
+    late_text = f"{late_by} minutes" if late_by is not None else "Not specified"
+    date = _safe_date(getattr(late_request, "date", None))
+
+    if hasattr(late_request, "get_status_display"):
+        status_display = late_request.get_status_display()
+    else:
+        status_display = getattr(late_request, "status", "")
+
+    status_flag = "✅ APPROVED" if getattr(late_request, "status", "") == "approved" else "❌ REJECTED"
+
+    return f"""⏰ Late Coming Request {status_flag}
+
+Employee: {user_name}
+Date: {date}
+Late By: {late_text}
+Reason: {reason}
+
+Status: {status_display}
+Approved/Updated by: {approver_name}"""
+
+
+def format_early_request_message(early_request):
+    """
+    Format early-going request submission message.
+    """
+    user_name = _user_name(early_request.user)
+    reason = getattr(early_request, "reason", "") or "No reason provided"
+    early_by = getattr(early_request, "early_by_minutes", None)
+    early_text = f"{early_by} minutes" if early_by is not None else "Not specified"
+    date = _safe_date(getattr(early_request, "date", None))
+
+    return f"""⏳ Early Going Request Submitted
+
+Employee: {user_name}
+Date: {date}
+Early By: {early_text}
+Reason: {reason}
+
+Status: Pending Approval"""
+
+
+def format_early_approval_message(early_request, approved_by):
+    """
+    Format early-going approval/rejection message.
+    """
+    user_name = _user_name(early_request.user)
+    approver_name = _user_name(approved_by)
+    reason = getattr(early_request, "reason", "") or "No reason provided"
+    early_by = getattr(early_request, "early_by_minutes", None)
+    early_text = f"{early_by} minutes" if early_by is not None else "Not specified"
+    date = _safe_date(getattr(early_request, "date", None))
+
+    if hasattr(early_request, "get_status_display"):
+        status_display = early_request.get_status_display()
+    else:
+        status_display = getattr(early_request, "status", "")
+
+    status_flag = "✅ APPROVED" if getattr(early_request, "status", "") == "approved" else "❌ REJECTED"
+
+    return f"""⏳ Early Going Request {status_flag}
+
+Employee: {user_name}
+Date: {date}
+Early By: {early_text}
+Reason: {reason}
+
+Status: {status_display}
+Approved/Updated by: {approver_name}"""

@@ -82,6 +82,30 @@ class Command(BaseCommand):
                     },
                 ]
             },
+            {
+    "name": "Payroll",
+    "key": "payroll",
+    "path": "#",
+    "icon": "💰",
+    "order": 3,
+    "children": [
+        {
+            "name": "Payroll List",
+            "key": "payroll_list",
+            "path": "/payroll",
+            "icon": "",
+            "order": 1,
+        },
+        {
+            "name": "Process Payroll",
+            "key": "payroll_new",
+            "path": "/payroll/new",
+            "icon": "",
+            "order": 2,
+        },
+    ],
+},
+
         ]
 
         created_count = 0

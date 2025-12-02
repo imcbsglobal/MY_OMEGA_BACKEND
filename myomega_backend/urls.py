@@ -28,8 +28,11 @@ urlpatterns = [
     path('api/hr/', include('HR.urls')),
     path('api/cv-management/', include('cv_management.urls')), 
     path('api/interview-management/',include('interview_management.urls')),
-    path('api/employee-management/', include('employee_management.urls')),
-    path('api/offer-letter/',include("offer_letter.urls"))
+     path('api/employee-management/', include('employee_management.urls', namespace='employee_management')),
+    path('api/offer-letter/',include("offer_letter.urls")),
+    path('api/payroll/', include('payroll.urls')),
+    path('api/whatsapp/', include('whatsapp_service.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

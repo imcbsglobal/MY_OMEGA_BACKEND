@@ -1,3 +1,4 @@
+# employee_management/serializers.py - FIXED
 from rest_framework import serializers
 from django.apps import apps
 from .models import Employee, EmployeeDocument
@@ -28,7 +29,7 @@ class JobInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            'id', 'employee_id', 'user', 'user_name', 'user_email',
+            'id', 'employee_id', 'user', 'user_name', 'user_email',  # <-- user_name now included
             'employment_status', 'employment_type', 'department', 'designation',
             'reporting_manager', 'reporting_manager_name', 'date_of_joining',
             'date_of_leaving', 'probation_end_date', 'confirmation_date',
@@ -178,7 +179,8 @@ class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            'user', 'employee_id', 'employment_status', 'employment_type',
+            'user', 'employee_id', 'phone_number',  # <-- phone_number added
+            'employment_status', 'employment_type',
             'department', 'designation', 'reporting_manager',
             'date_of_joining', 'date_of_leaving', 'probation_end_date', 
             'confirmation_date', 'basic_salary', 'allowances', 'gross_salary',
