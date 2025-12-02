@@ -1,12 +1,6 @@
-from django.contrib import admin
-
-# Register your models here.
-
-# ============================================================
 # HR/admin.py
-# ============================================================
 from django.contrib import admin
-from .models import Attendance, Holiday, LeaveRequest
+from .models import Attendance, Holiday, LeaveRequest, LateRequest, EarlyRequest
 
 
 @admin.register(Attendance)
@@ -19,7 +13,7 @@ class AttendanceAdmin(admin.ModelAdmin):
     search_fields = ['user__name', 'user__email']
     readonly_fields = ['working_hours', 'created_at', 'updated_at']
     date_hierarchy = 'date'
-    
+
     fieldsets = (
         ('Basic Information', {
             'fields': ('user', 'date', 'status', 'verification_status')
@@ -64,7 +58,7 @@ class LeaveRequestAdmin(admin.ModelAdmin):
     search_fields = ['user__name', 'user__email', 'reason']
     readonly_fields = ['total_days', 'created_at', 'updated_at']
     date_hierarchy = 'from_date'
-    
+
     fieldsets = (
         ('Leave Request', {
             'fields': ('user', 'leave_type', 'from_date', 'to_date', 'reason')
@@ -77,3 +71,56 @@ class LeaveRequestAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(LateRequest)
+class LateRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'user', 'date', 'late_by_minutes', 'status', 'created_at'
+    ]
+    list_filter = ['status', 'date']
+    search_fields = ['user__name', 'user__email', 'reason']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'date'
+
+    fieldsets = (
+        ('Late Request', {
+            'fields': ('user', 'date', 'late_by_minutes', 'reason')
+        }),
+        ('Status', {
+            'fields': ('status', 'reviewed_by', 'reviewed_at', 'admin_comment')
+        }),
+        ('System Fields', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(EarlyRequest)
+class EarlyRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'user', 'date', 'early_by_minutes', 'status', 'created_at'
+    ]
+    list_filter = ['status', 'date']
+    search_fields = ['user__name', 'user__email', 'reason']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'date'
+
+    fieldsets = (
+        ('Early Request', {
+            'fields': ('user', 'date', 'early_by_minutes', 'reason')
+        }),
+        ('Status', {
+            'fields': ('status', 'reviewed_by', 'reviewed_at', 'admin_comment')
+        }),
+        ('System Fields', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+
+
+

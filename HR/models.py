@@ -274,6 +274,8 @@ class Break(models.Model):
 
 # Add these models to your HR/models.py file
 
+# HR/models.py - QUICK FIX FOR LateRequest
+
 class LateRequest(models.Model):
     """
     Model to store late arrival requests from employees
@@ -293,7 +295,7 @@ class LateRequest(models.Model):
     date = models.DateField(help_text='Date of late arrival')
     late_by_minutes = models.IntegerField(
         help_text='How many minutes late',
-        validators=[MinValueValidator(1), MaxValueValidator(240)]  # Max 4 hours
+        validators=[MinValueValidator(1), MaxValueValidator(240)]
     )
     reason = models.TextField(help_text='Reason for late arrival')
     status = models.CharField(
@@ -324,19 +326,27 @@ class LateRequest(models.Model):
         verbose_name = 'Late Request'
         verbose_name_plural = 'Late Requests'
         ordering = ['-created_at']
-        unique_together = ['user', 'date']
+        # REMOVED unique_together to allow multiple requests per date
+        # If you want it back, check for existing requests in the view
     
     def __str__(self):
-        return f"{self.user.name} - Late by {self.late_by_minutes} mins on {self.date}"
+        try:
+            user_name = self.user.name if hasattr(self.user, 'name') else str(self.user)
+            return f"{user_name} - Late by {self.late_by_minutes} mins on {self.date}"
+        except:
+            return f"Late Request {self.id}"
     
     @property
     def late_time_display(self):
         """Display late time in hours and minutes"""
-        hours = self.late_by_minutes // 60
-        minutes = self.late_by_minutes % 60
-        if hours > 0:
-            return f"{hours}h {minutes}m"
-        return f"{minutes}m"
+        try:
+            hours = self.late_by_minutes // 60
+            minutes = self.late_by_minutes % 60
+            if hours > 0:
+                return f"{hours}h {minutes}m"
+            return f"{minutes}m"
+        except:
+            return "Unknown"
 
 
 class EarlyRequest(models.Model):

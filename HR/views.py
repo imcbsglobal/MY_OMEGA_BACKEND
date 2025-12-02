@@ -119,7 +119,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         
         response_serializer = AttendanceSerializer(attendance)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-    
+        
     @action(detail=False, methods=['post'])
     def punch_out(self, request):
         """Punch out action"""
@@ -149,18 +149,23 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Set punch out data
         attendance.punch_out_time = timezone.now()
         attendance.punch_out_location = serializer.validated_data['location']
         attendance.punch_out_latitude = serializer.validated_data['latitude']
         attendance.punch_out_longitude = serializer.validated_data['longitude']
+        
+        # Add note if provided
         if serializer.validated_data.get('note'):
             if attendance.note:
                 attendance.note += '\n' + serializer.validated_data['note']
             else:
                 attendance.note = serializer.validated_data['note']
         
+        # Calculate working hours
         attendance.calculate_working_hours()
         
+        # Update status based on working hours
         if attendance.working_hours >= 7.5:
             attendance.status = 'full'
         elif attendance.working_hours >= 4:
@@ -168,7 +173,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         else:
             attendance.status = 'half'
         
+        # IMPORTANT: Save without update_fields so signal can detect all changes
+        print(f"[punch_out] Saving attendance for user {user.id}")
+        print(f"[punch_out] Punch out time: {attendance.punch_out_time}")
+        
         attendance.save()
+        
+        print(f"[punch_out] Attendance saved successfully")
         
         response_serializer = AttendanceSerializer(attendance)
         return Response(response_serializer.data)
@@ -1032,8 +1043,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         })
 
 
+# HR/views.py - ADD THIS DEBUG VERSION OF LateRequestViewSet
+
+import logging
+logger = logging.getLogger(__name__)
+
 class LateRequestViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing Late Requests"""
+    """ViewSet for managing Late Requests - WITH DEBUG LOGGING"""
     queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
     serializer_class = LateRequestSerializer
     permission_classes = [IsAuthenticated]
@@ -1072,7 +1088,73 @@ class LateRequestViewSet(viewsets.ModelViewSet):
         return LateRequestSerializer
 
     def perform_create(self, serializer):
+        """Save with current user"""
+        logger.info(f"Creating late request for user: {self.request.user.id}")
         serializer.save(user=self.request.user)
+        logger.info(f"Late request created successfully: {serializer.instance.id}")
+
+    def create(self, request, *args, **kwargs):
+        """Override create to add better error handling"""
+        try:
+            logger.info(f"=== LATE REQUEST CREATE START ===")
+            logger.info(f"User: {request.user.id} - {request.user.name if hasattr(request.user, 'name') else request.user.username}")
+            logger.info(f"Request data: {request.data}")
+            
+            # Validate serializer
+            serializer = self.get_serializer(data=request.data)
+            logger.info(f"Serializer validation...")
+            
+            try:
+                serializer.is_valid(raise_exception=True)
+                logger.info(f"Serializer validation passed")
+            except Exception as e:
+                logger.error(f"Serializer validation failed: {e}")
+                logger.error(f"Validation errors: {serializer.errors}")
+                raise
+            
+            # Perform create
+            logger.info(f"Performing create...")
+            try:
+                self.perform_create(serializer)
+                logger.info(f"Perform create completed")
+            except Exception as e:
+                logger.error(f"Perform create failed: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                raise
+            
+            # Get instance and serialize response
+            logger.info(f"Fetching created instance...")
+            try:
+                instance = LateRequest.objects.get(id=serializer.instance.id)
+                response_serializer = LateRequestSerializer(instance)
+                logger.info(f"Instance serialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to serialize response: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                raise
+            
+            logger.info(f"=== LATE REQUEST CREATE SUCCESS ===")
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+            
+        except Exception as e:
+            logger.error(f"=== LATE REQUEST CREATE FAILED ===")
+            logger.error(f"Error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            
+            # Return detailed error
+            return Response(
+                {
+                    'error': str(e),
+                    'detail': 'Late request creation failed. Check server logs for details.'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=['get'], url_path='my-requests')
     def my_requests(self, request):

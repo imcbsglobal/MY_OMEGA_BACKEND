@@ -27,7 +27,8 @@ SECRET_KEY = 'django-insecure-f7up&g(x(1zgk4t*lmp%!hz46o&9id4=ekxuo84r9(in$3q%9e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['myomega.imcbs.com', 'localhost', '127.0.0.1']
+# ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ['myomega.imcbs.com','demomyomega.imcbs.com', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -48,7 +49,7 @@ INSTALLED_APPS = [
     
     # Your apps
     'login',
-    'HR',
+    'HR.apps.HRConfig',
     'User',
     'user_controll',
     'cv_management',  
@@ -56,6 +57,8 @@ INSTALLED_APPS = [
     "offer_letter",
     'certificate_hub',
     'employee_management',
+    "payroll",
+    'whatsapp_service',
 ]
 
 MIDDLEWARE = [
@@ -227,7 +230,8 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://myomega.imcbs.com"
+    "https://myomega.imcbs.com",
+    "https://demomyomega.imcbs.com"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -243,3 +247,38 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+
+
+
+
+# choose provider: "meta", "twilio", or "dxing"
+# ===========================
+# WHATSAPP / DXING SETTINGS
+# ===========================
+
+# Use DXING as the WhatsApp provider
+WHATSAPP_PROVIDER = "dxing"
+
+# DXING endpoint – this matches the URL format you shared
+DXING_API_URL = os.getenv(
+    "DXING_API_URL",
+    "https://app.dxing.in/api/send/whatsapp",
+)
+
+# REAL secret + account from your DXING URL
+DXING_SECRET = os.getenv(
+    "DXING_SECRET",
+    "0a6484c76c715a540686e9d73410e33a9f0fd6fb",
+)
+DXING_ACCOUNT = os.getenv(
+    "DXING_ACCOUNT",
+    "1764157689577bcc914f9e55d5e4e4f82f9f00e7d46926e8f9a45a8",
+)
+
+DXING_DEFAULT_PRIORITY = int(os.getenv("DXING_DEFAULT_PRIORITY", "1"))
+
+# Default sender / fallback number (FROM)
+# Keep as full international WhatsApp number
+WHATSAPP_PHONE_NUMBER = os.getenv("WHATSAPP_PHONE_NUMBER", "+918281561081")
+

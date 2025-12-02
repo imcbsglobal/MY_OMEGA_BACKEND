@@ -1,4 +1,5 @@
 # employee_management/views.py
+# TEMPORARY: Authentication disabled for development
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -18,7 +19,8 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
     POST: Create new employee
     """
     queryset = Employee.objects.select_related('user').all()
-    permission_classes = [permissions.IsAuthenticated]
+    # TEMPORARY: Allow any access for development
+    permission_classes = [permissions.AllowAny]  # Change back to IsAuthenticated in production!
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -32,7 +34,7 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
         search = self.request.query_params.get('search', None)
         if search:
             queryset = queryset.filter(
-                Q(employee_code__icontains=search) |
+                Q(employee_id__icontains=search) |
                 Q(user__name__icontains=search) |
                 Q(user__email__icontains=search) |
                 Q(designation__icontains=search) |
@@ -42,7 +44,11 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
         return queryset.order_by('-created_at')
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        # Save without created_by if user is not authenticated
+        if self.request.user.is_authenticated:
+            serializer.save(created_by=self.request.user)
+        else:
+            serializer.save()
 
 
 class EmployeeDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -54,7 +60,8 @@ class EmployeeDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Employee.objects.select_related(
         'user', 'reporting_manager'
     ).prefetch_related('additional_documents')
-    permission_classes = [permissions.IsAuthenticated]
+    # TEMPORARY: Allow any access for development
+    permission_classes = [permissions.AllowAny]  # Change back to IsAuthenticated in production!
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -63,14 +70,14 @@ class EmployeeDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])  # TEMPORARY
 def employees_sidebar(request):
     """
     Returns employee list for sidebar/dropdown
     """
     queryset = Employee.objects.select_related('user').filter(
         is_active=True
-    ).order_by('employee_code')[:200]
+    ).order_by('employee_id')[:200]
     
     result = []
     for emp in queryset:
@@ -83,7 +90,7 @@ def employees_sidebar(request):
         
         result.append({
             'id': emp.id,
-            'employee_code': emp.employee_code or '',
+            'employee_id': emp.employee_id or '',
             'name': emp.get_full_name(),
             'designation': emp.designation or '',
             'department': emp.department or '',
@@ -94,7 +101,7 @@ def employees_sidebar(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])  # TEMPORARY
 def employee_stats(request):
     """
     Get employee statistics
