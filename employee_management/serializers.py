@@ -21,7 +21,6 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
 
 class JobInfoSerializer(serializers.ModelSerializer):
-    """Job information nested serializer"""
     reporting_manager_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
     user_name = serializers.SerializerMethodField()
@@ -33,8 +32,8 @@ class JobInfoSerializer(serializers.ModelSerializer):
             'employment_status', 'employment_type', 'department', 'designation',
             'reporting_manager', 'reporting_manager_name', 'date_of_joining',
             'date_of_leaving', 'probation_end_date', 'confirmation_date',
-            'basic_salary', 'allowances', 'gross_salary', 'location', 'work_location', 
-            'duty_time'
+            'basic_salary', 'allowances', 'gross_salary', 'location', 
+            'work_location', 'duty_time'
         ]
 
     def get_reporting_manager_name(self, obj):
@@ -45,7 +44,7 @@ class JobInfoSerializer(serializers.ModelSerializer):
 
     def get_user_email(self, obj):
         u = getattr(obj, 'user', None)
-        return getattr(u, 'email', '') if u else ''
+        return u.email if u else ''
 
     def get_user_name(self, obj):
         u = getattr(obj, 'user', None)
@@ -54,23 +53,22 @@ class JobInfoSerializer(serializers.ModelSerializer):
         if hasattr(u, 'get_full_name'):
             try:
                 return u.get_full_name()
-            except Exception:
+            except:
                 pass
+
         for attr in ('full_name', 'name', 'username', 'first_name'):
             if hasattr(u, attr):
-                val = getattr(u, attr)
-                if callable(val):
-                    try:
-                        val = val()
-                    except Exception:
-                        val = ''
-                if val:
-                    return val
+                value = getattr(u, attr)
+                if callable(value):
+                    try: value = value()
+                    except: value = ''
+                if value:
+                    return value
+
         return str(u)
 
 
 class ContactInfoSerializer(serializers.ModelSerializer):
-    """Contact information nested serializer"""
     class Meta:
         model = Employee
         fields = [
@@ -79,64 +77,64 @@ class ContactInfoSerializer(serializers.ModelSerializer):
 
 
 class BankInfoSerializer(serializers.ModelSerializer):
-    """Bank information nested serializer"""
     class Meta:
         model = Employee
         fields = [
-            'salary_account_number', 'salary_bank_name', 'salary_ifsc_code', 
+            'salary_account_number', 'salary_bank_name', 'salary_ifsc_code',
             'salary_branch', 'account_holder_name'
         ]
 
 
 class EmployeeDocumentSerializer(serializers.ModelSerializer):
-    """Serializer for employee documents"""
     class Meta:
         model = EmployeeDocument
-        fields = ['id', 'document_type', 'title', 'document_file', 'issue_date', 
-                  'expiry_date', 'notes']
+        fields = [
+            'id', 'document_type', 'title', 'document_file', 
+            'issue_date', 'expiry_date', 'notes'
+        ]
 
 
 class EmployeeListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for employee list view"""
     full_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()  # NEW
     job_info = JobInfoSerializer(source='*', read_only=True)
 
     class Meta:
         model = Employee
         fields = [
-            'id', 'employee_id', 'full_name', 'user_email', 'avatar_url',
-            'designation', 'department', 'employment_status', 'employment_type',
-            'location', 'is_active', 'created_at', 'job_info'
+            'id', 'employee_id', 'full_name', 'user_email',
+            'avatar_url', 'profile_picture',  # FIXED
+            'designation', 'department', 'employment_status',
+            'employment_type', 'location', 'is_active', 'created_at',
+            'job_info'
         ]
 
     def get_full_name(self, obj):
         return obj.get_full_name()
 
     def get_user_email(self, obj):
-        if obj.user:
-            return obj.user.email
-        return ''
+        return obj.user.email if obj.user else ''
 
     def get_avatar_url(self, obj):
-        if hasattr(obj, 'avatar') and obj.avatar:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.avatar.url)
-            return obj.avatar.url
-        
-        user = getattr(obj, 'user', None)
-        if user and hasattr(user, 'photo') and user.photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(user.photo.url)
-            return user.photo.url
+        request = self.context.get('request')
+
+        # Employee Avatar
+        if obj.avatar:
+            return request.build_absolute_uri(obj.avatar.url) if request else obj.avatar.url
+
+        # User Photo
+        if obj.user and hasattr(obj.user, 'photo') and obj.user.photo:
+            return request.build_absolute_uri(obj.user.photo.url) if request else obj.user.photo.url
+
         return None
+
+    def get_profile_picture(self, obj):
+        return self.get_avatar_url(obj)
 
 
 class EmployeeDetailSerializer(serializers.ModelSerializer):
-    """Complete serializer for employee detail view"""
     job_info = JobInfoSerializer(source='*', read_only=True)
     contact_info = ContactInfoSerializer(source='*', read_only=True)
     bank_info = BankInfoSerializer(source='*', read_only=True)
@@ -149,8 +147,9 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'employee_id', 'full_name', 'avatar_url',
             'job_info', 'contact_info', 'bank_info', 'documents',
-            'designation', 'department', 'employment_status', 'employment_type',
-            'location', 'work_location', 'blood_group', 'marital_status', 'notes',
+            'designation', 'department', 'employment_status', 
+            'employment_type', 'location', 'work_location',
+            'blood_group', 'marital_status', 'notes',
             'is_active', 'created_at', 'updated_at'
         ]
 
@@ -158,34 +157,31 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         return obj.get_full_name()
 
     def get_avatar_url(self, obj):
-        if hasattr(obj, 'avatar') and obj.avatar:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.avatar.url)
-            return obj.avatar.url
-        
-        user = getattr(obj, 'user', None)
-        if user and hasattr(user, 'photo') and user.photo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(user.photo.url)
-            return user.photo.url
+        request = self.context.get('request')
+
+        if obj.avatar:
+            return request.build_absolute_uri(obj.avatar.url) if request else obj.avatar.url
+
+        if obj.user and hasattr(obj.user, 'photo') and obj.user.photo:
+            return request.build_absolute_uri(obj.user.photo.url) if request else obj.user.photo.url
+
         return None
 
 
 class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating and updating employees"""
-    
     class Meta:
         model = Employee
         fields = [
             'user', 'employee_id', 'phone_number',  # <-- phone_number added
             'employment_status', 'employment_type',
             'department', 'designation', 'reporting_manager',
-            'date_of_joining', 'date_of_leaving', 'probation_end_date', 
+            'date_of_joining', 'date_of_leaving', 'probation_end_date',
             'confirmation_date', 'basic_salary', 'allowances', 'gross_salary',
             'pf_number', 'esi_number', 'pan_number', 'aadhar_number',
             'location', 'work_location', 'duty_time',
+
+            'avatar',   # ⭐⭐⭐ ADDED FIX
+
             'account_holder_name', 'salary_account_number', 'salary_bank_name',
             'salary_ifsc_code', 'salary_branch',
             'pan_card_attachment', 'offer_letter', 'joining_letter', 'id_card_attachment',
@@ -194,22 +190,16 @@ class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_user(self, value):
-        """Ensure user doesn't already have an employee record"""
-        if self.instance is None:  # Only for creation
+        if self.instance is None:
             if Employee.objects.filter(user=value).exists():
-                raise serializers.ValidationError(
-                    "This user already has an employee record."
-                )
+                raise serializers.ValidationError("This user already has an employee record.")
         return value
 
     def validate_employee_id(self, value):
-        """Ensure employee ID is unique"""
         if value:
             qs = Employee.objects.filter(employee_id=value)
             if self.instance:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise serializers.ValidationError(
-                    "An employee with this ID already exists."
-                )
+                raise serializers.ValidationError("An employee with this ID already exists.")
         return value

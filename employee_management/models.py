@@ -38,6 +38,7 @@ class Employee(models.Model):
     )
     
     # Employee Avatar/Photo
+    # NEW: Employee Avatar/Photo
     avatar = models.ImageField(
         upload_to='employees/avatars/',
         null=True,

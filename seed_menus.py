@@ -10,7 +10,7 @@ class Command(BaseCommand):
         self.stdout.write("Clearing existing menu items...")
         MenuItem.objects.all().delete()
         self.stdout.write(self.style.SUCCESS("✓ Cleared existing menu items"))
-
+        
         # Define your exact menu structure
         menus = [
             {
@@ -90,7 +90,7 @@ class Command(BaseCommand):
                                 "icon": "⏰",
                                 "order": 3,
                             },
-                        ],
+                        ]
                     },
                     {
                         "name": "Leave Management",
@@ -141,7 +141,7 @@ class Command(BaseCommand):
                                 "icon": "☕",
                                 "order": 6,
                             },
-                        ],
+                        ]
                     },
                     {
                         "name": "Requests",
@@ -171,12 +171,10 @@ class Command(BaseCommand):
                                 "icon": "🌅",
                                 "order": 3,
                             },
-                        ],
+                        ]
                     },
-                ],
+                ]
             },
-
-            # ------------------ USER MANAGEMENT ------------------
             {
                 "name": "User Management",
                 "key": "user_management",
@@ -188,7 +186,7 @@ class Command(BaseCommand):
                         "name": "Add User",
                         "key": "add_user",
                         "path": "/add-user",
-                        "icon": "➕",
+                        "icon": "FaUserCog",
                         "order": 1,
                     },
                     {
@@ -198,41 +196,14 @@ class Command(BaseCommand):
                         "icon": "🔒",
                         "order": 2,
                     },
-                ],
+                ]
             },
-
-            # ------------------ PAYROLL ------------------
-            {
-                "name": "Payroll",
-                "key": "payroll",
-                "path": "#",
-                "icon": "💰",
-                "order": 3,
-                "children": [
-                    {
-                        "name": "Payroll List",
-                        "key": "payroll_list",
-                        "path": "/payroll",
-                        "icon": "",
-                        "order": 1,
-                    },
-                    {
-                        "name": "Process Payroll",
-                        "key": "payroll_new",
-                        "path": "/payroll/new",
-                        "icon": "",
-                        "order": 2,
-                    },
-                ],
-            },
-
-            # ------------------ MASTER DATA ------------------
             {
                 "name": "Master Data",
                 "key": "master",
                 "path": "#",
                 "icon": "⚙️",
-                "order": 4,
+                "order": 3,
                 "children": [
                     {
                         "name": "Job Titles",
@@ -241,16 +212,17 @@ class Command(BaseCommand):
                         "icon": "💼",
                         "order": 1,
                     },
-                ],
+                ]
             },
         ]
 
         created_count = 0
         updated_count = 0
-
+        
         def create_or_update_menu(menu_data, parent=None):
             nonlocal created_count, updated_count
-
+            
+            # Try to get existing menu by key
             menu, created = MenuItem.objects.get_or_create(
                 key=menu_data["key"],
                 defaults={
@@ -262,11 +234,14 @@ class Command(BaseCommand):
                     "is_active": True,
                 }
             )
-
+            
             if created:
                 created_count += 1
-                self.stdout.write(self.style.SUCCESS(f"✓ Created: {menu_data['name']} ({menu_data['key']})"))
+                self.stdout.write(
+                    self.style.SUCCESS(f"✓ Created: {menu_data['name']} ({menu_data['key']})")
+                )
             else:
+                # Update existing menu
                 menu.name = menu_data["name"]
                 menu.path = menu_data.get("path", "")
                 menu.icon = menu_data.get("icon", "")
@@ -275,20 +250,30 @@ class Command(BaseCommand):
                 menu.is_active = True
                 menu.save()
                 updated_count += 1
-                self.stdout.write(self.style.WARNING(f"⚠ Updated: {menu_data['name']} ({menu_data['key']})"))
-
+                self.stdout.write(
+                    self.style.WARNING(f"⚠ Updated: {menu_data['name']} ({menu_data['key']})")
+                )
+            
+            # Create/update children recursively
             for child_data in menu_data.get("children", []):
                 create_or_update_menu(child_data, parent=menu)
-
-        self.stdout.write("\n" + "=" * 60)
+        
+        # Create/update all menus
+        self.stdout.write("\n" + "="*60)
         self.stdout.write("Starting menu seed process...")
-        self.stdout.write("=" * 60 + "\n")
-
+        self.stdout.write("="*60 + "\n")
+        
         for menu_data in menus:
             create_or_update_menu(menu_data)
-
-        self.stdout.write("\n" + "=" * 60)
-        self.stdout.write(self.style.SUCCESS("✅ Process complete!"))
-        self.stdout.write(self.style.SUCCESS(f"   - Created: {created_count} new items"))
-        self.stdout.write(self.style.SUCCESS(f"   - Updated: {updated_count} existing items"))
-        self.stdout.write("=" * 60 + "\n")
+        
+        self.stdout.write("\n" + "="*60)
+        self.stdout.write(
+            self.style.SUCCESS(f"✅ Process complete!")
+        )
+        self.stdout.write(
+            self.style.SUCCESS(f"   - Created: {created_count} new items")
+        )
+        self.stdout.write(
+            self.style.SUCCESS(f"   - Updated: {updated_count} existing items")
+        )
+        self.stdout.write("="*60 + "\n")

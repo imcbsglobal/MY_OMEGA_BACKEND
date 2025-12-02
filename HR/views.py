@@ -545,7 +545,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         year = int(request.query_params.get('year', timezone.now().year))
         
         days_in_month = calendar.monthrange(year, month)[1]
-        users = AppUser.objects.filter(is_active=True).order_by('name')
+        users = AppUser.objects.all().order_by('name')
+
         
         holidays = set(Holiday.objects.filter(
             date__month=month,
