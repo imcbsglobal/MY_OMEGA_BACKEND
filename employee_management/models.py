@@ -193,7 +193,8 @@ class Employee(models.Model):
     blood_group = models.CharField(max_length=8, null=True, blank=True)
     marital_status = models.CharField(max_length=32, null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
-
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+ 
     # Status
     is_active = models.BooleanField(default=True)
 

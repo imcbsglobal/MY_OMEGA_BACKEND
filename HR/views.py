@@ -1,4 +1,4 @@
-# HR/views.py - COMPLETE CLEANED VERSION
+# HR/views.py - Updated with new Punch In/Out Break System
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -12,7 +12,7 @@ import requests
 
 from .models import (
     Attendance, Holiday, LeaveRequest, LateRequest, 
-    EarlyRequest, AttendanceBreak
+    EarlyRequest, PunchRecord
 )
 from .Serializers import (
     AttendanceSerializer, PunchInSerializer, PunchOutSerializer,
@@ -21,14 +21,14 @@ from .Serializers import (
     LeaveRequestCreateSerializer, LeaveRequestReviewSerializer,
     LateRequestSerializer, LateRequestCreateSerializer,
     EarlyRequestSerializer, EarlyRequestCreateSerializer,
-    BreakSerializer
+    PunchRecordSerializer
 )
 from User.models import AppUser
 
 
 class AttendanceViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing Attendance records
+    ViewSet for managing Attendance records with new punch in/out system
     """
     queryset = Attendance.objects.all().select_related('user', 'verified_by')
     serializer_class = AttendanceSerializer
@@ -76,53 +76,81 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if verification_status:
             queryset = queryset.filter(verification_status=verification_status)
         
-        return queryset.order_by('-date', '-punch_in_time')
+        return queryset.order_by('-date', '-first_punch_in_time')
     
     @action(detail=False, methods=['post'])
+    @transaction.atomic
     def punch_in(self, request):
-        """Punch in action"""
+        """
+        Punch in action - can be used multiple times in a day
+        First punch in = Start of work day
+        Subsequent punch ins = Return from break
+        """
         serializer = PunchInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user = request.user
         today = timezone.now().date()
         
-        existing = Attendance.objects.filter(user=user, date=today).first()
-        if existing and existing.punch_in_time:
-            return Response(
-                {'error': 'Already punched in today'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+        # Get or create attendance record for today
         attendance, created = Attendance.objects.get_or_create(
             user=user,
             date=today,
             defaults={
-                'punch_in_time': timezone.now(),
-                'punch_in_location': serializer.validated_data['location'],
-                'punch_in_latitude': serializer.validated_data['latitude'],
-                'punch_in_longitude': serializer.validated_data['longitude'],
-                'note': serializer.validated_data.get('note', ''),
                 'status': 'half',
+                'is_currently_on_break': False
             }
         )
         
-        if not created:
-            attendance.punch_in_time = timezone.now()
-            attendance.punch_in_location = serializer.validated_data['location']
-            attendance.punch_in_latitude = serializer.validated_data['latitude']
-            attendance.punch_in_longitude = serializer.validated_data['longitude']
-            attendance.status = 'half'
-            if serializer.validated_data.get('note'):
-                attendance.note = serializer.validated_data['note']
-            attendance.save()
+        # Check if user is currently on break (last punch was OUT)
+        last_punch = attendance.punch_records.order_by('-punch_time').first()
         
-        response_serializer = AttendanceSerializer(attendance)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        if last_punch and last_punch.punch_type == 'in':
+            return Response(
+                {'error': 'You are already punched in. Please punch out before punching in again.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create new punch in record
+        punch_record = PunchRecord.objects.create(
+            attendance=attendance,
+            punch_type='in',
+            punch_time=timezone.now(),
+            location=serializer.validated_data['location'],
+            latitude=serializer.validated_data['latitude'],
+            longitude=serializer.validated_data['longitude'],
+            note=serializer.validated_data.get('note', '')
+        )
+        
+        # Update attendance record
+        attendance.is_currently_on_break = False
+        
+        # If this is the first punch in, update first_punch_in fields
+        if not attendance.first_punch_in_time:
+            attendance.first_punch_in_time = punch_record.punch_time
+            attendance.first_punch_in_location = punch_record.location
+            attendance.first_punch_in_latitude = punch_record.latitude
+            attendance.first_punch_in_longitude = punch_record.longitude
+        
+        attendance.save()
+        
+        # Get punch records for response
+        punch_records = attendance.punch_records.all().order_by('punch_time')
+        
+        response_data = AttendanceSerializer(attendance).data
+        response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
+        response_data['message'] = 'Punched in successfully' if created or not last_punch else 'Returned from break successfully'
+        
+        return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
         
     @action(detail=False, methods=['post'])
+    @transaction.atomic
     def punch_out(self, request):
-        """Punch out action"""
+        """
+        Punch out action - can be used multiple times in a day
+        Intermediate punch outs = Going on break
+        Final punch out = End of work day
+        """
         serializer = PunchOutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -133,76 +161,86 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             attendance = Attendance.objects.get(user=user, date=today)
         except Attendance.DoesNotExist:
             return Response(
-                {'error': 'No punch in record found for today'},
+                {'error': 'No punch in record found for today. Please punch in first.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if not attendance.punch_in_time:
+        # Check if user has punched in
+        if not attendance.first_punch_in_time:
             return Response(
-                {'error': 'You must punch in first'},
+                {'error': 'You must punch in first before punching out'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if attendance.punch_out_time:
+        # Check if last punch was OUT
+        last_punch = attendance.punch_records.order_by('-punch_time').first()
+        if last_punch and last_punch.punch_type == 'out':
             return Response(
-                {'error': 'Already punched out today'},
+                {'error': 'You are already punched out. Please punch in before punching out again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Set punch out data
-        attendance.punch_out_time = timezone.now()
-        attendance.punch_out_location = serializer.validated_data['location']
-        attendance.punch_out_latitude = serializer.validated_data['latitude']
-        attendance.punch_out_longitude = serializer.validated_data['longitude']
+        # Create new punch out record
+        punch_record = PunchRecord.objects.create(
+            attendance=attendance,
+            punch_type='out',
+            punch_time=timezone.now(),
+            location=serializer.validated_data['location'],
+            latitude=serializer.validated_data['latitude'],
+            longitude=serializer.validated_data['longitude'],
+            note=serializer.validated_data.get('note', '')
+        )
         
-        # Add note if provided
-        if serializer.validated_data.get('note'):
-            if attendance.note:
-                attendance.note += '\n' + serializer.validated_data['note']
-            else:
-                attendance.note = serializer.validated_data['note']
+        # Update last punch out
+        attendance.last_punch_out_time = punch_record.punch_time
+        attendance.last_punch_out_location = punch_record.location
+        attendance.last_punch_out_latitude = punch_record.latitude
+        attendance.last_punch_out_longitude = punch_record.longitude
+        attendance.is_currently_on_break = True
         
-        # Calculate working hours
-        attendance.calculate_working_hours()
-        
-        # Update status based on working hours
-        if attendance.working_hours >= 7.5:
-            attendance.status = 'full'
-        elif attendance.working_hours >= 4:
-            attendance.status = 'half'
-        else:
-            attendance.status = 'half'
-        
-        # IMPORTANT: Save without update_fields so signal can detect all changes
-        print(f"[punch_out] Saving attendance for user {user.id}")
-        print(f"[punch_out] Punch out time: {attendance.punch_out_time}")
-        
+        # Calculate working hours and break hours
+        attendance.calculate_times()
+        attendance.update_status()
         attendance.save()
         
-        print(f"[punch_out] Attendance saved successfully")
+        # Get punch records for response
+        punch_records = attendance.punch_records.all().order_by('punch_time')
         
-        response_serializer = AttendanceSerializer(attendance)
-        return Response(response_serializer.data)
+        response_data = AttendanceSerializer(attendance).data
+        response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
+        response_data['message'] = 'Punched out successfully'
+        response_data['total_working_hours'] = float(attendance.total_working_hours)
+        response_data['total_break_hours'] = float(attendance.total_break_hours)
+        
+        return Response(response_data)
     
     @action(detail=False, methods=['get'])
     def today_status(self, request):
-        """Get today's attendance status"""
+        """Get today's attendance status with punch records"""
         user = request.user
         today = timezone.now().date()
         
         try:
             attendance = Attendance.objects.get(user=user, date=today)
-            serializer = AttendanceSerializer(attendance)
-            return Response(serializer.data)
+            punch_records = attendance.punch_records.all().order_by('punch_time')
+            
+            response_data = AttendanceSerializer(attendance).data
+            response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
+            response_data['can_punch_in'] = not punch_records.exists() or punch_records.last().punch_type == 'out'
+            response_data['can_punch_out'] = punch_records.exists() and punch_records.last().punch_type == 'in'
+            
+            return Response(response_data)
         except Attendance.DoesNotExist:
             return Response({
                 'message': 'No attendance record for today',
-                'date': today
+                'date': today,
+                'can_punch_in': True,
+                'can_punch_out': False
             }, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
     def my_records(self, request):
-        """Get only MY attendance records"""
+        """Get only MY attendance records with punch records"""
         user = request.user
         month = request.query_params.get('month')
         year = request.query_params.get('year')
@@ -212,9 +250,17 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if month and year:
             queryset = queryset.filter(date__month=month, date__year=year)
         
-        queryset = queryset.order_by('-date', '-punch_in_time')
-        serializer = AttendanceSerializer(queryset, many=True)
-        return Response(serializer.data)
+        queryset = queryset.order_by('-date', '-first_punch_in_time')
+        
+        # Include punch records for each attendance
+        result = []
+        for attendance in queryset:
+            att_data = AttendanceSerializer(attendance).data
+            punch_records = attendance.punch_records.all().order_by('punch_time')
+            att_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
+            result.append(att_data)
+        
+        return Response(result)
     
     @action(detail=False, methods=['get'])
     def my_summary(self, request):
@@ -261,7 +307,11 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         leaves = attendances.filter(status='leave').count()
         
         total_working_hours = attendances.aggregate(
-            total=Sum('working_hours')
+            total=Sum('total_working_hours')
+        )['total'] or 0
+        
+        total_break_hours = attendances.aggregate(
+            total=Sum('total_break_hours')
         )['total'] or 0
         
         marked_days = attendances.count()
@@ -281,6 +331,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'leaves': leaves,
             'not_marked': not_marked,
             'total_working_hours': round(total_working_hours, 2),
+            'total_break_hours': round(total_break_hours, 2),
             'holidays': holidays,
             'sundays': sundays,
         })
@@ -296,7 +347,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
-        """Verify attendance (Admin only)"""
+        """Verify attendance (Admin only) - recalculates times from punch records"""
         if not self._is_admin(request.user):
             return Response(
                 {'error': 'Only admins can verify attendance'},
@@ -307,27 +358,11 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         serializer = AttendanceVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        if attendance.punch_in_time and not attendance.punch_out_time:
-            punch_in_date = attendance.punch_in_time.date()
-            duty_end = attendance.user.duty_time_end if attendance.user.duty_time_end else time(18, 0)
-            punch_out_datetime = timezone.make_aware(
-                datetime.combine(punch_in_date, duty_end)
-            )
-            attendance.punch_out_time = punch_out_datetime
-            attendance.punch_out_location = "Auto-generated (missing punch out)"
-            auto_note = f"Punch out auto-generated by admin due to missing punch out"
-            if attendance.admin_note:
-                attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
-            else:
-                attendance.admin_note = auto_note
+        # Recalculate times from punch records
+        attendance.calculate_times()
+        attendance.update_status()
         
-        if attendance.punch_in_time and attendance.punch_out_time:
-            attendance.calculate_working_hours()
-            if attendance.working_hours >= 7.5 and attendance.status not in ['leave', 'wfh']:
-                attendance.status = 'full'
-            elif attendance.working_hours < 7.5 and attendance.working_hours >= 4 and attendance.status not in ['leave', 'wfh']:
-                attendance.status = 'half'
-        
+        # Verify
         attendance.verification_status = 'verified'
         attendance.verified_by = request.user
         attendance.verified_at = timezone.now()
@@ -342,65 +377,11 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         attendance.save()
         
         response_serializer = AttendanceSerializer(attendance)
-        return Response(response_serializer.data)
-    
-    @action(detail=True, methods=['post'])
-    def verify(self, request, pk=None):
-        """Verify attendance (Admin only) - returns {'attendance': <serialized>}"""
-        if not self._is_admin(request.user):
-            return Response({'error': 'Only admins can verify attendance'}, status=status.HTTP_403_FORBIDDEN)
-
-        attendance = self.get_object()
-        serializer = AttendanceVerifySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        # If lack of punch_out, auto-generate it (keeps prior logic)
-        if attendance.punch_in_time and not attendance.punch_out_time:
-            punch_in_date = attendance.punch_in_time.date()
-            duty_end = getattr(attendance.user, 'duty_time_end', None) or time(18, 0)
-            punch_out_datetime = timezone.make_aware(datetime.combine(punch_in_date, duty_end))
-            attendance.punch_out_time = punch_out_datetime
-            attendance.punch_out_location = "Auto-generated (missing punch out)"
-            auto_note = f"Punch out auto-generated by admin due to missing punch out"
-            if attendance.admin_note:
-                attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
-            else:
-                attendance.admin_note = auto_note
-
-        if attendance.punch_in_time and attendance.punch_out_time:
-            attendance.calculate_working_hours()
-            if attendance.working_hours >= 7.5 and attendance.status not in ['leave', 'wfh']:
-                attendance.status = 'full'
-            elif 4 <= attendance.working_hours < 7.5 and attendance.status not in ['leave', 'wfh']:
-                attendance.status = 'half'
-
-        attendance.verification_status = 'verified'
-        attendance.verified_by = request.user
-        attendance.verified_at = timezone.now()
-
-        admin_note = serializer.validated_data.get('admin_note', '')
-        if admin_note:
-            stamped = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {admin_note}"
-            if attendance.admin_note:
-                attendance.admin_note += f"\n{stamped}"
-            else:
-                attendance.admin_note = stamped
-
-        # Save all changed fields explicitly to ensure DB write
-        save_fields = []
-        for f in ('punch_out_time', 'punch_out_location', 'working_hours', 'status', 'verification_status', 'verified_by', 'verified_at', 'admin_note'):
-            if hasattr(attendance, f):
-                save_fields.append(f)
-        attendance.save(update_fields=save_fields if save_fields else None)
-
-        response_serializer = AttendanceSerializer(attendance, context={'request': request})
-        # Return wrapped attendance so front-end can consistently read res.data.attendance
         return Response({'message': 'Attendance verified', 'attendance': response_serializer.data}, status=status.HTTP_200_OK)
-
-        
+    
     @action(detail=False, methods=['post'])
     def mark_leave(self, request):
-        """Mark a day as leave (Admin only) - returns {'attendance': <serialized>}"""
+        """Mark a day as leave (Admin only)"""
         if not self._is_admin(request.user):
             return Response({'error': 'Only admins can mark leave'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -426,39 +407,42 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             date=attendance_date,
             defaults={
                 'status': 'leave',
-                'punch_in_time': None,
-                'punch_out_time': None,
-                'punch_in_location': None,
-                'punch_out_location': None,
-                'punch_in_latitude': None,
-                'punch_in_longitude': None,
-                'punch_out_latitude': None,
-                'punch_out_longitude': None,
-                'working_hours': 0,
+                'first_punch_in_time': None,
+                'last_punch_out_time': None,
+                'first_punch_in_location': None,
+                'last_punch_out_location': None,
+                'first_punch_in_latitude': None,
+                'first_punch_in_longitude': None,
+                'last_punch_out_latitude': None,
+                'last_punch_out_longitude': None,
+                'total_working_hours': 0,
+                'total_break_hours': 0,
+                'is_currently_on_break': False,
                 'verification_status': 'verified',
                 'verified_by': request.user,
                 'verified_at': timezone.now(),
             }
         )
 
-        # Attach admin note (append if exists)
+        # Delete all punch records for this attendance
+        attendance.punch_records.all().delete()
+
+        # Add admin note
         if admin_note:
             stamped = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {admin_note}"
             if attendance.admin_note:
                 attendance.admin_note += f"\n{stamped}"
             else:
                 attendance.admin_note = stamped
-            # ensure admin_note persisted
             attendance.save(update_fields=['admin_note'])
 
         response_serializer = AttendanceSerializer(attendance, context={'request': request})
         return Response({'message': 'Leave marked successfully', 'attendance': response_serializer.data},
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-
-        
+    
     @action(detail=False, methods=['get'])
     def summary(self, request):
-        """Get attendance summary"""
+        """Get attendance summary for a user"""
         user_id = request.query_params.get('user_id', request.user.id)
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
@@ -514,7 +498,11 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         leaves = attendances.filter(status='leave').count()
         
         total_working_hours = attendances.aggregate(
-            total=Sum('working_hours')
+            total=Sum('total_working_hours')
+        )['total'] or 0
+        
+        total_break_hours = attendances.aggregate(
+            total=Sum('total_break_hours')
         )['total'] or 0
         
         marked_days = attendances.count()
@@ -534,6 +522,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'leaves': leaves,
             'not_marked': not_marked,
             'total_working_hours': round(total_working_hours, 2),
+            'total_break_hours': round(total_break_hours, 2),
             'holidays': holidays,
             'sundays': sundays,
         })
@@ -546,7 +535,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         
         days_in_month = calendar.monthrange(year, month)[1]
         users = AppUser.objects.all().order_by('name')
-
         
         holidays = set(Holiday.objects.filter(
             date__month=month,
@@ -576,55 +564,31 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 elif day in attendance_dict:
                     att = attendance_dict[day]
                     
-                    needs_save = False
-                    if att.punch_in_time and att.punch_out_time:
-                        old_hours = att.working_hours
-                        old_status = att.status
-                        
-                        att.calculate_working_hours()
-                        
-                        if att.working_hours >= 7.5 and att.status not in ['leave', 'wfh']:
-                            if att.status != 'full':
-                                att.status = 'full'
-                                needs_save = True
-                        elif att.working_hours >= 4 and att.working_hours < 7.5 and att.status not in ['leave', 'wfh', 'full']:
-                            if att.status != 'half':
-                                att.status = 'half'
-                                needs_save = True
-                        
-                        if needs_save or old_hours != att.working_hours:
-                            att.save()
+                    # Recalculate if needed
+                    att.calculate_times()
+                    att.update_status()
+                    att.save()
                     
-                    if not att.punch_in_time:
+                    if not att.first_punch_in_time:
                         attendance_array.append('not-marked')
-                    elif att.punch_in_time and not att.punch_out_time:
-                        if att.verification_status == 'verified':
+                    elif att.verification_status == 'verified':
+                        if att.status == 'full':
+                            attendance_array.append('verified')
+                        elif att.status == 'half':
                             attendance_array.append('half-verified')
+                        elif att.status == 'leave':
+                            attendance_array.append('verified-leave')
                         else:
-                            attendance_array.append('half')
+                            attendance_array.append('verified')
                     else:
-                        if att.verification_status == 'verified':
-                            if att.status == 'full':
-                                attendance_array.append('verified')
-                            elif att.status == 'half':
-                                attendance_array.append('half-verified')
-                            elif att.status == 'leave':
-                                attendance_array.append('verified-leave')
-                            elif att.status == 'wfh':
-                                attendance_array.append('verified')
-                            else:
-                                attendance_array.append('verified')
+                        if att.status == 'full':
+                            attendance_array.append('full')
+                        elif att.status == 'half':
+                            attendance_array.append('half')
+                        elif att.status == 'leave':
+                            attendance_array.append('leave')
                         else:
-                            if att.status == 'full':
-                                attendance_array.append('full')
-                            elif att.status == 'half':
-                                attendance_array.append('half')
-                            elif att.status == 'leave':
-                                attendance_array.append('leave')
-                            elif att.status == 'wfh':
-                                attendance_array.append('full')
-                            else:
-                                attendance_array.append('full')
+                            attendance_array.append('full')
                 else:
                     attendance_array.append('not-marked')
             
@@ -639,178 +603,56 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         
         return Response(result)
     
-    # -------------------------
-    # BREAK MANAGEMENT ACTIONS
-    # -------------------------
-    
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def active_break(self, request):
-        """Get active break for current user"""
-        user = request.user
-        active = AttendanceBreak.objects.filter(
-            user=user, 
-            break_end__isnull=True
-        ).order_by('-break_start').first()
-        
-        if not active:
-            return Response({"has_active_break": False}, status=status.HTTP_200_OK)
-        
-        return Response({
-            "has_active_break": True, 
-            "break": BreakSerializer(active).data
-        }, status=status.HTTP_200_OK)
-    
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    @transaction.atomic
-    def start_break(self, request):
-        """Start a break"""
-        user = request.user
-        attendance = Attendance.objects.filter(
-            user=user, 
-            date=timezone.localdate()
-        ).first()
-        
-        if not attendance or not attendance.punch_in_time:
-            return Response(
-                {"error": "Must punch in first"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if attendance.punch_out_time:
-            return Response(
-                {"error": "Already punched out"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if AttendanceBreak.objects.filter(user=user, break_end__isnull=True).exists():
-            return Response(
-                {"error": "Active break exists"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        br = AttendanceBreak.objects.create(
-            user=user,
-            attendance=attendance,
-            break_start=timezone.now(),
-            location=request.data.get('location', None),
-            note=request.data.get('note', '')
-        )
-        
-        return Response({
-            "success": True, 
-            "break": BreakSerializer(br).data
-        }, status=status.HTTP_201_CREATED)
-    
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    @transaction.atomic
-    def end_break(self, request):
-        """End active break"""
-        user = request.user
-        br = AttendanceBreak.objects.filter(
-            user=user, 
-            break_end__isnull=True
-        ).order_by('-break_start').first()
-        
-        if not br:
-            return Response(
-                {"error": "No active break"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        br.break_end = timezone.now()
-        if 'note' in request.data:
-            br.note = (br.note or '') + '\n' + str(request.data.get('note'))
-        if 'location' in request.data:
-            br.location = request.data.get('location')
-        
-        br.calculate_duration()
-        br.save(update_fields=['break_end', 'duration_minutes', 'duration_display', 'note', 'location'])
-        
-        return Response({
-            "success": True, 
-            "break": BreakSerializer(br).data
-        }, status=status.HTTP_200_OK)
-    
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def today_breaks(self, request):
-        """Get today's breaks for current user"""
-        user = request.user
-        today = timezone.localdate()
-        attendance = Attendance.objects.filter(user=user, date=today).first()
-        
-        if not attendance:
-            return Response({
-                "breaks": [], 
-                "total_breaks": 0, 
-                "total_break_minutes": 0, 
-                "total_break_display": "0m"
-            }, status=status.HTTP_200_OK)
-        
-        qs = AttendanceBreak.objects.filter(attendance=attendance).order_by('break_start')
-        serializer = BreakSerializer(qs, many=True)
-        total_minutes = sum([b.duration_minutes or 0 for b in qs])
-        hours = total_minutes // 60
-        mins = total_minutes % 60
-        total_display = f"{hours}h {mins}m" if hours else f"{mins}m"
-        
-        return Response({
-            "breaks": serializer.data,
-            "total_breaks": qs.count(),
-            "total_break_minutes": total_minutes,
-            "total_break_display": total_display
-        }, status=status.HTTP_200_OK)
-    
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def break_summary(self, request):
-        """Get break summary for a month"""
-        month = int(request.query_params.get('month', timezone.localdate().month))
-        year = int(request.query_params.get('year', timezone.localdate().year))
-        
-        if month < 1 or month > 12:
-            return Response(
-                {"error": "Invalid month"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        days_in_month = calendar.monthrange(year, month)[1]
-        total_minutes = 0
-        total_breaks = 0
-        breaks_by_date = []
-        
-        for day in range(1, days_in_month + 1):
-            d = timezone.datetime(year, month, day).date()
-            atts = Attendance.objects.filter(date=d)
-            day_qs = AttendanceBreak.objects.filter(
-                attendance__in=atts
-            ).order_by('break_start')
-            count = day_qs.count()
-            mins = sum([b.duration_minutes or 0 for b in day_qs])
-            total_minutes += mins
-            total_breaks += count
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        """Update attendance status (Admin only)"""
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can update attendance status'}, status=status.HTTP_403_FORBIDDEN)
+
+        attendance = self.get_object()
+        serializer = AttendanceUpdateStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        old_status = attendance.status
+        new_status = serializer.validated_data['status']
+        admin_note = serializer.validated_data.get('admin_note', '')
+
+        # Handle leave status
+        if new_status == 'leave':
+            attendance.first_punch_in_time = None
+            attendance.last_punch_out_time = None
+            attendance.first_punch_in_location = None
+            attendance.last_punch_out_location = None
+            attendance.first_punch_in_latitude = None
+            attendance.first_punch_in_longitude = None
+            attendance.last_punch_out_latitude = None
+            attendance.last_punch_out_longitude = None
+            attendance.total_working_hours = 0
+            attendance.total_break_hours = 0
+            attendance.is_currently_on_break = False
             
-            breaks_by_date.append({
-                "date": d,
-                "count": count,
-                "total_minutes": mins,
-                "breaks": BreakSerializer(day_qs, many=True).data
-            })
-        
-        avg = (total_minutes // total_breaks) if total_breaks else 0
-        hours = total_minutes // 60
-        mins_r = total_minutes % 60
-        total_display = f"{hours}h {mins_r}m" if hours else f"{mins_r}m"
-        avg_display = f"{avg//60}h {avg%60}m" if avg >= 60 else f"{avg}m"
-        
-        return Response({
-            "total_breaks": total_breaks,
-            "completed_breaks": total_breaks,
-            "active_breaks": AttendanceBreak.objects.filter(break_end__isnull=True).count(),
-            "total_break_minutes": total_minutes,
-            "total_break_display": total_display,
-            "average_break_minutes": avg,
-            "average_break_display": avg_display,
-            "breaks_by_date": breaks_by_date
-        }, status=status.HTTP_200_OK)
+            # Delete all punch records
+            attendance.punch_records.all().delete()
+            
+            auto_note = f"Status changed to leave from {old_status}"
+            if attendance.admin_note:
+                attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
+            else:
+                attendance.admin_note = auto_note
+
+        attendance.status = new_status
+
+        if admin_note:
+            stamped = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {admin_note}"
+            if attendance.admin_note:
+                attendance.admin_note += f"\n{stamped}"
+            else:
+                attendance.admin_note = stamped
+
+        attendance.save()
+
+        response_serializer = AttendanceSerializer(attendance, context={'request': request})
+        return Response({'message': 'Status updated', 'attendance': response_serializer.data}, status=status.HTTP_200_OK)
 
 
 class HolidayViewSet(viewsets.ModelViewSet):
@@ -1043,13 +885,11 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         })
 
 
-# HR/views.py - ADD THIS DEBUG VERSION OF LateRequestViewSet
-
 import logging
 logger = logging.getLogger(__name__)
 
 class LateRequestViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing Late Requests - WITH DEBUG LOGGING"""
+    """ViewSet for managing Late Requests"""
     queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
     serializer_class = LateRequestSerializer
     permission_classes = [IsAuthenticated]
@@ -1088,19 +928,16 @@ class LateRequestViewSet(viewsets.ModelViewSet):
         return LateRequestSerializer
 
     def perform_create(self, serializer):
-        """Save with current user"""
         logger.info(f"Creating late request for user: {self.request.user.id}")
         serializer.save(user=self.request.user)
         logger.info(f"Late request created successfully: {serializer.instance.id}")
 
     def create(self, request, *args, **kwargs):
-        """Override create to add better error handling"""
         try:
             logger.info(f"=== LATE REQUEST CREATE START ===")
-            logger.info(f"User: {request.user.id} - {request.user.name if hasattr(request.user, 'name') else request.user.username}")
+            logger.info(f"User: {request.user.id}")
             logger.info(f"Request data: {request.data}")
             
-            # Validate serializer
             serializer = self.get_serializer(data=request.data)
             logger.info(f"Serializer validation...")
             
@@ -1112,7 +949,6 @@ class LateRequestViewSet(viewsets.ModelViewSet):
                 logger.error(f"Validation errors: {serializer.errors}")
                 raise
             
-            # Perform create
             logger.info(f"Performing create...")
             try:
                 self.perform_create(serializer)
@@ -1123,7 +959,6 @@ class LateRequestViewSet(viewsets.ModelViewSet):
                 logger.error(traceback.format_exc())
                 raise
             
-            # Get instance and serialize response
             logger.info(f"Fetching created instance...")
             try:
                 instance = LateRequest.objects.get(id=serializer.instance.id)
@@ -1147,7 +982,6 @@ class LateRequestViewSet(viewsets.ModelViewSet):
             import traceback
             logger.error(traceback.format_exc())
             
-            # Return detailed error
             return Response(
                 {
                     'error': str(e),
@@ -1284,9 +1118,7 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
         return Response(EarlyRequestSerializer(instance).data)
 
 
-# -------------------------
-# Reverse Geocoding Functions
-# -------------------------
+# Reverse Geocoding Functions (unchanged)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def reverse_geocode(request):
@@ -1403,88 +1235,3 @@ def reverse_geocode_bigdata(request):
             'longitude': longitude,
             'error': str(e)
         })
-
-
-
-
-@action(detail=True, methods=['patch'])
-def update_status(self, request, pk=None):
-    """Update attendance status (Admin only) - returns {'attendance': <serialized>}"""
-    if not self._is_admin(request.user):
-        return Response({'error': 'Only admins can update attendance status'}, status=status.HTTP_403_FORBIDDEN)
-
-    attendance = self.get_object()
-    serializer = AttendanceUpdateStatusSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    old_status = attendance.status
-    new_status = serializer.validated_data['status']
-    admin_note = serializer.validated_data.get('admin_note', '')
-
-    # Handle change-to-leave: clear punch times and hours
-    if new_status == 'leave':
-        attendance.punch_in_time = None
-        attendance.punch_out_time = None
-        attendance.punch_in_location = None
-        attendance.punch_out_location = None
-        attendance.punch_in_latitude = None
-        attendance.punch_in_longitude = None
-        attendance.punch_out_latitude = None
-        attendance.punch_out_longitude = None
-        attendance.working_hours = 0
-        auto_note = f"Status changed to leave from {old_status}"
-        if attendance.admin_note:
-            attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
-        else:
-            attendance.admin_note = auto_note
-
-    # If setting to full and there's no punch_out, auto-generate a punch_out using duty_end
-    elif new_status == 'full' and attendance.punch_in_time and not attendance.punch_out_time:
-        punch_in_date = attendance.punch_in_time.date()
-        duty_end = getattr(attendance.user, 'duty_time_end', None) or time(18, 0)
-        punch_out_datetime = timezone.make_aware(datetime.combine(punch_in_date, duty_end))
-        attendance.punch_out_time = punch_out_datetime
-        attendance.punch_out_location = "Auto-generated by admin (status change to full day)"
-        attendance.calculate_working_hours()
-        auto_note = f"Punch out auto-generated when changing status to full day (was {old_status})"
-        if attendance.admin_note:
-            attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
-        else:
-            attendance.admin_note = auto_note
-
-    # If setting to half and there's no punch_out, auto-generate 4hrs from punch_in
-    elif new_status == 'half' and attendance.punch_in_time and not attendance.punch_out_time:
-        punch_in_date = attendance.punch_in_time.date()
-        punch_in_dt = attendance.punch_in_time
-        # Use timezone-aware addition
-        punch_out_dt = punch_in_dt + timezone.timedelta(hours=4)
-        attendance.punch_out_time = punch_out_dt
-        attendance.punch_out_location = "Auto-generated by admin (status change to half day)"
-        attendance.calculate_working_hours()
-        auto_note = f"Punch out auto-generated when changing status to half day (was {old_status})"
-        if attendance.admin_note:
-            attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
-        else:
-            attendance.admin_note = auto_note
-
-    # Update the status
-    attendance.status = new_status
-
-    # Append admin note if provided
-    if admin_note:
-        stamped = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {admin_note}"
-        if attendance.admin_note:
-            attendance.admin_note += f"\n{stamped}"
-        else:
-            attendance.admin_note = stamped
-
-    # Save changed fields explicitly
-    save_fields = []
-    for f in ('status', 'punch_out_time', 'punch_out_location', 'working_hours', 'admin_note'):
-        if hasattr(attendance, f):
-            save_fields.append(f)
-    attendance.save(update_fields=save_fields if save_fields else None)
-
-    response_serializer = AttendanceSerializer(attendance, context={'request': request})
-    return Response({'message': 'Status updated', 'attendance': response_serializer.data}, status=status.HTTP_200_OK)
-
