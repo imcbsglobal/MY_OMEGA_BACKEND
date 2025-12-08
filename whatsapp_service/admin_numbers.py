@@ -12,7 +12,7 @@ Examples:
 # ========== HR / ATTENDANCE ADMINS ==========
 # People who receive HR-related and attendance-related notifications
 HR_ADMIN_NUMBERS = [
-    "+918281561081",     # HR Admin
+    "+917356122119",     # HR Admin
     # Add more HR admin numbers here
 ]
 
