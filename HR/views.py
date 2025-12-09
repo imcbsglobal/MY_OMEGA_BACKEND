@@ -11,7 +11,7 @@ import calendar
 import requests
 
 from .models import (
-    Attendance, Holiday, LeaveRequest, LateRequest, 
+    Attendance, Holiday, LeaveRequest, LateRequest,
     EarlyRequest, PunchRecord
 )
 from .Serializers import (
@@ -34,50 +34,50 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
-    
+
     def _is_admin(self, user):
         """Helper to check if user is admin"""
         return (
-            user.user_level in ('Super Admin', 'Admin') or 
-            user.is_staff or 
+            user.user_level in ('Super Admin', 'Admin') or
+            user.is_staff or
             user.is_superuser
         )
-    
+
     def get_queryset(self):
         """Filter queryset based on permissions and query params"""
         user = self.request.user
         queryset = Attendance.objects.select_related('user', 'verified_by')
-        
+
         is_admin = self._is_admin(user)
         if not is_admin:
             queryset = queryset.filter(user=user)
-        
+
         user_id = self.request.query_params.get('user_id')
         if user_id and is_admin:
             queryset = queryset.filter(user_id=user_id)
-        
+
         from_date = self.request.query_params.get('from_date')
         to_date = self.request.query_params.get('to_date')
         if from_date:
             queryset = queryset.filter(date__gte=from_date)
         if to_date:
             queryset = queryset.filter(date__lte=to_date)
-        
+
         month = self.request.query_params.get('month')
         year = self.request.query_params.get('year')
         if month and year:
             queryset = queryset.filter(date__month=month, date__year=year)
-        
+
         att_status = self.request.query_params.get('status')
         if att_status:
             queryset = queryset.filter(status=att_status)
-        
+
         verification_status = self.request.query_params.get('verification_status')
         if verification_status:
             queryset = queryset.filter(verification_status=verification_status)
-        
+
         return queryset.order_by('-date', '-first_punch_in_time')
-    
+
     @action(detail=False, methods=['post'])
     @transaction.atomic
     def punch_in(self, request):
@@ -88,10 +88,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         """
         serializer = PunchInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         user = request.user
         today = timezone.now().date()
-        
+
         # Get or create attendance record for today
         attendance, created = Attendance.objects.get_or_create(
             user=user,
@@ -101,16 +101,16 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 'is_currently_on_break': False
             }
         )
-        
+
         # Check if user is currently on break (last punch was OUT)
         last_punch = attendance.punch_records.order_by('-punch_time').first()
-        
+
         if last_punch and last_punch.punch_type == 'in':
             return Response(
                 {'error': 'You are already punched in. Please punch out before punching in again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Create new punch in record
         punch_record = PunchRecord.objects.create(
             attendance=attendance,
@@ -121,28 +121,28 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             longitude=serializer.validated_data['longitude'],
             note=serializer.validated_data.get('note', '')
         )
-        
+
         # Update attendance record
         attendance.is_currently_on_break = False
-        
+
         # If this is the first punch in, update first_punch_in fields
         if not attendance.first_punch_in_time:
             attendance.first_punch_in_time = punch_record.punch_time
             attendance.first_punch_in_location = punch_record.location
             attendance.first_punch_in_latitude = punch_record.latitude
             attendance.first_punch_in_longitude = punch_record.longitude
-        
+
         attendance.save()
-        
+
         # Get punch records for response
         punch_records = attendance.punch_records.all().order_by('punch_time')
-        
+
         response_data = AttendanceSerializer(attendance).data
         response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
         response_data['message'] = 'Punched in successfully' if created or not last_punch else 'Returned from break successfully'
-        
+
         return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-        
+
     @action(detail=False, methods=['post'])
     @transaction.atomic
     def punch_out(self, request):
@@ -153,10 +153,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         """
         serializer = PunchOutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         user = request.user
         today = timezone.now().date()
-        
+
         try:
             attendance = Attendance.objects.get(user=user, date=today)
         except Attendance.DoesNotExist:
@@ -164,14 +164,14 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 {'error': 'No punch in record found for today. Please punch in first.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Check if user has punched in
         if not attendance.first_punch_in_time:
             return Response(
                 {'error': 'You must punch in first before punching out'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Check if last punch was OUT
         last_punch = attendance.punch_records.order_by('-punch_time').first()
         if last_punch and last_punch.punch_type == 'out':
@@ -179,7 +179,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 {'error': 'You are already punched out. Please punch in before punching out again.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Create new punch out record
         punch_record = PunchRecord.objects.create(
             attendance=attendance,
@@ -190,45 +190,45 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             longitude=serializer.validated_data['longitude'],
             note=serializer.validated_data.get('note', '')
         )
-        
+
         # Update last punch out
         attendance.last_punch_out_time = punch_record.punch_time
         attendance.last_punch_out_location = punch_record.location
         attendance.last_punch_out_latitude = punch_record.latitude
         attendance.last_punch_out_longitude = punch_record.longitude
         attendance.is_currently_on_break = True
-        
+
         # Calculate working hours and break hours
         attendance.calculate_times()
         attendance.update_status()
         attendance.save()
-        
+
         # Get punch records for response
         punch_records = attendance.punch_records.all().order_by('punch_time')
-        
+
         response_data = AttendanceSerializer(attendance).data
         response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
         response_data['message'] = 'Punched out successfully'
         response_data['total_working_hours'] = float(attendance.total_working_hours)
         response_data['total_break_hours'] = float(attendance.total_break_hours)
-        
+
         return Response(response_data)
-    
+
     @action(detail=False, methods=['get'])
     def today_status(self, request):
         """Get today's attendance status with punch records"""
         user = request.user
         today = timezone.now().date()
-        
+
         try:
             attendance = Attendance.objects.get(user=user, date=today)
             punch_records = attendance.punch_records.all().order_by('punch_time')
-            
+
             response_data = AttendanceSerializer(attendance).data
             response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
             response_data['can_punch_in'] = not punch_records.exists() or punch_records.last().punch_type == 'out'
             response_data['can_punch_out'] = punch_records.exists() and punch_records.last().punch_type == 'in'
-            
+
             return Response(response_data)
         except Attendance.DoesNotExist:
             return Response({
@@ -237,21 +237,21 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 'can_punch_in': True,
                 'can_punch_out': False
             }, status=status.HTTP_200_OK)
-    
+
     @action(detail=False, methods=['get'])
     def my_records(self, request):
         """Get only MY attendance records with punch records"""
         user = request.user
         month = request.query_params.get('month')
         year = request.query_params.get('year')
-        
+
         queryset = Attendance.objects.filter(user=user).select_related('user', 'verified_by')
-        
+
         if month and year:
             queryset = queryset.filter(date__month=month, date__year=year)
-        
+
         queryset = queryset.order_by('-date', '-first_punch_in_time')
-        
+
         # Include punch records for each attendance
         result = []
         for attendance in queryset:
@@ -259,64 +259,64 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             punch_records = attendance.punch_records.all().order_by('punch_time')
             att_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
             result.append(att_data)
-        
+
         return Response(result)
-    
+
     @action(detail=False, methods=['get'])
     def my_summary(self, request):
         """Get only MY attendance summary"""
         user = request.user
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
-        
+
         attendances = Attendance.objects.filter(
             user=user,
             date__month=month,
             date__year=year
         )
-        
+
         holidays = Holiday.objects.filter(
             date__month=month,
             date__year=year,
             is_active=True
         ).count()
-        
+
         sundays = self._count_sundays(year, month)
         days_in_month = calendar.monthrange(year, month)[1]
-        
+
         full_days_unverified = attendances.filter(
             status='full',
             verification_status='unverified'
         ).count()
-        
+
         verified_full_days = attendances.filter(
             status='full',
             verification_status='verified'
         ).count()
-        
+
         half_days_unverified = attendances.filter(
             status='half',
             verification_status='unverified'
         ).count()
-        
+
         verified_half_days = attendances.filter(
             status='half',
             verification_status='verified'
         ).count()
-        
+
         leaves = attendances.filter(status='leave').count()
-        
+
         total_working_hours = attendances.aggregate(
             total=Sum('total_working_hours')
         )['total'] or 0
-        
+
         total_break_hours = attendances.aggregate(
             total=Sum('total_break_hours')
         )['total'] or 0
-        
+
         marked_days = attendances.count()
         not_marked = days_in_month - marked_days - holidays - sundays
-        
+
         return Response({
             'user_id': user.id,
             'user_name': user.name,
@@ -335,7 +335,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'holidays': holidays,
             'sundays': sundays,
         })
-    
+
     def _count_sundays(self, year, month):
         """Count the number of Sundays in a given month"""
         days_in_month = calendar.monthrange(year, month)[1]
@@ -344,7 +344,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             if datetime(year, month, day).weekday() == 6:
                 sundays += 1
         return sundays
-    
+
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
         """Verify attendance (Admin only) - recalculates times from punch records"""
@@ -353,32 +353,32 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 {'error': 'Only admins can verify attendance'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         attendance = self.get_object()
         serializer = AttendanceVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         # Recalculate times from punch records
         attendance.calculate_times()
         attendance.update_status()
-        
+
         # Verify
         attendance.verification_status = 'verified'
         attendance.verified_by = request.user
         attendance.verified_at = timezone.now()
-        
+
         admin_note = serializer.validated_data.get('admin_note', '')
         if admin_note:
             if attendance.admin_note:
                 attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {admin_note}"
             else:
                 attendance.admin_note = admin_note
-        
+
         attendance.save()
-        
+
         response_serializer = AttendanceSerializer(attendance)
         return Response({'message': 'Attendance verified', 'attendance': response_serializer.data}, status=status.HTTP_200_OK)
-    
+
     @action(detail=False, methods=['post'])
     def mark_leave(self, request):
         """Mark a day as leave (Admin only)"""
@@ -439,75 +439,75 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         response_serializer = AttendanceSerializer(attendance, context={'request': request})
         return Response({'message': 'Leave marked successfully', 'attendance': response_serializer.data},
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-    
+
     @action(detail=False, methods=['get'])
     def summary(self, request):
         """Get attendance summary for a user"""
         user_id = request.query_params.get('user_id', request.user.id)
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
-        
+
         is_admin = self._is_admin(request.user)
-        
+
         if not is_admin and int(user_id) != request.user.id:
             return Response(
                 {'error': 'You can only view your own summary'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         try:
             user = AppUser.objects.get(id=user_id)
         except AppUser.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         attendances = Attendance.objects.filter(
             user_id=user_id,
             date__month=month,
             date__year=year
         )
-        
+
         holidays = Holiday.objects.filter(
             date__month=month,
             date__year=year,
             is_active=True
         ).count()
-        
+
         sundays = self._count_sundays(year, month)
         days_in_month = calendar.monthrange(year, month)[1]
-        
+
         full_days_unverified = attendances.filter(
             status='full',
             verification_status='unverified'
         ).count()
-        
+
         verified_full_days = attendances.filter(
             status='full',
             verification_status='verified'
         ).count()
-        
+
         half_days_unverified = attendances.filter(
             status='half',
             verification_status='unverified'
         ).count()
-        
+
         verified_half_days = attendances.filter(
             status='half',
             verification_status='verified'
         ).count()
-        
+
         leaves = attendances.filter(status='leave').count()
-        
+
         total_working_hours = attendances.aggregate(
             total=Sum('total_working_hours')
         )['total'] or 0
-        
+
         total_break_hours = attendances.aggregate(
             total=Sum('total_break_hours')
         )['total'] or 0
-        
+
         marked_days = attendances.count()
         not_marked = days_in_month - marked_days - holidays - sundays
-        
+
         return Response({
             'user_id': user.id,
             'user_name': user.name,
@@ -526,49 +526,137 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'holidays': holidays,
             'sundays': sundays,
         })
-    
-    @action(detail=False, methods=['get'])
-    def monthly_grid(self, request):
-        """Get monthly attendance grid"""
+
+    @action(detail=False, methods=['get'], url_path='summary-all')
+    def summary_all(self, request):
+        """
+        Get attendance summary (user-wise) for ALL users for a given month/year (Admin only)
+        """
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can view all users summary'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
-        
+
         days_in_month = calendar.monthrange(year, month)[1]
-        users = AppUser.objects.all().order_by('name')
-        
-        holidays = set(Holiday.objects.filter(
+
+        holidays_count = Holiday.objects.filter(
             date__month=month,
             date__year=year,
             is_active=True
-        ).values_list('date', flat=True))
-        
+        ).count()
+
+        sundays_count = self._count_sundays(year, month)
+
         result = []
-        
+
+        users = AppUser.objects.all().order_by('name')
         for user in users:
             attendances = Attendance.objects.filter(
                 user=user,
                 date__month=month,
                 date__year=year
             )
-            
+
+            full_days_unverified = attendances.filter(
+                status='full',
+                verification_status='unverified'
+            ).count()
+
+            verified_full_days = attendances.filter(
+                status='full',
+                verification_status='verified'
+            ).count()
+
+            half_days_unverified = attendances.filter(
+                status='half',
+                verification_status='unverified'
+            ).count()
+
+            verified_half_days = attendances.filter(
+                status='half',
+                verification_status='verified'
+            ).count()
+
+            leaves = attendances.filter(status='leave').count()
+
+            total_working_hours = attendances.aggregate(
+                total=Sum('total_working_hours')
+            )['total'] or 0
+
+            total_break_hours = attendances.aggregate(
+                total=Sum('total_break_hours')
+            )['total'] or 0
+
+            marked_days = attendances.count()
+            not_marked = days_in_month - marked_days - holidays_count - sundays_count
+
+            result.append({
+                'user_id': user.id,
+                'user_name': user.name,
+                'user_email': user.email,
+                'month': month,
+                'year': year,
+                'total_days': days_in_month,
+                'full_days_unverified': full_days_unverified,
+                'verified_full_days': verified_full_days,
+                'half_days_unverified': half_days_unverified,
+                'verified_half_days': verified_half_days,
+                'leaves': leaves,
+                'not_marked': not_marked,
+                'total_working_hours': round(float(total_working_hours), 2),
+                'total_break_hours': round(float(total_break_hours), 2),
+                'holidays': holidays_count,
+                'sundays': sundays_count,
+            })
+
+        return Response(result)
+
+    @action(detail=False, methods=['get'])
+    def monthly_grid(self, request):
+        """Get monthly attendance grid"""
+        month = int(request.query_params.get('month', timezone.now().month))
+        year = int(request.query_params.get('year', timezone.now().year))
+
+        days_in_month = calendar.monthrange(year, month)[1]
+        users = AppUser.objects.all().order_by('name')
+
+        holidays = set(Holiday.objects.filter(
+            date__month=month,
+            date__year=year,
+            is_active=True
+        ).values_list('date', flat=True))
+
+        result = []
+
+        for user in users:
+            attendances = Attendance.objects.filter(
+                user=user,
+                date__month=month,
+                date__year=year
+            )
+
             attendance_dict = {att.date.day: att for att in attendances}
             attendance_array = []
-            
+
             for day in range(1, days_in_month + 1):
                 current_date = datetime(year, month, day).date()
-                
+
                 if current_date.weekday() == 6:
                     attendance_array.append('sunday')
                 elif current_date in holidays:
                     attendance_array.append('holiday')
                 elif day in attendance_dict:
                     att = attendance_dict[day]
-                    
+
                     # Recalculate if needed
                     att.calculate_times()
                     att.update_status()
                     att.save()
-                    
+
                     if not att.first_punch_in_time:
                         attendance_array.append('not-marked')
                     elif att.verification_status == 'verified':
@@ -591,7 +679,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                             attendance_array.append('full')
                 else:
                     attendance_array.append('not-marked')
-            
+
             result.append({
                 'user_id': user.id,
                 'user_name': user.name,
@@ -600,9 +688,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 'duty_end': user.duty_time_end.strftime('%H:%M') if user.duty_time_end else '18:00',
                 'attendance': attendance_array
             })
-        
+
         return Response(result)
-    
+
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
         """Update attendance status (Admin only)"""
@@ -630,10 +718,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             attendance.total_working_hours = 0
             attendance.total_break_hours = 0
             attendance.is_currently_on_break = False
-            
+
             # Delete all punch records
             attendance.punch_records.all().delete()
-            
+
             auto_note = f"Status changed to leave from {old_status}"
             if attendance.admin_note:
                 attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
@@ -661,7 +749,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
     serializer_class = HolidaySerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
-    
+
     def get_queryset(self):
         queryset = Holiday.objects.all()
         year = self.request.query_params.get('year')
@@ -679,12 +767,12 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveRequestSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
-    
+
     def _is_admin(self, user):
         """Helper to check if user is admin"""
         return (
-            user.user_level in ('Super Admin', 'Admin') or 
-            user.is_staff or 
+            user.user_level in ('Super Admin', 'Admin') or
+            user.is_staff or
             user.is_superuser
         )
 
@@ -798,7 +886,7 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
         user_label = request.user.name if hasattr(request.user, 'name') else request.user.username
         override_note = f"[OVERRIDE by {user_label} at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] changed from {prev_status}"
-        
+
         combined_note_parts = []
         if admin_comment:
             combined_note_parts.append(admin_comment)
@@ -888,6 +976,7 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 import logging
 logger = logging.getLogger(__name__)
 
+
 class LateRequestViewSet(viewsets.ModelViewSet):
     """ViewSet for managing Late Requests"""
     queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
@@ -937,10 +1026,10 @@ class LateRequestViewSet(viewsets.ModelViewSet):
             logger.info(f"=== LATE REQUEST CREATE START ===")
             logger.info(f"User: {request.user.id}")
             logger.info(f"Request data: {request.data}")
-            
+
             serializer = self.get_serializer(data=request.data)
             logger.info(f"Serializer validation...")
-            
+
             try:
                 serializer.is_valid(raise_exception=True)
                 logger.info(f"Serializer validation passed")
@@ -948,7 +1037,7 @@ class LateRequestViewSet(viewsets.ModelViewSet):
                 logger.error(f"Serializer validation failed: {e}")
                 logger.error(f"Validation errors: {serializer.errors}")
                 raise
-            
+
             logger.info(f"Performing create...")
             try:
                 self.perform_create(serializer)
@@ -958,7 +1047,7 @@ class LateRequestViewSet(viewsets.ModelViewSet):
                 import traceback
                 logger.error(traceback.format_exc())
                 raise
-            
+
             logger.info(f"Fetching created instance...")
             try:
                 instance = LateRequest.objects.get(id=serializer.instance.id)
@@ -969,19 +1058,19 @@ class LateRequestViewSet(viewsets.ModelViewSet):
                 import traceback
                 logger.error(traceback.format_exc())
                 raise
-            
+
             logger.info(f"=== LATE REQUEST CREATE SUCCESS ===")
             return Response(
                 response_serializer.data,
                 status=status.HTTP_201_CREATED
             )
-            
+
         except Exception as e:
             logger.error(f"=== LATE REQUEST CREATE FAILED ===")
             logger.error(f"Error: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            
+
             return Response(
                 {
                     'error': str(e),
@@ -1125,13 +1214,13 @@ def reverse_geocode(request):
     """Reverse geocode coordinates to address"""
     latitude = request.data.get('latitude')
     longitude = request.data.get('longitude')
-    
+
     if not latitude or not longitude:
         return Response(
             {'error': 'Latitude and longitude are required'},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     try:
         response = requests.get(
             f'https://nominatim.openstreetmap.org/reverse',
@@ -1147,25 +1236,25 @@ def reverse_geocode(request):
             },
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             address = data.get('display_name', f'{latitude}, {longitude}')
-            
+
             return Response({
                 'address': address,
                 'latitude': latitude,
                 'longitude': longitude,
                 'details': data.get('address', {})
             })
-        
+
         return Response({
             'address': f'Lat: {latitude}, Lon: {longitude}',
             'latitude': latitude,
             'longitude': longitude,
             'details': {}
         })
-        
+
     except requests.exceptions.RequestException as e:
         return Response({
             'address': f'Lat: {latitude}, Lon: {longitude}',
@@ -1182,13 +1271,13 @@ def reverse_geocode_bigdata(request):
     """Reverse geocode using BigDataCloud API"""
     latitude = request.data.get('latitude')
     longitude = request.data.get('longitude')
-    
+
     if not latitude or not longitude:
         return Response(
             {'error': 'Latitude and longitude are required'},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     try:
         response = requests.get(
             'https://api.bigdatacloud.net/data/reverse-geocode-client',
@@ -1199,10 +1288,10 @@ def reverse_geocode_bigdata(request):
             },
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             address_parts = []
             if data.get('locality'):
                 address_parts.append(data['locality'])
@@ -1212,22 +1301,22 @@ def reverse_geocode_bigdata(request):
                 address_parts.append(data['principalSubdivision'])
             if data.get('countryName'):
                 address_parts.append(data['countryName'])
-            
+
             address = ', '.join(address_parts) if address_parts else f'Lat: {latitude}, Lon: {longitude}'
-            
+
             return Response({
                 'address': address,
                 'latitude': latitude,
                 'longitude': longitude,
                 'details': data
             })
-        
+
         return Response({
             'address': f'Lat: {latitude}, Lon: {longitude}',
             'latitude': latitude,
             'longitude': longitude
         })
-        
+
     except requests.exceptions.RequestException as e:
         return Response({
             'address': f'Lat: {latitude}, Lon: {longitude}',
@@ -1235,3 +1324,100 @@ def reverse_geocode_bigdata(request):
             'longitude': longitude,
             'error': str(e)
         })
+
+
+
+
+
+@action(detail=False, methods=['get'], url_path='all-details')
+def all_details(self, request):
+    """
+    Get full attendance details for ALL users for a given month/year,
+    including days where attendance is not marked.
+    Admin only.
+    """
+    # Only admins can view everyone
+    if not self._is_admin(request.user):
+        return Response(
+            {'error': 'Only admins can view all users attendance'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    month = int(request.query_params.get('month', timezone.now().month))
+    year = int(request.query_params.get('year', timezone.now().year))
+
+    days_in_month = calendar.monthrange(year, month)[1]
+
+    # Preload holidays for marking
+    holidays = set(Holiday.objects.filter(
+        date__month=month,
+        date__year=year,
+        is_active=True
+    ).values_list('date', flat=True))
+
+    result = []
+
+    users = AppUser.objects.all().order_by('name')
+
+    for user in users:
+        # All real attendance rows for this user in this month
+        user_att_qs = Attendance.objects.filter(
+            user=user,
+            date__month=month,
+            date__year=year
+        )
+
+        # Index by day for quick lookup
+        att_by_day = {att.date.day: att for att in user_att_qs}
+
+        day_records = []
+
+        for day in range(1, days_in_month + 1):
+            current_date = datetime(year, month, day).date()
+            rec = {
+                'date': current_date.isoformat(),
+            }
+
+            # Sunday
+            if current_date.weekday() == 6:
+                rec['status'] = 'sunday'
+                rec['marked'] = False
+                rec['attendance'] = None
+
+            # Holiday
+            elif current_date in holidays:
+                rec['status'] = 'holiday'
+                rec['marked'] = False
+                rec['attendance'] = None
+
+            # Has attendance row
+            elif day in att_by_day:
+                att = att_by_day[day]
+
+                # Make sure times and status are up-to-date
+                att.calculate_times()
+                att.update_status()
+                att.save()
+
+                rec['status'] = att.status
+                rec['marked'] = True
+                rec['attendance'] = AttendanceSerializer(att).data
+
+            # No row at all = not marked
+            else:
+                rec['status'] = 'not-marked'
+                rec['marked'] = False
+                rec['attendance'] = None
+
+            day_records.append(rec)
+
+        result.append({
+            'user_id': user.id,
+            'user_name': user.name,
+            'user_email': user.email,
+            'month': month,
+            'year': year,
+            'days': day_records,
+        })
+
+    return Response(result)
