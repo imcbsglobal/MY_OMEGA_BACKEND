@@ -1,4 +1,4 @@
-# HR/models.py - Complete Attendance Management Models
+# HR/models.py - Updated Attendance Models with Punch In/Out Break System
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -28,7 +28,8 @@ class Holiday(models.Model):
 
 class Attendance(models.Model):
     """
-    Model to store daily attendance records with punch in/out
+    Model to store daily attendance records with multiple punch in/out
+    Tracks first punch in and last punch out for the day
     """
     STATUS_CHOICES = [
         ('full', 'Full Day'),
@@ -53,63 +54,87 @@ class Attendance(models.Model):
         help_text='Attendance date'
     )
     
-    # Punch In/Out Details
-    punch_in_time = models.DateTimeField(
+    # First Punch In (Start of Day)
+    first_punch_in_time = models.DateTimeField(
         null=True, 
         blank=True,
-        help_text='Punch in timestamp'
+        help_text='First punch in timestamp (start of day)'
     )
-    punch_out_time = models.DateTimeField(
-        null=True, 
-        blank=True,
-        help_text='Punch out timestamp'
-    )
-    punch_in_location = models.CharField(
+    first_punch_in_location = models.CharField(
         max_length=255, 
         blank=True, 
         null=True,
-        help_text='Punch in location name'
+        help_text='First punch in location'
     )
-    punch_out_location = models.CharField(
+    first_punch_in_latitude = models.DecimalField(
+        max_digits=10, 
+        decimal_places=7, 
+        null=True, 
+        blank=True,
+        help_text='First punch in latitude'
+    )
+    first_punch_in_longitude = models.DecimalField(
+        max_digits=10, 
+        decimal_places=7, 
+        null=True, 
+        blank=True,
+        help_text='First punch in longitude'
+    )
+    
+    # Last Punch Out (End of Day)
+    last_punch_out_time = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text='Last punch out timestamp (end of day)'
+    )
+    last_punch_out_location = models.CharField(
         max_length=255, 
         blank=True, 
         null=True,
-        help_text='Punch out location name'
+        help_text='Last punch out location'
     )
-    punch_in_latitude = models.DecimalField(
+    last_punch_out_latitude = models.DecimalField(
         max_digits=10, 
         decimal_places=7, 
         null=True, 
         blank=True,
-        help_text='Punch in latitude'
+        help_text='Last punch out latitude'
     )
-    punch_in_longitude = models.DecimalField(
+    last_punch_out_longitude = models.DecimalField(
         max_digits=10, 
         decimal_places=7, 
         null=True, 
         blank=True,
-        help_text='Punch in longitude'
+        help_text='Last punch out longitude'
     )
-    punch_out_latitude = models.DecimalField(
-        max_digits=10, 
-        decimal_places=7, 
-        null=True, 
-        blank=True,
-        help_text='Punch out latitude'
+    
+    # Calculated Times
+    total_working_hours = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(24)],
+        help_text='Total working hours (excluding breaks)'
     )
-    punch_out_longitude = models.DecimalField(
-        max_digits=10, 
-        decimal_places=7, 
-        null=True, 
-        blank=True,
-        help_text='Punch out longitude'
+    total_break_hours = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(24)],
+        help_text='Total break hours'
+    )
+    
+    # Current Status
+    is_currently_on_break = models.BooleanField(
+        default=False,
+        help_text='Whether user is currently on break'
     )
     
     # Status and Verification
     status = models.CharField(
         max_length=10, 
         choices=STATUS_CHOICES, 
-        default='full',
+        default='half',
         help_text='Attendance status'
     )
     verification_status = models.CharField(
@@ -117,15 +142,6 @@ class Attendance(models.Model):
         choices=VERIFICATION_CHOICES, 
         default='unverified',
         help_text='Verification status by admin'
-    )
-    
-    # Working Hours
-    working_hours = models.DecimalField(
-        max_digits=5, 
-        decimal_places=2, 
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(24)],
-        help_text='Total working hours'
     )
     
     # Notes
@@ -163,7 +179,7 @@ class Attendance(models.Model):
         db_table = 'hr_attendance'
         verbose_name = 'Attendance'
         verbose_name_plural = 'Attendances'
-        ordering = ['-date', '-punch_in_time']
+        ordering = ['-date', '-first_punch_in_time']
         unique_together = ['user', 'date']
         indexes = [
             models.Index(fields=['user', 'date']),
@@ -174,19 +190,157 @@ class Attendance(models.Model):
     def __str__(self):
         return f"{self.user.name} - {self.date} - {self.get_status_display()}"
     
-    def calculate_working_hours(self):
-        """Calculate working hours based on punch in/out times"""
-        if self.punch_in_time and self.punch_out_time:
-            delta = self.punch_out_time - self.punch_in_time
-            hours = delta.total_seconds() / 3600
-            self.working_hours = round(hours, 2)
-        return self.working_hours
+    def calculate_times(self):
+        """Calculate total working hours and break hours from punch records"""
+        punches = self.punch_records.all().order_by('punch_time')
+        
+        if not punches.exists():
+            self.total_working_hours = 0
+            self.total_break_hours = 0
+            return
+        
+        total_work_seconds = 0
+        total_break_seconds = 0
+        last_in = None
+        
+        for punch in punches:
+            if punch.punch_type == 'in':
+                last_in = punch.punch_time
+            elif punch.punch_type == 'out' and last_in:
+                # Calculate duration between punch in and punch out
+                duration = (punch.punch_time - last_in).total_seconds()
+                
+                # Determine if this is work time or break time
+                # First in-out pair is work, subsequent pairs are breaks
+                if not total_work_seconds:
+                    total_work_seconds += duration
+                else:
+                    total_break_seconds += duration
+                
+                last_in = None
+        
+        self.total_working_hours = round(total_work_seconds / 3600, 2)
+        self.total_break_hours = round(total_break_seconds / 3600, 2)
+        
+        # Update first and last punch times
+        first_punch = punches.filter(punch_type='in').first()
+        last_punch = punches.filter(punch_type='out').last()
+        
+        if first_punch:
+            self.first_punch_in_time = first_punch.punch_time
+            self.first_punch_in_location = first_punch.location
+            self.first_punch_in_latitude = first_punch.latitude
+            self.first_punch_in_longitude = first_punch.longitude
+        
+        if last_punch:
+            self.last_punch_out_time = last_punch.punch_time
+            self.last_punch_out_location = last_punch.location
+            self.last_punch_out_latitude = last_punch.latitude
+            self.last_punch_out_longitude = last_punch.longitude
+            self.is_currently_on_break = False
+        else:
+            # If last punch is IN, user is currently on break
+            last_punch_any = punches.last()
+            if last_punch_any and last_punch_any.punch_type == 'in':
+                self.is_currently_on_break = True
     
-    def save(self, *args, **kwargs):
-        """Override save to auto-calculate working hours"""
-        if self.punch_in_time and self.punch_out_time:
-            self.calculate_working_hours()
-        super().save(*args, **kwargs)
+    def update_status(self):
+        """Update attendance status based on working hours"""
+        if self.total_working_hours >= 7.5:
+            self.status = 'full'
+        elif self.total_working_hours >= 4:
+            self.status = 'half'
+        else:
+            self.status = 'half'
+    
+    @property
+    def working_hours(self):
+        """Backward compatibility property"""
+        return self.total_working_hours
+    
+    @property
+    def punch_in_time(self):
+        """Backward compatibility property"""
+        return self.first_punch_in_time
+    
+    @property
+    def punch_out_time(self):
+        """Backward compatibility property"""
+        return self.last_punch_out_time
+    
+    @property
+    def punch_in_location(self):
+        """Backward compatibility property"""
+        return self.first_punch_in_location
+    
+    @property
+    def punch_out_location(self):
+        """Backward compatibility property"""
+        return self.last_punch_out_location
+
+
+class PunchRecord(models.Model):
+    """
+    Model to store individual punch in/out records
+    Each punch (in or out) creates a new record
+    """
+    PUNCH_TYPE_CHOICES = [
+        ('in', 'Punch In'),
+        ('out', 'Punch Out'),
+    ]
+    
+    attendance = models.ForeignKey(
+        Attendance,
+        on_delete=models.CASCADE,
+        related_name='punch_records',
+        help_text='Related attendance record'
+    )
+    punch_type = models.CharField(
+        max_length=3,
+        choices=PUNCH_TYPE_CHOICES,
+        help_text='Type of punch (in/out)'
+    )
+    punch_time = models.DateTimeField(
+        help_text='Punch timestamp'
+    )
+    location = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text='Punch location'
+    )
+    latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text='GPS latitude'
+    )
+    longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text='GPS longitude'
+    )
+    note = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Note for this punch'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'hr_punch_record'
+        verbose_name = 'Punch Record'
+        verbose_name_plural = 'Punch Records'
+        ordering = ['punch_time']
+        indexes = [
+            models.Index(fields=['attendance', 'punch_time']),
+        ]
+    
+    def __str__(self):
+        return f"{self.attendance.user.name} - {self.get_punch_type_display()} - {self.punch_time}"
 
 
 class LeaveRequest(models.Model):
@@ -258,23 +412,7 @@ class LeaveRequest(models.Model):
         """Calculate total days of leave"""
         delta = self.to_date - self.from_date
         return delta.days + 1
-    
 
-
-
-
-class Break(models.Model):
-    attendance = models.ForeignKey(Attendance, on_delete=models.CASCADE, related_name='breaks')
-    break_start = models.DateTimeField()
-    break_end = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)    
-
-
-
-
-# Add these models to your HR/models.py file
-
-# HR/models.py - QUICK FIX FOR LateRequest
 
 class LateRequest(models.Model):
     """
@@ -326,8 +464,6 @@ class LateRequest(models.Model):
         verbose_name = 'Late Request'
         verbose_name_plural = 'Late Requests'
         ordering = ['-created_at']
-        # REMOVED unique_together to allow multiple requests per date
-        # If you want it back, check for existing requests in the view
     
     def __str__(self):
         try:
@@ -368,7 +504,7 @@ class EarlyRequest(models.Model):
     date = models.DateField(help_text='Date of early departure')
     early_by_minutes = models.IntegerField(
         help_text='How many minutes early',
-        validators=[MinValueValidator(1), MaxValueValidator(240)]  # Max 4 hours
+        validators=[MinValueValidator(1), MaxValueValidator(240)]
     )
     reason = models.TextField(help_text='Reason for early departure')
     status = models.CharField(
@@ -412,52 +548,3 @@ class EarlyRequest(models.Model):
         if hours > 0:
             return f"{hours}h {minutes}m"
         return f"{minutes}m"
-
-
-
-
-    
-# HR/models.py (add near other models)
-from django.db import models
-from django.utils import timezone
-from User.models import AppUser  # already present in your file
-
-class AttendanceBreak(models.Model):
-    user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name='breaks')
-    attendance = models.ForeignKey('Attendance', on_delete=models.CASCADE, related_name='attendance_breaks')
-
-    break_start = models.DateTimeField()
-    break_end = models.DateTimeField(null=True, blank=True)
-
-    duration_minutes = models.IntegerField(null=True, blank=True)
-    duration_display = models.CharField(max_length=32, null=True, blank=True)
-
-    note = models.TextField(null=True, blank=True)
-    location = models.CharField(max_length=255, null=True, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'hr_attendance_break'
-        ordering = ['-break_start']
-
-    def calculate_duration(self):
-        if self.break_start and self.break_end:
-            seconds = (self.break_end - self.break_start).total_seconds()
-            mins = int(seconds // 60)
-            self.duration_minutes = mins
-            hours = mins // 60
-            mins_r = mins % 60
-            self.duration_display = f"{hours}h {mins_r}m" if hours else f"{mins_r}m"
-            return self.duration_minutes
-        return None
-
-    def save(self, *args, **kwargs):
-        if self.break_start and self.break_end:
-            self.calculate_duration()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"AttendanceBreak {self.id} - {self.user} - {self.break_start:%Y-%m-%d %H:%M}"
-
-    

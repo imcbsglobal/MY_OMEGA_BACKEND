@@ -1,31 +1,51 @@
-# HR/admin.py
+# HR/admin.py - Complete Clean Admin Configuration
 from django.contrib import admin
-from .models import Attendance, Holiday, LeaveRequest, LateRequest, EarlyRequest
+from .models import Attendance, Holiday, LeaveRequest, LateRequest, EarlyRequest, PunchRecord
+
+
+class PunchRecordInline(admin.TabularInline):
+    """Inline admin for punch records"""
+    model = PunchRecord
+    extra = 0
+    readonly_fields = ['punch_time', 'created_at']
+    fields = ['punch_type', 'punch_time', 'location', 'latitude', 'longitude', 'note']
+    can_delete = False
+    
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
     list_display = [
         'user', 'date', 'status', 'verification_status',
-        'punch_in_time', 'punch_out_time', 'working_hours'
+        'first_punch_in_time', 'last_punch_out_time', 
+        'total_working_hours', 'total_break_hours', 'is_currently_on_break'
     ]
-    list_filter = ['status', 'verification_status', 'date']
+    list_filter = ['status', 'verification_status', 'date', 'is_currently_on_break']
     search_fields = ['user__name', 'user__email']
-    readonly_fields = ['working_hours', 'created_at', 'updated_at']
+    readonly_fields = ['total_working_hours', 'total_break_hours', 'is_currently_on_break', 'created_at', 'updated_at']
     date_hierarchy = 'date'
+    inlines = [PunchRecordInline]
 
     fieldsets = (
         ('Basic Information', {
             'fields': ('user', 'date', 'status', 'verification_status')
         }),
-        ('Punch Details', {
+        ('First Punch In Details', {
             'fields': (
-                'punch_in_time', 'punch_in_location', 'punch_in_latitude', 'punch_in_longitude',
-                'punch_out_time', 'punch_out_location', 'punch_out_latitude', 'punch_out_longitude'
+                'first_punch_in_time', 'first_punch_in_location', 
+                'first_punch_in_latitude', 'first_punch_in_longitude'
             )
         }),
-        ('Working Hours', {
-            'fields': ('working_hours',)
+        ('Last Punch Out Details', {
+            'fields': (
+                'last_punch_out_time', 'last_punch_out_location', 
+                'last_punch_out_latitude', 'last_punch_out_longitude'
+            )
+        }),
+        ('Calculated Times', {
+            'fields': ('total_working_hours', 'total_break_hours', 'is_currently_on_break')
         }),
         ('Notes', {
             'fields': ('note', 'admin_note')
@@ -36,6 +56,27 @@ class AttendanceAdmin(admin.ModelAdmin):
         ('System Fields', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(PunchRecord)
+class PunchRecordAdmin(admin.ModelAdmin):
+    list_display = ['attendance', 'punch_type', 'punch_time', 'location']
+    list_filter = ['punch_type', 'punch_time']
+    search_fields = ['attendance__user__name', 'attendance__user__email', 'location']
+    readonly_fields = ['created_at']
+    date_hierarchy = 'punch_time'
+    
+    fieldsets = (
+        ('Punch Information', {
+            'fields': ('attendance', 'punch_type', 'punch_time')
+        }),
+        ('Location Details', {
+            'fields': ('location', 'latitude', 'longitude')
+        }),
+        ('Additional Info', {
+            'fields': ('note', 'created_at')
         }),
     )
 
@@ -119,8 +160,3 @@ class EarlyRequestAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-
-
-
-
-

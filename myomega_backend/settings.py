@@ -95,14 +95,26 @@ WSGI_APPLICATION = 'myomega_backend.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DATABASE_NAME'),
+#         'USER': os.getenv('DATABASE_USER'),
+#         'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+#         'HOST': os.getenv('DATABASE_HOST'),
+#         'PORT': '5432',
+#     }
+# }
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DATABASE_NAME'),
-        'USER': os.getenv('DATABASE_USER'),
-        'PASSWORD': os.getenv('DATABASE_PASSWORD'),
-        'HOST': os.getenv('DATABASE_HOST'),
-        'PORT': '5432',
+        'NAME': os.environ.get('DATABASE_NAME'),
+        'USER': os.environ.get('DATABASE_USER'),
+        'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
+        'HOST': os.environ.get('DATABASE_HOST'),
+        'PORT': os.environ.get('DATABASE_PORT'),
     }
 }
 
@@ -258,27 +270,34 @@ CORS_ALLOW_HEADERS = [
 # ===========================
 
 # Use DXING as the WhatsApp provider
-WHATSAPP_PROVIDER = "dxing"
+# WHATSAPP_PROVIDER = "dxing"
 
-# DXING endpoint – this matches the URL format you shared
-DXING_API_URL = os.getenv(
-    "DXING_API_URL",
-    "https://app.dxing.in/api/send/whatsapp",
-)
+# # DXING endpoint – this matches the URL format you shared
+# DXING_API_URL = os.getenv(
+#     "DXING_API_URL",
+#     "https://app.dxing.in/api/send/whatsapp",
+# )
 
-# REAL secret + account from your DXING URL
-DXING_SECRET = os.getenv(
-    "DXING_SECRET",
-    "0a6484c76c715a540686e9d73410e33a9f0fd6fb",
-)
-DXING_ACCOUNT = os.getenv(
-    "DXING_ACCOUNT",
-    "1764157689577bcc914f9e55d5e4e4f82f9f00e7d46926e8f9a45a8",
-)
+# # REAL secret + account from your DXING URL
+# DXING_SECRET = os.getenv(
+#     "DXING_SECRET",
+#     "0a6484c76c715a540686e9d73410e33a9f0fd6fb",
+# )
+# DXING_ACCOUNT = os.getenv(
+#     "DXING_ACCOUNT",
+#     "1764157689577bcc914f9e55d5e4e4f82f9f00e7d46926e8f9a45a8",
+# )
 
-DXING_DEFAULT_PRIORITY = int(os.getenv("DXING_DEFAULT_PRIORITY", "1"))
+# DXING_DEFAULT_PRIORITY = int(os.getenv("DXING_DEFAULT_PRIORITY", "1"))
 
-# Default sender / fallback number (FROM)
-# Keep as full international WhatsApp number
-WHATSAPP_PHONE_NUMBER = os.getenv("WHATSAPP_PHONE_NUMBER", "+918281561081")
+# # Default sender / fallback number (FROM)
+# # Keep as full international WhatsApp number
+# WHATSAPP_PHONE_NUMBER = os.getenv("WHATSAPP_PHONE_NUMBER", "+918281561081")
 
+# WHATSAPP_PROVIDER = "dxing"
+
+# DXING API Configuration
+DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
+DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
+DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
+DXING_DEFAULT_PRIORITY = 1

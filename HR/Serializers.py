@@ -1,20 +1,46 @@
-# HR/serializers.py - Complete Attendance Serializers
+# HR/serializers.py - Updated Serializers for new Punch In/Out System
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Attendance, Holiday, LeaveRequest
+from .models import Attendance, Holiday, LeaveRequest, LateRequest, EarlyRequest, PunchRecord
 from User.models import AppUser
+
+
+class PunchRecordSerializer(serializers.ModelSerializer):
+    """Serializer for individual punch records"""
+    punch_type_display = serializers.CharField(source='get_punch_type_display', read_only=True)
+    
+    class Meta:
+        model = PunchRecord
+        fields = [
+            'id',
+            'punch_type',
+            'punch_type_display',
+            'punch_time',
+            'location',
+            'latitude',
+            'longitude',
+            'note',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
 
 
 class AttendanceSerializer(serializers.ModelSerializer):
     """
     Complete serializer for Attendance records
-    Used for GET requests and responses
     """
     user_name = serializers.CharField(source='user.name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
     verified_by_name = serializers.CharField(source='verified_by.name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     verification_status_display = serializers.CharField(source='get_verification_status_display', read_only=True)
+    
+    # Backward compatibility fields
+    punch_in_time = serializers.DateTimeField(source='first_punch_in_time', read_only=True)
+    punch_out_time = serializers.DateTimeField(source='last_punch_out_time', read_only=True)
+    punch_in_location = serializers.CharField(source='first_punch_in_location', read_only=True)
+    punch_out_location = serializers.CharField(source='last_punch_out_location', read_only=True)
+    working_hours = serializers.DecimalField(source='total_working_hours', max_digits=5, decimal_places=2, read_only=True)
     
     class Meta:
         model = Attendance
@@ -24,19 +50,29 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'user_name',
             'user_email',
             'date',
+            # New fields
+            'first_punch_in_time',
+            'first_punch_in_location',
+            'first_punch_in_latitude',
+            'first_punch_in_longitude',
+            'last_punch_out_time',
+            'last_punch_out_location',
+            'last_punch_out_latitude',
+            'last_punch_out_longitude',
+            'total_working_hours',
+            'total_break_hours',
+            'is_currently_on_break',
+            # Backward compatibility fields
             'punch_in_time',
             'punch_out_time',
             'punch_in_location',
             'punch_out_location',
-            'punch_in_latitude',
-            'punch_in_longitude',
-            'punch_out_latitude',
-            'punch_out_longitude',
+            'working_hours',
+            # Status fields
             'status',
             'status_display',
             'verification_status',
             'verification_status_display',
-            'working_hours',
             'note',
             'admin_note',
             'verified_by',
@@ -46,11 +82,13 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = [
-            'id', 
-            'working_hours', 
-            'verified_by', 
-            'verified_at', 
-            'created_at', 
+            'id',
+            'total_working_hours',
+            'total_break_hours',
+            'is_currently_on_break',
+            'verified_by',
+            'verified_at',
+            'created_at',
             'updated_at'
         ]
 
@@ -58,7 +96,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
 class PunchInSerializer(serializers.Serializer):
     """
     Serializer for punch in action
-    Validates location and coordinates
     """
     location = serializers.CharField(
         required=True,
@@ -86,7 +123,6 @@ class PunchInSerializer(serializers.Serializer):
 class PunchOutSerializer(serializers.Serializer):
     """
     Serializer for punch out action
-    Validates location and coordinates
     """
     location = serializers.CharField(
         required=True,
@@ -137,47 +173,9 @@ class AttendanceUpdateStatusSerializer(serializers.Serializer):
     )
 
 
-class AttendanceSummarySerializer(serializers.Serializer):
-    """
-    Serializer for monthly attendance summary
-    Returns aggregated statistics
-    """
-    user_id = serializers.IntegerField()
-    user_name = serializers.CharField()
-    user_email = serializers.CharField()
-    month = serializers.IntegerField()
-    year = serializers.IntegerField()
-    total_days = serializers.IntegerField()
-    full_days_unverified = serializers.IntegerField()
-    verified_full_days = serializers.IntegerField()
-    half_days_unverified = serializers.IntegerField()
-    verified_half_days = serializers.IntegerField()
-    leaves = serializers.IntegerField()
-    not_marked = serializers.IntegerField()
-    total_working_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    holidays = serializers.IntegerField()
-
-
-class MonthlyGridSerializer(serializers.Serializer):
-    """
-    Serializer for monthly attendance grid
-    Returns attendance data for each day of the month
-    """
-    user_id = serializers.IntegerField()
-    user_name = serializers.CharField()
-    user_email = serializers.CharField()
-    duty_start = serializers.CharField()
-    duty_end = serializers.CharField()
-    attendance = serializers.ListField(
-        child=serializers.CharField(),
-        help_text='Array of attendance status for each day'
-    )
-
-
 class HolidaySerializer(serializers.ModelSerializer):
     """
     Serializer for Holiday model
-    Used for creating and managing holidays
     """
     class Meta:
         model = Holiday
@@ -202,7 +200,6 @@ class HolidaySerializer(serializers.ModelSerializer):
 class LeaveRequestSerializer(serializers.ModelSerializer):
     """
     Complete serializer for Leave Request
-    Includes computed fields and related data
     """
     user_name = serializers.CharField(source='user.name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
@@ -245,7 +242,6 @@ class LeaveRequestSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """
         Validate leave request dates
-        Ensure from_date is before to_date
         """
         if 'from_date' in data and 'to_date' in data:
             if data['from_date'] > data['to_date']:
@@ -258,7 +254,6 @@ class LeaveRequestSerializer(serializers.ModelSerializer):
 class LeaveRequestCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating leave requests
-    Used when employees submit leave requests
     """
     class Meta:
         model = LeaveRequest
@@ -276,228 +271,6 @@ class LeaveRequestCreateSerializer(serializers.ModelSerializer):
                 'to_date': 'To date must be after or equal to from date'
             })
         
-        # Check if from_date is not in the past
-        if data['from_date'] < timezone.now().date():
-            raise serializers.ValidationError({
-                'from_date': 'Leave cannot be requested for past dates'
-            })
-        
-        return data
-
-
-# Serializers.py (add this if missing)
-from rest_framework import serializers
-
-class LeaveRequestReviewSerializer(serializers.Serializer):
-    """
-    Validate admin review / override payload:
-      - status: required, must be 'approved' or 'rejected'
-      - admin_comment: optional string
-    """
-    status = serializers.ChoiceField(choices=['approved', 'rejected'])
-    admin_comment = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-
-
-
-class AttendanceCreateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for manually creating attendance records (Admin only)
-    Useful for correcting missing records
-    """
-    class Meta:
-        model = Attendance
-        fields = [
-            'user',
-            'date',
-            'punch_in_time',
-            'punch_out_time',
-            'punch_in_location',
-            'punch_out_location',
-            'punch_in_latitude',
-            'punch_in_longitude',
-            'punch_out_latitude',
-            'punch_out_longitude',
-            'status',
-            'note',
-            'admin_note',
-        ]
-    
-    def validate(self, data):
-        """Validate attendance data"""
-        # Check for duplicate attendance
-        if Attendance.objects.filter(
-            user=data['user'], 
-            date=data['date']
-        ).exists():
-            raise serializers.ValidationError(
-                'Attendance record already exists for this user on this date'
-            )
-        
-        # Validate punch out is after punch in
-        if data.get('punch_in_time') and data.get('punch_out_time'):
-            if data['punch_out_time'] <= data['punch_in_time']:
-                raise serializers.ValidationError({
-                    'punch_out_time': 'Punch out time must be after punch in time'
-                })
-        
-        return data
-
-
-class AttendanceUpdateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for updating attendance records
-    Used by admins to modify existing records
-    """
-    class Meta:
-        model = Attendance
-        fields = [
-            'punch_in_time',
-            'punch_out_time',
-            'punch_in_location',
-            'punch_out_location',
-            'punch_in_latitude',
-            'punch_in_longitude',
-            'punch_out_latitude',
-            'punch_out_longitude',
-            'status',
-            'verification_status',
-            'note',
-            'admin_note',
-        ]
-    
-    def validate(self, data):
-        """Validate updated attendance data"""
-        instance = self.instance
-        
-        # Get punch times (from data or instance)
-        punch_in = data.get('punch_in_time', instance.punch_in_time)
-        punch_out = data.get('punch_out_time', instance.punch_out_time)
-        
-        # Validate punch out is after punch in
-        if punch_in and punch_out:
-            if punch_out <= punch_in:
-                raise serializers.ValidationError({
-                    'punch_out_time': 'Punch out time must be after punch in time'
-                })
-        
-        return data
-
-
-class UserAttendanceStatsSerializer(serializers.Serializer):
-    """
-    Serializer for user attendance statistics
-    Returns overall attendance stats for a user
-    """
-    user_id = serializers.IntegerField()
-    user_name = serializers.CharField()
-    total_attendance_days = serializers.IntegerField()
-    total_full_days = serializers.IntegerField()
-    total_half_days = serializers.IntegerField()
-    total_leaves = serializers.IntegerField()
-    total_working_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    average_daily_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
-    verified_days = serializers.IntegerField()
-    unverified_days = serializers.IntegerField()
-
-
-
-
-
-
-
-
-
-
-
-
-# ============================================================
-# SERIALIZERS.PY - Add/Update LeaveRequest Serializers
-# ============================================================
-
-from rest_framework import serializers
-from django.utils import timezone
-from .models import LeaveRequest
-from User.models import AppUser
-
-
-class LeaveRequestSerializer(serializers.ModelSerializer):
-    """
-    Complete serializer for Leave Request
-    Includes computed fields and related data
-    """
-    user_name = serializers.CharField(source='user.name', read_only=True)
-    user_email = serializers.CharField(source='user.email', read_only=True)
-    reviewed_by_name = serializers.CharField(source='reviewed_by.name', read_only=True, allow_null=True)
-    leave_type_display = serializers.CharField(source='get_leave_type_display', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    total_days = serializers.IntegerField(read_only=True)
-    
-    class Meta:
-        model = LeaveRequest
-        fields = [
-            'id',
-            'user',
-            'user_name',
-            'user_email',
-            'leave_type',
-            'leave_type_display',
-            'from_date',
-            'to_date',
-            'total_days',
-            'reason',
-            'status',
-            'status_display',
-            'reviewed_by',
-            'reviewed_by_name',
-            'reviewed_at',
-            'admin_comment',
-            'created_at',
-            'updated_at',
-        ]
-        read_only_fields = [
-            'id', 
-            'user', 
-            'reviewed_by', 
-            'reviewed_at', 
-            'created_at', 
-            'updated_at'
-        ]
-    
-    def validate(self, data):
-        """
-        Validate leave request dates
-        Ensure from_date is before to_date
-        """
-        if 'from_date' in data and 'to_date' in data:
-            if data['from_date'] > data['to_date']:
-                raise serializers.ValidationError({
-                    'to_date': 'To date must be after or equal to from date'
-                })
-        return data
-
-
-class LeaveRequestCreateSerializer(serializers.ModelSerializer):
-    """
-    Serializer for creating leave requests
-    Used when employees submit leave requests
-    """
-    class Meta:
-        model = LeaveRequest
-        fields = [
-            'leave_type',
-            'from_date',
-            'to_date',
-            'reason'
-        ]
-    
-    def validate(self, data):
-        """Validate leave dates"""
-        if data['from_date'] > data['to_date']:
-            raise serializers.ValidationError({
-                'to_date': 'To date must be after or equal to from date'
-            })
-        
-        # Check if from_date is not in the past
         if data['from_date'] < timezone.now().date():
             raise serializers.ValidationError({
                 'from_date': 'Leave cannot be requested for past dates'
@@ -521,29 +294,10 @@ class LeaveRequestReviewSerializer(serializers.Serializer):
     )
 
 
-# HR/Serializers.py
-from rest_framework import serializers
-from django.utils import timezone
-
-from .models import LeaveRequest, LateRequest, EarlyRequest
-# adjust AppUser import path only if your user model lives elsewhere
-try:
-    from User.models import AppUser
-except Exception:
-    AppUser = None
-
-
-# Serializer used for admin review actions (status + optional comment)
-class LeaveRequestReviewSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=[('approved', 'approved'), ('rejected', 'rejected')])
-    admin_comment = serializers.CharField(allow_blank=True, required=False)
-
-
-# -------------------------
-# LateRequest Serializers
-# -------------------------
 class LateRequestSerializer(serializers.ModelSerializer):
-    # Computed / helper fields
+    """
+    Serializer for Late Requests
+    """
     user_name = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
@@ -561,47 +315,33 @@ class LateRequestSerializer(serializers.ModelSerializer):
 
     def get_user_name(self, obj):
         try:
-            u = getattr(obj, 'user', None)
-            if not u:
-                return None
-            return getattr(u, 'name', None) or getattr(u, 'username', None) or str(u)
-        except Exception:
+            return obj.user.name if hasattr(obj.user, 'name') else str(obj.user)
+        except:
             return None
 
     def get_reviewed_by_name(self, obj):
         try:
-            rb = getattr(obj, 'reviewed_by', None)
-            if not rb:
-                return None
-            return getattr(rb, 'name', None) or getattr(rb, 'username', None) or str(rb)
-        except Exception:
+            return obj.reviewed_by.name if obj.reviewed_by and hasattr(obj.reviewed_by, 'name') else None
+        except:
             return None
 
     def get_status_display(self, obj):
         try:
-            if hasattr(obj, 'get_status_display'):
-                return obj.get_status_display()
-            return getattr(obj, 'status', None)
-        except Exception:
-            return getattr(obj, 'status', None)
+            return obj.get_status_display() if hasattr(obj, 'get_status_display') else obj.status
+        except:
+            return obj.status
 
     def get_late_time_display(self, obj):
         try:
-            # Prefer model-provided property/method if present
-            val = getattr(obj, 'late_time_display', None)
-            if callable(val):
-                return val()
-            if val is not None:
-                return val
-            minutes = getattr(obj, 'late_by_minutes', None)
-            if minutes is None:
-                return None
-            return f"{minutes} minutes"
-        except Exception:
+            return obj.late_time_display if hasattr(obj, 'late_time_display') else f"{obj.late_by_minutes} minutes"
+        except:
             return None
 
 
 class LateRequestCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating late requests
+    """
     class Meta:
         model = LateRequest
         fields = ['date', 'late_by_minutes', 'reason']
@@ -617,10 +357,10 @@ class LateRequestCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-# -------------------------
-# EarlyRequest Serializers
-# -------------------------
 class EarlyRequestSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Early Requests
+    """
     user_name = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField()
     status_display = serializers.SerializerMethodField()
@@ -638,46 +378,33 @@ class EarlyRequestSerializer(serializers.ModelSerializer):
 
     def get_user_name(self, obj):
         try:
-            u = getattr(obj, 'user', None)
-            if not u:
-                return None
-            return getattr(u, 'name', None) or getattr(u, 'username', None) or str(u)
-        except Exception:
+            return obj.user.name if hasattr(obj.user, 'name') else str(obj.user)
+        except:
             return None
 
     def get_reviewed_by_name(self, obj):
         try:
-            rb = getattr(obj, 'reviewed_by', None)
-            if not rb:
-                return None
-            return getattr(rb, 'name', None) or getattr(rb, 'username', None) or str(rb)
-        except Exception:
+            return obj.reviewed_by.name if obj.reviewed_by and hasattr(obj.reviewed_by, 'name') else None
+        except:
             return None
 
     def get_status_display(self, obj):
         try:
-            if hasattr(obj, 'get_status_display'):
-                return obj.get_status_display()
-            return getattr(obj, 'status', None)
-        except Exception:
-            return getattr(obj, 'status', None)
+            return obj.get_status_display() if hasattr(obj, 'get_status_display') else obj.status
+        except:
+            return obj.status
 
     def get_early_time_display(self, obj):
         try:
-            val = getattr(obj, 'early_time_display', None)
-            if callable(val):
-                return val()
-            if val is not None:
-                return val
-            minutes = getattr(obj, 'early_by_minutes', None)
-            if minutes is None:
-                return None
-            return f"{minutes} minutes"
-        except Exception:
+            return obj.early_time_display if hasattr(obj, 'early_time_display') else f"{obj.early_by_minutes} minutes"
+        except:
             return None
 
 
 class EarlyRequestCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating early requests
+    """
     class Meta:
         model = EarlyRequest
         fields = ['date', 'early_by_minutes', 'reason']
@@ -691,17 +418,3 @@ class EarlyRequestCreateSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("early_by_minutes must be greater than 0.")
         return value
-
-
-
-
-# in /mnt/data/Serializers.py (or your existing serializers file)
-from rest_framework import serializers
-from .models import AttendanceBreak
-
-class BreakSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AttendanceBreak
-        fields = ("id", "attendance", "break_start", "break_end", "duration_minutes", "note", "location")
-        read_only_fields = ("id", "break_start", "break_end", "duration_minutes")
-

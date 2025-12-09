@@ -1,5 +1,4 @@
 # payroll/views.py
-# TEMPORARY: Authentication disabled for development
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -12,8 +11,7 @@ from employee_management.models import Employee
 
 
 class PayrollViewSet(viewsets.ModelViewSet):
-    # TEMPORARY: Allow any access for development
-    permission_classes = [permissions.AllowAny]  # Change back to IsAuthenticated in production!
+    permission_classes = [permissions.AllowAny]
     queryset = Payroll.objects.select_related('employee', 'employee__user').all()
     
     def get_serializer_class(self):
@@ -22,7 +20,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
         return PayrollSerializer
     
     def perform_create(self, serializer):
-        # Save with created_by only if user is authenticated
         if self.request.user.is_authenticated:
             serializer.save(created_by=self.request.user)
         else:
@@ -40,14 +37,12 @@ class PayrollViewSet(viewsets.ModelViewSet):
             allowances = Decimal(str(request.data.get('allowances', 0)))
             deductions = Decimal(str(request.data.get('deductions', 0)))
             
-            # Validate inputs
             if not employee_id or not month or not year:
                 return Response(
                     {'error': 'Employee, month, and year are required'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Get employee
             try:
                 employee = Employee.objects.get(id=employee_id)
             except Employee.DoesNotExist:
@@ -56,7 +51,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # Use basic_salary
             if not employee.basic_salary:
                 return Response(
                     {'error': 'Employee does not have a basic salary configured'},
@@ -64,9 +58,8 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 )
             
             base_salary = Decimal(str(employee.basic_salary))
-            
-            # Check if payroll already exists
             year_int = int(year) if isinstance(year, str) else year
+            
             existing = Payroll.objects.filter(
                 employee=employee,
                 month=month,
@@ -79,7 +72,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Calculate payroll
             if working_days <= 0:
                 return Response(
                     {'error': 'Working days must be greater than 0'},
@@ -90,10 +82,9 @@ class PayrollViewSet(viewsets.ModelViewSet):
             earned_salary = daily_rate * Decimal(str(attendance_days))
             gross_pay = earned_salary + allowances
             taxable_amount = gross_pay - deductions
-            tax = taxable_amount * Decimal('0.15')  # 15% tax
+            tax = taxable_amount * Decimal('0.15')
             net_pay = gross_pay - deductions - tax
             
-            # Create payroll
             payroll_data = {
                 'employee': employee,
                 'month': month,
@@ -110,7 +101,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 'status': 'Pending',
             }
             
-            # Add created_by only if user is authenticated
             if request.user.is_authenticated:
                 payroll_data['created_by'] = request.user
             
@@ -154,7 +144,7 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='summary')
     def summary(self, request):
         """Get payroll summary"""
         try:
