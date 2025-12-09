@@ -80,21 +80,23 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
     def cvs_for_interview(self, request):
         """
         Get all CVs available for interview selection (dropdown data)
-        Returns CVs with status 'pending' or optionally all
+        Returns CVs with status 'selected' that don't have an active interview
         """
         try:
-            # Get only pending CVs by default, or all if requested
-            show_all = request.query_params.get('all', 'false').lower() == 'true'
+            # Get CVs with 'selected' status that haven't been added to interview yet
+            # OR have been added but interview was deleted/completed
+            selected_cvs = UserCvData.objects.filter(
+                interview_status='selected'
+            ).select_related('job_title')
             
-            if show_all:
-                cvs = UserCvData.objects.select_related('job_title').all()
-            else:
-                # Only show pending CVs that haven't been interviewed yet
-                cvs = UserCvData.objects.filter(
-                    interview_status='pending'
-                ).select_related('job_title')
+            # Exclude CVs that already have an active (non-completed) interview
+            active_interview_cv_ids = Interview.objects.filter(
+                status__in=['pending', 'ongoing']
+            ).values_list('candidate_id', flat=True)
             
-            serializer = self.get_serializer(cvs, many=True)
+            available_cvs = selected_cvs.exclude(id__in=active_interview_cv_ids)
+            
+            serializer = self.get_serializer(available_cvs, many=True)
             
             return success_response(
                 message=f"Found {len(serializer.data)} CV(s) available for interview",
@@ -133,7 +135,16 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
                 # Get the candidate
                 candidate = UserCvData.objects.select_for_update().get(id=candidate_id)
                 
-                # Change CV status to ongoing
+                # Verify candidate is in 'selected' status
+                if candidate.interview_status != 'selected':
+                    return error_response(
+                        message=f"Cannot start interview. Candidate status is '{candidate.interview_status}'",
+                        error_code="INVALID_STATUS",
+                        details="Only candidates with 'selected' status can be added to interviews",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Change CV status to ongoing (now in interview process)
                 candidate.interview_status = 'ongoing'
                 candidate.save()
 
@@ -419,9 +430,9 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
             candidate_name = interview.candidate.name
             
             with transaction.atomic():
-                # Reset CV status back to pending if it's ongoing
+                # Reset CV status back to 'selected' if it's ongoing
                 if interview.candidate.interview_status == 'ongoing':
-                    interview.candidate.interview_status = 'pending'
+                    interview.candidate.interview_status = 'selected'
                     interview.candidate.save()
                 
                 self.perform_destroy(interview)
@@ -429,7 +440,7 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
             logger.info(f"Interview deleted for candidate {candidate_name} by user {request.user.email}")
             
             return success_response(
-                message="Interview deleted successfully",
+                message="Interview deleted successfully. Candidate status reset to 'selected'.",
                 status_code=status.HTTP_200_OK
             )
 
@@ -448,4 +459,3 @@ class InterviewManagementViewSet(viewsets.ModelViewSet):
                 details="Please try again later",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-

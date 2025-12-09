@@ -32,7 +32,8 @@ HR_MAIN_NUMBER = "++917356122119",   # REPLACE WITH REAL NUMBER
 # - Generic WhatsApp messages (when "to" not provided)
 MANAGER_FALLBACK_NUMBERS = [
     # "+917356122119", 
-    "+918281561081",     # Manager (the number you mentioned)
+    "+917356122119", 
+    # "+918281561081",     # Manager (the number you mentioned)
     # Add more manager numbers if needed
 ]
 

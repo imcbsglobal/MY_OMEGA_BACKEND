@@ -37,20 +37,39 @@ class StartInterviewSerializer(serializers.Serializer):
         try:
             candidate = UserCvData.objects.get(id=value)
             
-            # Check if already in ongoing, selected, or rejected status
-            if candidate.interview_status == 'ongoing':
+            # Normalize status for comparison (handle case sensitivity)
+            current_status = str(candidate.interview_status).lower().strip()
+            
+            # Check if candidate is in 'selected' status
+            if current_status != 'selected':
                 raise serializers.ValidationError(
-                    f"Interview for {candidate.name} is already in progress"
+                    f"Candidate must have 'selected' status. Current status is '{candidate.interview_status}'. "
+                    f"Please update the CV status to 'selected' first."
                 )
             
-            if candidate.interview_status in ['selected', 'rejected']:
+            # Check if candidate already has an active interview
+            existing_interview = Interview.objects.filter(
+                candidate=candidate,
+                status__in=['pending', 'ongoing']
+            ).first()
+            
+            if existing_interview:
                 raise serializers.ValidationError(
-                    f"Candidate status is '{candidate.interview_status}'. Cannot start new interview."
+                    f"This candidate already has an active interview (Status: {existing_interview.status}). "
+                    f"Please complete or delete the existing interview first."
                 )
             
             return value
+            
         except UserCvData.DoesNotExist:
-            raise serializers.ValidationError("Candidate with this ID does not exist")
+            raise serializers.ValidationError(
+                f"Candidate with ID '{value}' does not exist in the database"
+            )
+        except Exception as e:
+            # Catch any other unexpected errors
+            raise serializers.ValidationError(
+                f"Validation error: {str(e)}"
+            )
     
     def validate_interviewer_id(self, value):
         """Validate that the interviewer exists"""
@@ -238,6 +257,3 @@ class InterviewDetailSerializer(serializers.ModelSerializer):
                 'job_role': obj.interviewer.job_role
             }
         return None
-
-
-        
