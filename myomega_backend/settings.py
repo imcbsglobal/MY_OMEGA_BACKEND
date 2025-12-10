@@ -95,14 +95,26 @@ WSGI_APPLICATION = 'myomega_backend.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DATABASE_NAME'),
+#         'USER': os.getenv('DATABASE_USER'),
+#         'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+#         'HOST': os.getenv('DATABASE_HOST'),
+#         'PORT': '5432',
+#     }
+# }
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DATABASE_NAME'),
-        'USER': os.getenv('DATABASE_USER'),
-        'PASSWORD': os.getenv('DATABASE_PASSWORD'),
-        'HOST': os.getenv('DATABASE_HOST'),
-        'PORT': '5432',
+        'NAME': os.environ.get('DATABASE_NAME'),
+        'USER': os.environ.get('DATABASE_USER'),
+        'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
+        'HOST': os.environ.get('DATABASE_HOST'),
+        'PORT': os.environ.get('DATABASE_PORT'),
     }
 }
 
@@ -269,7 +281,7 @@ CORS_ALLOW_HEADERS = [
 # ===========================
 
 # Use DXING as the WhatsApp provider
-WHATSAPP_PROVIDER = "dxing"
+# WHATSAPP_PROVIDER = "dxing"
 
 # # DXING endpoint – this matches the URL format you shared
 # DXING_API_URL = os.getenv(
@@ -293,8 +305,12 @@ WHATSAPP_PROVIDER = "dxing"
 # # Keep as full international WhatsApp number
 # WHATSAPP_PHONE_NUMBER = os.getenv("WHATSAPP_PHONE_NUMBER", "+918281561081")
 
+# WHATSAPP_PROVIDER = "dxing"
+
+# DXING API Configuration
 DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
 DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
 DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+DXING_DEFAULT_PRIORITY = 1
