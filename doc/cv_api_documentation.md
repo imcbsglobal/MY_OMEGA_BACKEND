@@ -26,227 +26,116 @@ Authorization: Bearer <your_access_token>Authorization: Bearer <your_access_toke
 
 
 
-## Job Title Endpoints## Job Title Endpoints
+## Departments & Job Titles ✅
 
 
 
-### 1. List Job Titles### 1. List Job Titles
+### Departments
 
-**GET** `/job-titles/`**GET** `/job-titles/`
+- **GET** `/departments/` — List departments
+- **POST** `/departments/` — Create a department
+- **GET** `/departments/{id}/` — Retrieve a department
+- **GET** `/departments/{id}/job_titles/` — List job titles under a department
+- **POST** `/departments/{id}/job_titles/` — Create a job title under this department
 
+Department fields:
 
+- `id` (integer)
+- `name` (string, required, unique)
+- `created_at`, `updated_at`
 
-**Response:****Response (200 OK):**
+Create Department — Example
 
-```json```json
-
-{{
-
-  "success": true,  "success": true,
-
-  "message": "Found 5 job title(s)",  "message": "Found 5 job title(s)",
-
-  "data": [  "data": [
-
-    {    {
-
-      "id": 1,      "id": 1,
-
-      "title": "Software Developer",      "title": "Software Developer",
-
-      "created_at": "2025-11-10T08:00:00Z",      "created_at": "2025-11-10T08:00:00Z",
-
-      "updated_at": "2025-11-10T08:00:00Z"      "updated_at": "2025-11-10T08:00:00Z"
-
-    }    },
-
-  ]    {
-
-}      "id": 2,
-
-```      "title": "HR Manager",
-
-      "created_at": "2025-11-10T09:00:00Z",
-
----      "updated_at": "2025-11-10T09:00:00Z"
-
-    }
-
-### 2. Get Single Job Title  ]
-
-**GET** `/job-titles/{id}/`}
-
+```bash
+curl -X POST "{{baseUrl}}/api/cv-management/departments/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Engineering"}'
 ```
 
-**Response:**
-
-```json**Error Response (500 Internal Server Error):**
-
-{```json
-
-  "success": true,{
-
-  "message": "Job title retrieved successfully",  "success": false,
-
-  "data": {  "message": "Error retrieving job titles",
-
-    "id": 1,  "error": "INTERNAL_ERROR",
-
-    "title": "Software Developer",  "details": "Please try again later"
-
-    "created_at": "2025-11-10T08:00:00Z",}
-
-    "updated_at": "2025-11-10T08:00:00Z"```
-
-  }
-
-}**cURL Example:**
-
-``````bash
-
-curl -X GET "{{baseUrl}}/api/cv-management/job-titles/" \
-
----  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-
-```
-
-### 3. Create Job Title
-
-**POST** `/job-titles/`---
-
-
-
-**Request:**### 2. Get Single Job Title
+Success response (201 Created):
 
 ```json
-
-{**Endpoint:** `GET /api/cv-management/job-titles/{id}/`
-
-  "title": "Software Developer"
-
-}**Description:** Retrieve details of a specific job title.
-
-```
-
-**Success Response (200 OK):**
-
-**Response:**```json
-
-```json{
-
-{  "success": true,
-
-  "success": true,  "message": "Job title retrieved successfully",
-
-  "message": "Job title created successfully",  "data": {
-
-  "data": {    "id": 1,
-
-    "id": 1,    "title": "Software Developer",
-
-    "title": "Software Developer",    "created_at": "2025-11-10T08:00:00Z",
-
-    "created_at": "2025-11-10T08:00:00Z",    "updated_at": "2025-11-10T08:00:00Z"
-
-    "updated_at": "2025-11-10T08:00:00Z"  }
-
-  }}
-
-}```
-
-```
-
-**Error Response (404 Not Found):**
-
----```json
-
 {
-
-### 4. Update Job Title  "success": false,
-
-**PUT/PATCH** `/job-titles/{id}/`  "message": "Job title not found",
-
-  "error": "NOT_FOUND",
-
-**Request:**  "details": "The requested job title does not exist"
-
-```json}
-
-{```
-
-  "title": "Senior Software Developer"
-
-}**cURL Example:**
-
-``````bash
-
-curl -X GET "{{baseUrl}}/api/cv-management/job-titles/1/" \
-
-**Response:**  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-
-```json```
-
-{
-
-  "success": true,---
-
-  "message": "Job title updated successfully",
-
-  "data": {### 3. Create Job Title
-
-    "id": 1,
-
-    "title": "Senior Software Developer",**Endpoint:** `POST /api/cv-management/job-titles/`
-
-    "created_at": "2025-11-10T08:00:00Z",
-
-    "updated_at": "2025-11-11T10:30:00Z"**Description:** Create a new job title record.
-
-  }
-
-}**Request Body:**
-
-``````json
-
-{
-
----  "title": "Software Developer"
-
+  "success": true,
+  "message": "Department created successfully",
+  "data": { "id": 1, "name": "Engineering" }
 }
+```
 
-### 5. Delete Job Title```
+### Job Title Endpoints (updated)
 
-**DELETE** `/job-titles/{id}/`
+- **GET** `/job-titles/` — List job titles. Supports filtering by department with `?department=<id>`
+- **GET** `/job-titles/{id}/` — Retrieve a job title
+- **POST** `/job-titles/` — Create a job title (include `department` id to assign)
+- **PUT/PATCH** `/job-titles/{id}/` — Update job title
+- **DELETE** `/job-titles/{id}/` — Delete job title
 
-**Fields:**
+JobTitle fields:
 
-**Response:**- `title` (string, required, unique): The job title name
+- `id` (integer)
+- `title` (string, required)
+- `department` (integer, optional): ID of the department
+- `department_detail` (object, read-only): nested department information
+- `created_at`, `updated_at`
+
+List Job Titles — Example
+
+```bash
+curl -X GET "{{baseUrl}}/api/cv-management/job-titles/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+List job titles filtered by department (e.g., department id 1):
+
+```bash
+curl -X GET "{{baseUrl}}/api/cv-management/job-titles/?department=1" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+Create Job Title — Example (provide department by id)
+
+```bash
+curl -X POST "{{baseUrl}}/api/cv-management/job-titles/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Backend Developer", "department": 1}'
+```
+
+Success response (201 Created):
 
 ```json
-
-{**Success Response (201 Created):**
-
-  "success": true,```json
-
-  "message": "Job title deleted successfully"{
-
-}  "success": true,
-
-```  "message": "Job title created successfully",
-
+{
+  "success": true,
+  "message": "Job title created successfully",
   "data": {
+    "id": 10,
+    "title": "Backend Developer",
+    "department": 1,
+    "department_detail": { "id": 1, "name": "Engineering" }
+  }
+}
+```
 
----    "id": 1,
+Create Job Title via Department (nested) — Example
 
-    "title": "Software Developer",
+```bash
+curl -X POST "{{baseUrl}}/api/cv-management/departments/1/job_titles/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Frontend Developer"}'
+```
 
-## CV Data Endpoints    "created_at": "2025-11-10T08:00:00Z",
+Notes:
 
-    "updated_at": "2025-11-10T08:00:00Z"
+- If you want every Job Title to require a Department going forward, change the `department` field to `null=False` in the model and create a migration that assigns a department for existing rows (or sets a default).
+- The `departments/{id}/job_titles/` endpoints are implemented as custom actions on the `DepartmentViewSet` and allow convenient nested creation/listing.
 
-### 1. List All CVs  }
+  ## CV Data Endpoints
 
-**GET** `/cvs/`}
+  ### 1. List All CVs
+
+  **GET** `/cvs/`
 
 ```
 
@@ -834,6 +723,23 @@ curl -X POST "{{baseUrl}}/api/cv-management/cvs/" \
   }'
 ```
 
+**cURL Example (JSON with job title name):**
+```bash
+curl -X POST "{{baseUrl}}/api/cv-management/cvs/" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone_number": "+91 9876543210",
+    "job_title": "Backend Developer",
+    "place": "Kochi",
+    "district": "Ernakulam",
+    "education": "Bachelor of Computer Science",
+    "experience": "5 years"
+  }'
+```
+
 **cURL Example (with File):**
 ```bash
 curl -X POST "{{baseUrl}}/api/cv-management/cvs/" \
@@ -846,6 +752,9 @@ curl -X POST "{{baseUrl}}/api/cv-management/cvs/" \
   -F "education=Bachelor of Computer Science" \
   -F "experience=5 years" \
   -F "cv_file=@/path/to/cv.pdf"
+```
+
+Note: `job_title` may be provided as either a JobTitle ID (integer) or the job title string (e.g. "Backend Developer"). The API will resolve a provided string to an existing JobTitle if it exists.
 ```
 
 ---

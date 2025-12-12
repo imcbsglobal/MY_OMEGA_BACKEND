@@ -1,12 +1,13 @@
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError, NotFound
 from django.db import transaction
 import logging
 
-from .models import UserCvData, JobTitle
-from .serializers import UserCvDataSerializer, JobTitleSerializer
+from .models import UserCvData, JobTitle, Department
+from .serializers import UserCvDataSerializer, JobTitleSerializer, DepartmentSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,28 @@ def error_response(message, error_code, details=None, status_code=status.HTTP_40
     return Response(response, status=status_code)
 
 
+class DepartmentViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing departments"""
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+    # add permission_classes if you use custom permissions
+
+    @action(detail=True, methods=['get', 'post'])
+    def job_titles(self, request, pk=None):
+        dept = self.get_object()
+        if request.method == 'GET':
+            qs = dept.job_titles.all()
+            serializer = JobTitleSerializer(qs, many=True, context={'request': request})
+            return Response(serializer.data)
+        # POST -> create job title under this department
+        data = request.data.copy()
+        data['department'] = dept.pk
+        serializer = JobTitleSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 class JobTitleViewSet(viewsets.ModelViewSet):
     """ViewSet for managing job titles"""
     queryset = JobTitle.objects.all().order_by('-created_at')
@@ -59,6 +82,14 @@ class JobTitleViewSet(viewsets.ModelViewSet):
                 details="Please try again later",
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def get_queryset(self):
+        """Allow optional filtering by department id via `?department=<id>`"""
+        qs = super().get_queryset()
+        dept = self.request.query_params.get('department')
+        if dept:
+            qs = qs.filter(department_id=dept)
+        return qs
 
     def retrieve(self, request, *args, **kwargs):
         """Get single job title details"""
