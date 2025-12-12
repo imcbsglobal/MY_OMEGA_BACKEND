@@ -1,12 +1,21 @@
 from rest_framework import serializers
-from .models import UserCvData, JobTitle
+from .models import UserCvData, JobTitle,Department
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id','name']
 
 
 class JobTitleSerializer(serializers.ModelSerializer):
-    
+    department = serializers.PrimaryKeyRelatedField(
+        queryset = Department.objects.all(),required=False,allow_null=True
+    )    
+    department_detail = DepartmentSerializer(source='department', read_only=True)
+
     class Meta:
         model = JobTitle
-        fields = ['id', 'title', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'created_at', 'updated_at','department','department_detail']
         read_only_fields = ['created_at', 'updated_at']
 
 
