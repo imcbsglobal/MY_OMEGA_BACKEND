@@ -360,7 +360,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         # Recalculate times from punch records
         attendance.calculate_times()
-        attendance.update_status()
+        # attendance.update_status()
 
         # Verify
         attendance.verification_status = 'verified'
