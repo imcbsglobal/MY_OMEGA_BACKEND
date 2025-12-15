@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-f7up&g(x(1zgk4t*lmp%!hz46o&9id4=ekxuo84r9(in$3q%9e
 DEBUG = True
 
 # ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1"]
-ALLOWED_HOSTS = ['myomega.imcbs.com','demomyomega.imcbs.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['myomegahrms.in','myomegahrms.in', 'localhost', '127.0.0.1']
 
 
 # Application definition
