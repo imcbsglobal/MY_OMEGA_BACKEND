@@ -162,8 +162,6 @@ def format_punch_message(user, action, location, time):
 
 Employee: {user_name}
 Action: {action}
-Time: {time}
-Location: {location}
 
 Thank you!"""
 

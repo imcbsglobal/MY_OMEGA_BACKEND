@@ -1,4 +1,4 @@
-# employee_management/serializers.py - FIXED
+# employee_management/serializers.py - COMPLETE FIX
 from rest_framework import serializers
 from django.apps import apps
 from .models import Employee, EmployeeDocument
@@ -28,7 +28,7 @@ class JobInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            'id', 'employee_id', 'user', 'user_name', 'user_email',  # <-- user_name now included
+            'id', 'employee_id', 'user', 'user_name', 'user_email',
             'employment_status', 'employment_type', 'department', 'designation',
             'reporting_manager', 'reporting_manager_name', 'date_of_joining',
             'date_of_leaving', 'probation_end_date', 'confirmation_date',
@@ -72,7 +72,17 @@ class ContactInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation'
+            'emergency_contact_name', 'emergency_contact_phone', 
+            'emergency_contact_relation', 'phone_number'
+        ]
+
+
+class PersonalInfoSerializer(serializers.ModelSerializer):
+    """NEW: Serializer for personal information fields"""
+    class Meta:
+        model = Employee
+        fields = [
+            'blood_group', 'marital_status', 'notes'
         ]
 
 
@@ -81,7 +91,8 @@ class BankInfoSerializer(serializers.ModelSerializer):
         model = Employee
         fields = [
             'salary_account_number', 'salary_bank_name', 'salary_ifsc_code',
-            'salary_branch', 'account_holder_name'
+            'salary_branch', 'account_holder_name', 'pf_number', 'esi_number',
+            'pan_number', 'aadhar_number'
         ]
 
 
@@ -98,17 +109,17 @@ class EmployeeListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
-    profile_picture = serializers.SerializerMethodField()  # NEW
+    profile_picture = serializers.SerializerMethodField()
     job_info = JobInfoSerializer(source='*', read_only=True)
 
     class Meta:
         model = Employee
         fields = [
             'id', 'employee_id', 'full_name', 'user_email',
-            'avatar_url', 'profile_picture',  # FIXED
+            'avatar_url', 'profile_picture',
             'designation', 'department', 'employment_status',
             'employment_type', 'location', 'is_active', 'created_at',
-            'job_info'
+            'job_info', 'phone_number'
         ]
 
     def get_full_name(self, obj):
@@ -135,26 +146,42 @@ class EmployeeListSerializer(serializers.ModelSerializer):
 
 
 class EmployeeDetailSerializer(serializers.ModelSerializer):
+    """COMPLETE DETAIL SERIALIZER - ALL FIELDS"""
     job_info = JobInfoSerializer(source='*', read_only=True)
     contact_info = ContactInfoSerializer(source='*', read_only=True)
+    personal_info = PersonalInfoSerializer(source='*', read_only=True)
     bank_info = BankInfoSerializer(source='*', read_only=True)
     documents = EmployeeDocumentSerializer(source='additional_documents', many=True, read_only=True)
     avatar_url = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
         fields = [
-            'id', 'employee_id', 'full_name', 'avatar_url',
-            'job_info', 'contact_info', 'bank_info', 'documents',
+            # Basic Info
+            'id', 'employee_id', 'full_name', 'user_email', 'avatar_url',
+            
+            # Nested Serializers
+            'job_info', 'contact_info', 'personal_info', 'bank_info', 'documents',
+            
+            # Direct Fields (for backwards compatibility and easy access)
             'designation', 'department', 'employment_status', 
             'employment_type', 'location', 'work_location',
+            'phone_number',
+            
+            # Personal fields that were missing
             'blood_group', 'marital_status', 'notes',
+            
+            # Status
             'is_active', 'created_at', 'updated_at'
         ]
 
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else ''
 
     def get_avatar_url(self, obj):
         request = self.context.get('request')
@@ -169,24 +196,41 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
 
 
 class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
+    """COMPLETE CREATE/UPDATE SERIALIZER"""
     class Meta:
         model = Employee
         fields = [
-            'user', 'employee_id', 'phone_number',  # <-- phone_number added
+            # User Link
+            'user', 'employee_id', 'phone_number',
+            
+            # Job Information
             'employment_status', 'employment_type',
             'department', 'designation', 'reporting_manager',
             'date_of_joining', 'date_of_leaving', 'probation_end_date',
             'confirmation_date', 'basic_salary', 'allowances', 'gross_salary',
-            'pf_number', 'esi_number', 'pan_number', 'aadhar_number',
             'location', 'work_location', 'duty_time',
-
-            'avatar',   # ⭐⭐⭐ ADDED FIX
-
+            
+            # Government IDs
+            'pf_number', 'esi_number', 'pan_number', 'aadhar_number',
+            
+            # Bank Details
             'account_holder_name', 'salary_account_number', 'salary_bank_name',
             'salary_ifsc_code', 'salary_branch',
+            
+            # Documents
             'pan_card_attachment', 'offer_letter', 'joining_letter', 'id_card_attachment',
+            
+            # Emergency Contact
             'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
-            'blood_group', 'marital_status', 'notes', 'is_active'
+            
+            # Personal Information
+            'blood_group', 'marital_status', 'notes',
+            
+            # Avatar
+            'avatar',
+            
+            # Status
+            'is_active'
         ]
 
     def validate_user(self, value):
