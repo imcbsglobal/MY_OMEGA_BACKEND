@@ -149,14 +149,13 @@ def _safe_date(dt) -> str:
     return "Not specified"
 
 
-def format_punch_message(user, action, location, time):
+def format_punch_message(user, action,):
     """
     Format punch in/out message.
     action: "PUNCH IN" or "PUNCH OUT"
     """
     user_name = _user_name(user)
-    location = location or "Not recorded"
-    time = time or "Not recorded"
+
 
     return f"""📍 Attendance Alert
 
