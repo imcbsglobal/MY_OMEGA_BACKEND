@@ -134,6 +134,37 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         attendance.save()
 
+        lat = serializer.validated_data['latitude']
+        lon = serializer.validated_data['longitude']
+
+        # 1️⃣ GEOFENCE CHECK FIRST (MANDATORY)
+        allowed, distance = validate_office_geofence(lat, lon)
+
+        if not allowed:
+            return Response(
+                {
+                    "error": "Punch in denied: outside office premises",
+                    "distance_meters": distance,
+                    "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS,
+                    "action": "Move inside office and try again"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 2️⃣ THEN punch state check
+        last_punch = attendance.punch_records.order_by('-punch_time').first()
+
+        if last_punch and last_punch.punch_type == 'in':
+            return Response(
+                {
+                    "error": "You are already punched in. Please punch out before punching in again."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+
+
         # Get punch records for response
         punch_records = attendance.punch_records.all().order_by('punch_time')
 
