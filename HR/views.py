@@ -7,6 +7,9 @@ from django.db.models import Q, Sum
 from django.db import transaction
 from django.utils import timezone
 from datetime import datetime, time
+from django.conf import settings
+from .geofence import validate_office_geofence
+
 import calendar
 import requests
 
@@ -77,67 +80,21 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(verification_status=verification_status)
 
         return queryset.order_by('-date', '-first_punch_in_time')
+# Replace your punch_in method in HR/views.py with this debug version
 
     @action(detail=False, methods=['post'])
     @transaction.atomic
     def punch_in(self, request):
-        """
-        Punch in action - can be used multiple times in a day
-        First punch in = Start of work day
-        Subsequent punch ins = Return from break
-        """
         serializer = PunchInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         user = request.user
         today = timezone.now().date()
 
-        # Get or create attendance record for today
-        attendance, created = Attendance.objects.get_or_create(
-            user=user,
-            date=today,
-            defaults={
-                'status': 'half',
-                'is_currently_on_break': False
-            }
-        )
-
-        # Check if user is currently on break (last punch was OUT)
-        last_punch = attendance.punch_records.order_by('-punch_time').first()
-
-        if last_punch and last_punch.punch_type == 'in':
-            return Response(
-                {'error': 'You are already punched in. Please punch out before punching in again.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Create new punch in record
-        punch_record = PunchRecord.objects.create(
-            attendance=attendance,
-            punch_type='in',
-            punch_time=timezone.now(),
-            location=serializer.validated_data['location'],
-            latitude=serializer.validated_data['latitude'],
-            longitude=serializer.validated_data['longitude'],
-            note=serializer.validated_data.get('note', '')
-        )
-
-        # Update attendance record
-        attendance.is_currently_on_break = False
-
-        # If this is the first punch in, update first_punch_in fields
-        if not attendance.first_punch_in_time:
-            attendance.first_punch_in_time = punch_record.punch_time
-            attendance.first_punch_in_location = punch_record.location
-            attendance.first_punch_in_latitude = punch_record.latitude
-            attendance.first_punch_in_longitude = punch_record.longitude
-
-        attendance.save()
-
         lat = serializer.validated_data['latitude']
         lon = serializer.validated_data['longitude']
 
-        # 1️⃣ GEOFENCE CHECK FIRST (MANDATORY)
+        # 🔒 STRICT GEOFENCE CHECK
         allowed, distance = validate_office_geofence(lat, lon)
 
         if not allowed:
@@ -145,34 +102,48 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 {
                     "error": "Punch in denied: outside office premises",
                     "distance_meters": distance,
-                    "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS,
-                    "action": "Move inside office and try again"
+                    "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS
                 },
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # 2️⃣ THEN punch state check
-        last_punch = attendance.punch_records.order_by('-punch_time').first()
+        attendance, created = Attendance.objects.get_or_create(
+            user=user,
+            date=today,
+            defaults={'status': 'half', 'is_currently_on_break': False}
+        )
 
+        last_punch = attendance.punch_records.order_by('-punch_time').first()
         if last_punch and last_punch.punch_type == 'in':
             return Response(
-                {
-                    "error": "You are already punched in. Please punch out before punching in again."
-                },
+                {'error': 'You are already punched in'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        punch = PunchRecord.objects.create(
+            attendance=attendance,
+            punch_type='in',
+            punch_time=timezone.now(),
+            location=serializer.validated_data['location'],
+            latitude=lat,
+            longitude=lon,
+            note=serializer.validated_data.get('note', '')
+        )
 
+        if not attendance.first_punch_in_time:
+            attendance.first_punch_in_time = punch.punch_time
+            attendance.first_punch_in_location = punch.location
+            attendance.first_punch_in_latitude = punch.latitude
+            attendance.first_punch_in_longitude = punch.longitude
 
+        attendance.is_currently_on_break = False
+        attendance.save()
 
-        # Get punch records for response
-        punch_records = attendance.punch_records.all().order_by('punch_time')
+        return Response(
+            AttendanceSerializer(attendance).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
 
-        response_data = AttendanceSerializer(attendance).data
-        response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-        response_data['message'] = 'Punched in successfully' if created or not last_punch else 'Returned from break successfully'
-
-        return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'])
     @transaction.atomic
