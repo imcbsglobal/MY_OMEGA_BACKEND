@@ -1,4 +1,8 @@
-# whatsapp_service/utils.py
+
+# ============================================================================
+# FILE 3: whatsapp_service/utils.py
+# ============================================================================
+
 """
 Helper utilities for WhatsApp messaging.
 Used by:
@@ -107,6 +111,76 @@ def get_user_phone(user) -> Optional[str]:
     return None
 
 
+def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
+    """
+    Return a list of phone numbers (strings) for all employees.
+    Priority per Employee record:
+      1. If the employee has a linked user -> use get_user_phone(user)
+      2. Employee.phone_number
+      3. Employee.emergency_contact_phone
+    Normalizes by ensuring a '+' prefix for simple numeric values when possible.
+    """
+    numbers = []
+    try:
+        from employee_management.models import Employee
+    except Exception as e:
+        # Employee model not available
+        logger.warning("Employee model not available when gathering employee numbers: %s", e)
+        return []
+
+    def _ensure_plus(s):
+        if not s:
+            return None
+        s = str(s).strip()
+        if not s:
+            return None
+        # if it already starts with +, return as-is
+        if s.startswith("+"):
+            return s
+        # If only digits (or digits + spaces/hyphens), add +
+        raw = s.replace(" ", "").replace("-", "")
+        if raw.isdigit():
+            return "+" + raw
+        return s  # return as-is and let provider normalization handle it
+
+    qs = Employee.objects.all()
+    for emp in qs:
+        # 1) if employee has user, try get_user_phone (respects user's whatsapp_preferences)
+        user = getattr(emp, "user", None)
+        phone = None
+        if user:
+            try:
+                phone = get_user_phone(user)
+            except Exception:
+                phone = None
+
+        # 2) Employee.phone_number
+        if not phone:
+            phone = getattr(emp, "phone_number", None)
+
+        # 3) Employee.emergency_contact_phone
+        if not phone:
+            phone = getattr(emp, "emergency_contact_phone", None)
+
+        phone = _ensure_plus(phone)
+        if phone:
+            numbers.append(phone)
+
+    if exclude_none:
+        numbers = [n for n in numbers if n]
+
+    if exclude_duplicates:
+        seen = set()
+        dedup = []
+        for n in numbers:
+            if n not in seen:
+                dedup.append(n)
+                seen.add(n)
+        numbers = dedup
+
+    return numbers
+
+
 def notify_hr_admin(message: str):
     """
     Notify HR admins using numbers defined in admin_numbers.py.
@@ -158,12 +232,10 @@ def format_punch_message(user, action, location, time):
     location = location or "Not recorded"
     time = time or "Not recorded"
 
-    return f"""📍 Attendance Alert
+    return f"""🔔 Attendance Alert
 
 Employee: {user_name}
 Action: {action}
-Time: {time}
-Location: {location}
 
 Thank you!"""
 

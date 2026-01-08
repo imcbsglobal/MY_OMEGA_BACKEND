@@ -14,6 +14,8 @@ from datetime import timedelta
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from django.utils import timezone
+
 
 load_dotenv()
 
@@ -59,6 +61,7 @@ INSTALLED_APPS = [
     'employee_management',
     "payroll",
     'whatsapp_service',
+    'master',
 ]
 
 MIDDLEWARE = [
@@ -260,6 +263,10 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+
+OFFICE_LATITUDE = 11.618056
+OFFICE_LONGITUDE = 76.081333
+OFFICE_GEOFENCE_RADIUS_METERS = 250
 
 
 

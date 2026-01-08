@@ -1,3 +1,4 @@
+# HR/signals.py - FIXED: Updated to use new field names
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.db import transaction
@@ -65,7 +66,6 @@ def send_to_managers_and_hr(message):
 @receiver(post_save, sender=LeaveRequest)
 def handle_leave_request_notifications(sender, instance, created, **kwargs):
     """Handle WhatsApp notifications for leave requests"""
-    # Run after transaction commits to avoid blocking the save
     transaction.on_commit(lambda: _send_leave_notifications(instance, created, kwargs))
 
 
@@ -119,7 +119,6 @@ def _send_leave_notifications(instance, created, kwargs):
 @receiver(post_save, sender=LateRequest)
 def handle_late_request_notifications(sender, instance, created, **kwargs):
     """Handle WhatsApp notifications for late requests"""
-    # Run after transaction commits to avoid blocking the save
     transaction.on_commit(lambda: _send_late_notifications(instance, created, kwargs))
 
 
@@ -182,7 +181,6 @@ def _send_late_notifications(instance, created, kwargs):
 @receiver(post_save, sender=EarlyRequest)
 def handle_early_request_notifications(sender, instance, created, **kwargs):
     """Handle WhatsApp notifications for early requests"""
-    # Run after transaction commits to avoid blocking the save
     transaction.on_commit(lambda: _send_early_notifications(instance, created, kwargs))
 
 
@@ -240,28 +238,30 @@ def _send_early_notifications(instance, created, kwargs):
             delattr(instance, '_signal_processing')
 
 
-
 # ========== STORE OLD VALUES BEFORE SAVE ==========
+# FIXED: Updated to use new field names
 @receiver(pre_save, sender=Attendance)
 def store_old_attendance_values(sender, instance, **kwargs):
     """Store old values before save for comparison"""
     if instance.pk:  # Only for existing records (updates)
         try:
             old_instance = Attendance.objects.get(pk=instance.pk)
-            instance._old_punch_in = old_instance.punch_in_time
-            instance._old_punch_out = old_instance.punch_out_time
-            print(f"[pre_save] Stored old values - punch_in: {instance._old_punch_in}, punch_out: {instance._old_punch_out}")
+            # FIXED: Use new field names
+            instance._old_first_punch_in = old_instance.first_punch_in_time
+            instance._old_last_punch_out = old_instance.last_punch_out_time
+            print(f"[pre_save] Stored old values - first_punch_in: {instance._old_first_punch_in}, last_punch_out: {instance._old_last_punch_out}")
         except Attendance.DoesNotExist:
-            instance._old_punch_in = None
-            instance._old_punch_out = None
+            instance._old_first_punch_in = None
+            instance._old_last_punch_out = None
             print(f"[pre_save] Could not find old instance")
     else:  # New record (creation)
-        instance._old_punch_in = None
-        instance._old_punch_out = None
+        instance._old_first_punch_in = None
+        instance._old_last_punch_out = None
         print(f"[pre_save] New attendance record - no old values")
 
 
 # ========== ATTENDANCE PUNCH IN/OUT SIGNALS ==========
+# FIXED: Updated to use new field names
 @receiver(post_save, sender=Attendance)
 def handle_punch_notifications(sender, instance, created, **kwargs):
     """Handle WhatsApp notifications for punch in/out"""
@@ -269,11 +269,10 @@ def handle_punch_notifications(sender, instance, created, **kwargs):
     print(f"[post_save] Attendance signal triggered")
     print(f"[post_save] Created: {created}")
     print(f"[post_save] User: {instance.user.id}")
-    print(f"[post_save] Punch IN: {instance.punch_in_time}")
-    print(f"[post_save] Punch OUT: {instance.punch_out_time}")
+    print(f"[post_save] First Punch IN: {instance.first_punch_in_time}")
+    print(f"[post_save] Last Punch OUT: {instance.last_punch_out_time}")
     print(f"{'='*60}\n")
     
-    # Run after transaction commits to avoid blocking the save
     transaction.on_commit(lambda: _send_punch_notifications(instance, created))
 
 
@@ -286,13 +285,11 @@ def _send_punch_notifications(instance, created):
         return
 
     try:
-        # Prevent infinite loops
         if getattr(instance, '_signal_processing', False):
             print(f"[_send_punch_notifications] ⚠️ Already processing - skipping")
             return
         instance._signal_processing = True
 
-        # Get user phone
         user_phone = get_user_phone(instance.user)
         print(f"[_send_punch_notifications] User phone: {user_phone}")
         
@@ -301,18 +298,19 @@ def _send_punch_notifications(instance, created):
             return
 
         # ===== PUNCH IN NOTIFICATION =====
-        if created and instance.punch_in_time:
+        # FIXED: Use new field name
+        if created and instance.first_punch_in_time:
             print(f"\n[PUNCH IN] Detected punch in event")
             print(f"[PUNCH IN] User: {instance.user.id}")
-            print(f"[PUNCH IN] Time: {instance.punch_in_time}")
-            print(f"[PUNCH IN] Location: {instance.punch_in_location}")
+            print(f"[PUNCH IN] Time: {instance.first_punch_in_time}")
+            print(f"[PUNCH IN] Location: {instance.first_punch_in_location}")
             
             try:
                 msg = format_punch_message(
                     user=instance.user,
                     action="PUNCH IN",
-                    location=instance.punch_in_location or "Not recorded",
-                    time=instance.punch_in_time.strftime("%I:%M %p"),
+                    location=instance.first_punch_in_location or "Not recorded",
+                    time=instance.first_punch_in_time.strftime("%I:%M %p"),
                 )
                 print(f"[PUNCH IN] Message formatted: {msg[:100]}...")
                 
@@ -326,30 +324,30 @@ def _send_punch_notifications(instance, created):
                 traceback.print_exc()
 
         # ===== PUNCH OUT NOTIFICATION =====
+        # FIXED: Use new field names
         if not created:
-            old_punch_out = getattr(instance, '_old_punch_out', None)
-            new_punch_out = instance.punch_out_time
+            old_punch_out = getattr(instance, '_old_last_punch_out', None)
+            new_punch_out = instance.last_punch_out_time
             
             print(f"\n[PUNCH OUT] Checking for punch out event")
-            print(f"[PUNCH OUT] Old punch_out: {old_punch_out}")
-            print(f"[PUNCH OUT] New punch_out: {new_punch_out}")
+            print(f"[PUNCH OUT] Old last_punch_out: {old_punch_out}")
+            print(f"[PUNCH OUT] New last_punch_out: {new_punch_out}")
             print(f"[PUNCH OUT] User: {instance.user.id} ({instance.user.name if hasattr(instance.user, 'name') else 'N/A'})")
             print(f"[PUNCH OUT] Phone: {user_phone}")
             
-            # Check if this is a punch out event (old was None, new is not None)
             is_punch_out = (old_punch_out is None) and (new_punch_out is not None)
             print(f"[PUNCH OUT] Is punch out event? {is_punch_out}")
             
             if is_punch_out:
                 print(f"[PUNCH OUT] ✅ Punch out event detected!")
-                print(f"[PUNCH OUT] Location: {instance.punch_out_location}")
-                print(f"[PUNCH OUT] Working hours: {instance.working_hours}")
+                print(f"[PUNCH OUT] Location: {instance.last_punch_out_location}")
+                print(f"[PUNCH OUT] Working hours: {instance.total_working_hours}")
                 
                 try:
                     msg = format_punch_message(
                         user=instance.user,
                         action="PUNCH OUT",
-                        location=instance.punch_out_location or "Not recorded",
+                        location=instance.last_punch_out_location or "Not recorded",
                         time=new_punch_out.strftime("%I:%M %p"),
                     )
                     print(f"[PUNCH OUT] Message formatted:")
@@ -367,9 +365,6 @@ def _send_punch_notifications(instance, created):
                     traceback.print_exc()
             else:
                 print(f"[PUNCH OUT] ℹ️ Not a punch out event")
-                print(f"[PUNCH OUT] Reasons:")
-                print(f"  - Old punch_out was None: {old_punch_out is None}")
-                print(f"  - New punch_out is not None: {new_punch_out is not None}")
 
     except Exception as e:
         print(f"[_send_punch_notifications] ❌ Unexpected error: {e}")

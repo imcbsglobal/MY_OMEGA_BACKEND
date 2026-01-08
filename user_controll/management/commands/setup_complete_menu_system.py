@@ -1,18 +1,145 @@
+# user_controll/management/commands/setup_complete_menu_system.py
 from django.core.management.base import BaseCommand
-from user_controll.models import MenuItem
+from django.contrib.auth import get_user_model
+from user_controll.models import MenuItem, UserMenuAccess
+from django.db import transaction
+
+User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Seed menu items matching your HR System structure with correct paths'
+    help = 'Complete menu system setup: seed menus + assign to user'
+
+    def add_arguments(self, parser):
+        parser.add_argument('email', type=str, help='User email to setup')
+        parser.add_argument(
+            '--skip-seed',
+            action='store_true',
+            help='Skip menu seeding (only assign existing menus)'
+        )
 
     def handle(self, *args, **options):
-        # First, let's clear old menu items to avoid conflicts
-        self.stdout.write("Clearing existing menu items...")
-        MenuItem.objects.all().delete()
-        self.stdout.write(self.style.SUCCESS("✓ Cleared existing menu items"))
+        email = options['email']
+        skip_seed = options.get('skip_seed', False)
+        
+        # Get user
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            self.stdout.write(
+                self.style.ERROR(f"❌ User '{email}' not found!")
+            )
+            return
 
-        # Define your exact menu structure WITH CORRECT PATHS from App.jsx
-        menus = [
+        self.stdout.write("\n" + "="*80)
+        self.stdout.write("COMPLETE MENU SYSTEM SETUP")
+        self.stdout.write("="*80)
+        self.stdout.write(f"User: {user.name} ({user.email})")
+        self.stdout.write(f"User Level: {user.user_level}")
+        self.stdout.write("="*80 + "\n")
+
+        # STEP 1: Seed Menus
+        if not skip_seed:
+            self.stdout.write("STEP 1: Seeding Menu Structure")
+            self.stdout.write("-" * 80)
+            
+            # Clear existing
+            old_count = MenuItem.objects.count()
+            MenuItem.objects.all().delete()
+            self.stdout.write(f"🗑️  Deleted {old_count} old menu items")
+            
+            # Seed new menus (matching App.jsx routes)
+            menus = self._get_menu_structure()
+            created = self._create_menus(menus)
+            
+            self.stdout.write(self.style.SUCCESS(f"✅ Created {created} menu items\n"))
+        else:
+            self.stdout.write(self.style.WARNING("⏭️  Skipping menu seed\n"))
+
+        # STEP 2: Assign to User
+        self.stdout.write("STEP 2: Assigning Menus to User")
+        self.stdout.write("-" * 80)
+        
+        try:
+            with transaction.atomic():
+                # Delete old assignments
+                old_assignments = UserMenuAccess.objects.filter(user=user).count()
+                UserMenuAccess.objects.filter(user=user).delete()
+                
+                if old_assignments > 0:
+                    self.stdout.write(f"🗑️  Deleted {old_assignments} old assignments")
+                
+                # Get all active menus
+                all_menus = MenuItem.objects.filter(is_active=True)
+                
+                if not all_menus.exists():
+                    self.stdout.write(
+                        self.style.ERROR("❌ No active menus found!")
+                    )
+                    return
+                
+                # Create new assignments
+                assignments = []
+                for menu in all_menus:
+                    assignments.append(
+                        UserMenuAccess(
+                            user=user,
+                            menu_item=menu,
+                            can_view=True,
+                            can_edit=True,
+                            can_delete=True
+                        )
+                    )
+                
+                UserMenuAccess.objects.bulk_create(assignments)
+                
+                self.stdout.write(
+                    self.style.SUCCESS(f"✅ Assigned {len(assignments)} menus to user")
+                )
+                
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f"❌ Error: {str(e)}")
+            )
+            return
+
+        # STEP 3: Verify
+        self.stdout.write("\nSTEP 3: Verification")
+        self.stdout.write("-" * 80)
+        
+        total_menus = MenuItem.objects.filter(is_active=True).count()
+        user_menus = UserMenuAccess.objects.filter(
+            user=user, 
+            menu_item__is_active=True
+        ).count()
+        
+        self.stdout.write(f"Total Active Menus: {total_menus}")
+        self.stdout.write(f"User Assignments: {user_menus}")
+        
+        if total_menus == user_menus:
+            self.stdout.write(self.style.SUCCESS("✅ All menus assigned correctly!"))
+        else:
+            self.stdout.write(
+                self.style.WARNING(f"⚠️  Missing {total_menus - user_menus} assignments")
+            )
+
+        # STEP 4: Final Instructions
+        self.stdout.write("\n" + "="*80)
+        self.stdout.write("SETUP COMPLETE!")
+        self.stdout.write("="*80)
+        self.stdout.write("\n🎉 Menu system setup finished successfully!\n")
+        self.stdout.write("📋 What the user needs to do now:\n")
+        self.stdout.write("   1. LOGOUT from the application")
+        self.stdout.write("   2. Open Browser DevTools (F12)")
+        self.stdout.write("   3. Go to: Application → Local Storage")
+        self.stdout.write("   4. Click 'Clear All' or run: localStorage.clear()")
+        self.stdout.write("   5. LOGIN again")
+        self.stdout.write("   6. All menus should now be visible in sidebar\n")
+        self.stdout.write("="*80 + "\n")
+
+    def _get_menu_structure(self):
+        """Menu structure matching App.jsx routes"""
+        return [
             {
                 "name": "HR Management",
                 "key": "hr",
@@ -87,19 +214,10 @@ class Command(BaseCommand):
                     },
                     {
                         "name": "Leave Management",
-                        "key": "hr_leave_main",
-                        "path": "#",
+                        "key": "hr_leave_management",
+                        "path": "/hr/leave-management",
                         "icon": "🗓️",
                         "order": 8,
-                        "children": [
-                            {
-                                "name": "Leave Management",
-                                "key": "hr_leave_management",
-                                "path": "/hr/leave-management",
-                                "icon": "🗓️",
-                                "order": 1,
-                            },
-                        ],
                     },
                     {
                         "name": "Certificates",
@@ -126,8 +244,6 @@ class Command(BaseCommand):
                     },
                 ],
             },
-
-            # ------------------ USER MANAGEMENT ------------------
             {
                 "name": "User Management",
                 "key": "user_management",
@@ -158,8 +274,6 @@ class Command(BaseCommand):
                     },
                 ],
             },
-
-            # ------------------ PAYROLL ------------------
             {
                 "name": "Payroll",
                 "key": "payroll",
@@ -183,46 +297,12 @@ class Command(BaseCommand):
                     },
                 ],
             },
-
-            # ------------------ MASTER DATA ------------------
-            {
-                "name": "Master Data",
-                "key": "master",
-                "path": "#",
-                "icon": "⚙️",
-                "order": 4,
-                "children": [
-                    {
-                        "name": "Leave Master",
-                        "key": "leave_master",
-                        "path": "/master/leave-master",
-                        "icon": "🗓️",
-                        "order": 1,
-                    },
-                    {
-                        "name": "Salary Deduction Master",
-                        "key": "salary_deduction_master",
-                        "path": "/master/salary-deduction-master",
-                        "icon": "➖",
-                        "order": 2,
-                    },
-                    {
-                        "name": "Salary Allowance Master",
-                        "key": "salary_allowance_master",
-                        "path": "/master/salary-allowance-master",
-                        "icon": "➕",
-                        "order": 3,
-                    },
-                ],
-            },
         ]
 
-        created_count = 0
-        updated_count = 0
-
-        def create_or_update_menu(menu_data, parent=None):
-            nonlocal created_count, updated_count
-
+    def _create_menus(self, menus, parent=None):
+        """Recursively create menu items"""
+        count = 0
+        for menu_data in menus:
             menu, created = MenuItem.objects.get_or_create(
                 key=menu_data["key"],
                 defaults={
@@ -234,38 +314,13 @@ class Command(BaseCommand):
                     "is_active": True,
                 }
             )
-
+            
             if created:
-                created_count += 1
-                self.stdout.write(self.style.SUCCESS(f"✓ Created: {menu_data['name']:40} [{menu_data['key']:25}] -> {menu_data.get('path', '#')}"))
-            else:
-                menu.name = menu_data["name"]
-                menu.path = menu_data.get("path", "")
-                menu.icon = menu_data.get("icon", "")
-                menu.parent = parent
-                menu.order = menu_data.get("order", 0)
-                menu.is_active = True
-                menu.save()
-                updated_count += 1
-                self.stdout.write(self.style.WARNING(f"⚠ Updated: {menu_data['name']:40} [{menu_data['key']:25}] -> {menu_data.get('path', '#')}"))
-
-            for child_data in menu_data.get("children", []):
-                create_or_update_menu(child_data, parent=menu)
-
-        self.stdout.write("\n" + "=" * 80)
-        self.stdout.write("Starting menu seed process...")
-        self.stdout.write("=" * 80 + "\n")
-
-        for menu_data in menus:
-            create_or_update_menu(menu_data)
-
-        self.stdout.write("\n" + "=" * 80)
-        self.stdout.write(self.style.SUCCESS("✅ Process complete!"))
-        self.stdout.write(self.style.SUCCESS(f"   - Created: {created_count} new items"))
-        self.stdout.write(self.style.SUCCESS(f"   - Updated: {updated_count} existing items"))
-        self.stdout.write("=" * 80 + "\n")
+                count += 1
+                self.stdout.write(f"  ✓ {menu_data['name']}")
+            
+            # Process children
+            if menu_data.get("children"):
+                count += self._create_menus(menu_data["children"], parent=menu)
         
-        self.stdout.write("\n💡 Next steps:")
-        self.stdout.write("   1. Run: python manage.py fix_menu_access your@email.com")
-        self.stdout.write("   2. Or run: python manage.py fix_all_user_menus --confirm")
-        self.stdout.write("   3. Then logout and login again\n")
+        return count

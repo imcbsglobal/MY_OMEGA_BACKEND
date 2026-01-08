@@ -1,10 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import PayrollViewSet
+from .views import LeaveMasterViewSet
 
 router = DefaultRouter()
-# Changed from 'payroll' to '' to avoid double "payroll" in URLs
-router.register(r'', PayrollViewSet, basename='payroll')
+router.register(r'', LeaveMasterViewSet, basename='leave-master')
 
 urlpatterns = [
     path('', include(router.urls)),

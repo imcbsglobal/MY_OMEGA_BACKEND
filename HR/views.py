@@ -9,7 +9,8 @@ from django.utils import timezone
 from datetime import datetime, time
 import calendar
 import requests
-
+from django.conf import settings
+from HR.utils.geofence import validate_office_geofence
 from .models import (
     Attendance, Holiday, LeaveRequest, LateRequest,
     EarlyRequest, PunchRecord
@@ -78,70 +79,166 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         return queryset.order_by('-date', '-first_punch_in_time')
 
-    @action(detail=False, methods=['post'])
-    @transaction.atomic
-    def punch_in(self, request):
-        """
-        Punch in action - can be used multiple times in a day
-        First punch in = Start of work day
-        Subsequent punch ins = Return from break
-        """
-        serializer = PunchInSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+    # HR/views.py - FIXED: Geofence check happens BEFORE database operations
 
-        user = request.user
-        today = timezone.now().date()
+@action(detail=False, methods=['post'])
+@transaction.atomic
+def punch_in(self, request):
+    serializer = PunchInSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
-        # Get or create attendance record for today
-        attendance, created = Attendance.objects.get_or_create(
-            user=user,
-            date=today,
-            defaults={
-                'status': 'half',
-                'is_currently_on_break': False
-            }
+    user = request.user
+    today = timezone.now().date()
+
+    # 1️⃣ GEOFENCE CHECK FIRST (before ANY database operations)
+    lat = serializer.validated_data['latitude']
+    lon = serializer.validated_data['longitude']
+
+    allowed, distance = validate_office_geofence(lat, lon, user=user)
+    
+    if not allowed:
+        return Response(
+            {
+                "error": "Punch in denied: outside office premises",
+                "distance_meters": distance,
+                "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS,
+                "message": f"You are {int(distance)}m away from office. Maximum allowed distance is {settings.OFFICE_GEOFENCE_RADIUS_METERS}m.",
+                "action": "Please move closer to the office location and try again.",
+                "distance_exceeded": int(distance - settings.OFFICE_GEOFENCE_RADIUS_METERS)
+            },
+            status=status.HTTP_403_FORBIDDEN
         )
 
-        # Check if user is currently on break (last punch was OUT)
-        last_punch = attendance.punch_records.order_by('-punch_time').first()
+    # 2️⃣ Get or create attendance record (only after geofence passes)
+    attendance, _ = Attendance.objects.get_or_create(
+        user=user,
+        date=today,
+        defaults={
+            'status': 'half',
+            'is_currently_on_break': False
+        }
+    )
 
-        if last_punch and last_punch.punch_type == 'in':
-            return Response(
-                {'error': 'You are already punched in. Please punch out before punching in again.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Create new punch in record
-        punch_record = PunchRecord.objects.create(
-            attendance=attendance,
-            punch_type='in',
-            punch_time=timezone.now(),
-            location=serializer.validated_data['location'],
-            latitude=serializer.validated_data['latitude'],
-            longitude=serializer.validated_data['longitude'],
-            note=serializer.validated_data.get('note', '')
+    # 3️⃣ CHECK LAST PUNCH
+    last_punch = attendance.punch_records.order_by('-punch_time').first()
+    if last_punch and last_punch.punch_type == 'in':
+        return Response(
+            {'error': 'You are already punched in. Punch out first.'},
+            status=status.HTTP_400_BAD_REQUEST
         )
 
-        # Update attendance record
-        attendance.is_currently_on_break = False
+    # 4️⃣ CREATE PUNCH RECORD (only after all validations pass)
+    punch = PunchRecord.objects.create(
+        attendance=attendance,
+        punch_type='in',
+        punch_time=timezone.now(),
+        location=serializer.validated_data['location'],
+        latitude=lat,
+        longitude=lon,
+        note=serializer.validated_data.get('note', '')
+    )
 
-        # If this is the first punch in, update first_punch_in fields
-        if not attendance.first_punch_in_time:
-            attendance.first_punch_in_time = punch_record.punch_time
-            attendance.first_punch_in_location = punch_record.location
-            attendance.first_punch_in_latitude = punch_record.latitude
-            attendance.first_punch_in_longitude = punch_record.longitude
+    attendance.is_currently_on_break = False
 
-        attendance.save()
+    if not attendance.first_punch_in_time:
+        attendance.first_punch_in_time = punch.punch_time
+        attendance.first_punch_in_location = punch.location
+        attendance.first_punch_in_latitude = lat
+        attendance.first_punch_in_longitude = lon
 
-        # Get punch records for response
-        punch_records = attendance.punch_records.all().order_by('punch_time')
+    attendance.save()
 
-        response_data = AttendanceSerializer(attendance).data
-        response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-        response_data['message'] = 'Punched in successfully' if created or not last_punch else 'Returned from break successfully'
+    punch_records = attendance.punch_records.order_by('punch_time')
+    response = AttendanceSerializer(attendance).data
+    response['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
+    response['message'] = 'Punched in successfully'
+    response['location_accuracy'] = f"{distance:.0f}m from office"
 
-        return Response(response_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    return Response(response, status=status.HTTP_200_OK)
+
+
+@action(detail=False, methods=['post'])
+@transaction.atomic
+def punch_out(self, request):
+    serializer = PunchOutSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    user = request.user
+    today = timezone.now().date()
+
+    try:
+        attendance = Attendance.objects.get(user=user, date=today)
+    except Attendance.DoesNotExist:
+        return Response(
+            {'error': 'No punch in record found for today. Please punch in first.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not attendance.first_punch_in_time:
+        return Response(
+            {'error': 'You must punch in first before punching out'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    last_punch = attendance.punch_records.order_by('-punch_time').first()
+    if last_punch and last_punch.punch_type == 'out':
+        return Response(
+            {'error': 'You are already punched out. Please punch in before punching out again.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # GEOFENCE CHECK for punch out
+    lat = serializer.validated_data['latitude']
+    lon = serializer.validated_data['longitude']
+
+    allowed, distance = validate_office_geofence(lat, lon, user=user)
+    
+    if not allowed:
+        return Response(
+            {
+                "error": "Punch out denied: outside office premises",
+                "distance_meters": distance,
+                "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS,
+                "message": f"You are {int(distance)}m away from office. Maximum allowed distance is {settings.OFFICE_GEOFENCE_RADIUS_METERS}m.",
+                "action": "Please move closer to the office location and try again.",
+                "distance_exceeded": int(distance - settings.OFFICE_GEOFENCE_RADIUS_METERS)
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Create punch out record
+    punch_record = PunchRecord.objects.create(
+        attendance=attendance,
+        punch_type='out',
+        punch_time=timezone.now(),
+        location=serializer.validated_data['location'],
+        latitude=lat,
+        longitude=lon,
+        note=serializer.validated_data.get('note', '')
+    )
+
+    attendance.last_punch_out_time = punch_record.punch_time
+    attendance.last_punch_out_location = punch_record.location
+    attendance.last_punch_out_latitude = lat
+    attendance.last_punch_out_longitude = lon
+    attendance.is_currently_on_break = True
+
+    attendance.calculate_times()
+    attendance.update_status()
+    attendance.save()
+
+    punch_records = attendance.punch_records.all().order_by('punch_time')
+
+    response_data = AttendanceSerializer(attendance).data
+    response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
+    response_data['message'] = 'Punched out successfully'
+    response_data['total_working_hours'] = float(attendance.total_working_hours)
+    response_data['total_break_hours'] = float(attendance.total_break_hours)
+    response_data['location_accuracy'] = f"{distance:.0f}m from office"
+
+    return Response(response_data)
+
+
 
     @action(detail=False, methods=['post'])
     @transaction.atomic
@@ -1421,3 +1518,435 @@ def all_details(self, request):
         })
 
     return Response(result)
+
+
+
+
+
+
+# HR/views.py - Add Leave Master ViewSet and enhance Leave Request endpoints
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
+from django.utils import timezone
+
+from .models import LeaveMaster, LeaveRequest
+from .Serializers import (
+    LeaveMasterSerializer,
+    LeaveMasterSimpleSerializer,
+    LeaveRequestSerializer,
+    LeaveRequestCreateSerializer,
+    LeaveRequestReviewSerializer,
+)
+
+
+# HR/views.py - Fixed LeaveMasterViewSet with proper active-leaves endpoint
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
+
+from .models import LeaveMaster
+from .Serializers import (
+    LeaveMasterSerializer,
+    LeaveMasterSimpleSerializer,
+    LeaveMasterCreateSerializer,
+)
+
+
+class LeaveMasterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing Leave Master
+    """
+    queryset = LeaveMaster.objects.all().order_by('-created_at')
+    serializer_class = LeaveMasterSerializer
+    permission_classes = [IsAuthenticated]
+    menu_key = 'attendance'
+    
+    def _is_admin(self, user):
+        """Helper to check if user is admin"""
+        return (
+            user.user_level in ('Super Admin', 'Admin') or
+            user.is_staff or
+            user.is_superuser
+        )
+    
+    def get_queryset(self):
+        """Filter queryset based on query params"""
+        queryset = LeaveMaster.objects.all()
+        
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        # Filter by category
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+        
+        # Filter by payment status
+        payment_status = self.request.query_params.get('payment_status')
+        if payment_status:
+            queryset = queryset.filter(payment_status=payment_status)
+        
+        # Filter by month/year ONLY if both parameters are provided
+        month = self.request.query_params.get('month')
+        year = self.request.query_params.get('year')
+        if month and year:
+            queryset = queryset.filter(
+                Q(leave_date__month=month, leave_date__year=year) |
+                Q(leave_date__isnull=True)
+            )
+        
+        return queryset.order_by('leave_date', 'leave_name')
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to return consistent response structure"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        
+        return Response({
+            'success': True,
+            'data': serializer.data,
+            'count': queryset.count()
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """Only admins can create leave masters"""
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can create leave masters'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = LeaveMasterCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=request.user)
+        
+        # Return full serialized data
+        instance = LeaveMaster.objects.get(id=serializer.instance.id)
+        response_serializer = LeaveMasterSerializer(instance)
+        
+        return Response({
+            'success': True,
+            'data': response_serializer.data,
+            'message': 'Leave master created successfully'
+        }, status=status.HTTP_201_CREATED)
+    
+    def update(self, request, *args, **kwargs):
+        """Only admins can update leave masters"""
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can update leave masters'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = LeaveMasterCreateSerializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        # Return full serialized data
+        response_serializer = LeaveMasterSerializer(instance)
+        
+        return Response({
+            'success': True,
+            'data': response_serializer.data,
+            'message': 'Leave master updated successfully'
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """Only admins can delete leave masters"""
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can delete leave masters'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        instance = self.get_object()
+        instance.delete()
+        
+        return Response({
+            'success': True,
+            'message': 'Leave master deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=False, methods=['get'], url_path='active-leaves')
+    def active_leaves(self, request):
+        """
+        CRITICAL ENDPOINT: Get ALL active leaves for leave request dropdown
+        This endpoint returns ALL active leaves without any date filtering
+        """
+        print("=" * 80)
+        print("🔵 ACTIVE LEAVES ENDPOINT CALLED")
+        print("=" * 80)
+        print(f"Request User: {request.user}")
+        print(f"Request Method: {request.method}")
+        print(f"Request Path: {request.path}")
+        print(f"Query Params: {dict(request.query_params)}")
+        
+        # Get ALL active leaves - NO FILTERING by month/year
+        leaves = LeaveMaster.objects.filter(is_active=True).order_by('leave_date', 'leave_name')
+        
+        print(f"\n📊 Database Query Results:")
+        print(f"Total active leaves in database: {leaves.count()}")
+        print(f"SQL Query: {leaves.query}")
+        
+        # Debug each leave
+        if leaves.exists():
+            print(f"\n📋 Leave Details:")
+            for idx, leave in enumerate(leaves, 1):
+                print(f"\n  {idx}. {leave.leave_name}")
+                print(f"     • ID: {leave.id}")
+                print(f"     • Category: {leave.category} ({leave.get_category_display()})")
+                print(f"     • Payment: {leave.payment_status} ({leave.get_payment_status_display()})")
+                print(f"     • Date: {leave.leave_date or 'No specific date'}")
+                print(f"     • Active: {leave.is_active}")
+                print(f"     • Description: {leave.description or 'None'}")
+        else:
+            print("\n⚠️  NO ACTIVE LEAVES FOUND IN DATABASE!")
+            print("   Please create leave types in the Leave Master section first.")
+        
+        # Serialize the data
+        serializer = LeaveMasterSerializer(leaves, many=True)
+        
+        print(f"\n🔄 Serialization Results:")
+        print(f"Serialized records: {len(serializer.data)}")
+        
+        # Prepare response
+        response_data = {
+            'success': True,
+            'data': serializer.data,
+            'count': leaves.count(),
+            'message': f'{leaves.count()} active leave type(s) available'
+        }
+        
+        print(f"\n✅ Response Data:")
+        print(f"Success: {response_data['success']}")
+        print(f"Count: {response_data['count']}")
+        print(f"Message: {response_data['message']}")
+        print(f"Data length: {len(response_data['data'])}")
+        
+        print("=" * 80)
+        print("🔵 ACTIVE LEAVES ENDPOINT COMPLETE")
+        print("=" * 80)
+        
+        return Response(response_data)
+    
+    @action(detail=False, methods=['get'], url_path='categories')
+    def categories(self, request):
+        """Get all leave categories grouped"""
+        categories = {}
+        leave_masters = LeaveMaster.objects.filter(is_active=True)
+        
+        for leave in leave_masters:
+            category = leave.get_category_display()
+            if category not in categories:
+                categories[category] = []
+            
+            categories[category].append({
+                'id': leave.id,
+                'name': leave.leave_name,
+                'date': leave.leave_date,
+                'payment_status': leave.get_payment_status_display(),
+                'is_paid': leave.payment_status == 'paid',
+                'description': leave.description,
+            })
+        
+        return Response({
+            'success': True,
+            'data': {
+                'categories': categories,
+                'category_choices': [
+                    {'value': choice[0], 'label': choice[1]}
+                    for choice in LeaveMaster.CATEGORY_CHOICES
+                ]
+            }
+        })
+
+
+class LeaveRequestViewSet(viewsets.ModelViewSet):
+    """
+    Enhanced ViewSet for managing Leave Requests with Leave Master integration
+    """
+    queryset = LeaveRequest.objects.all().select_related('user', 'reviewed_by', 'leave_master')
+    serializer_class = LeaveRequestSerializer
+    permission_classes = [IsAuthenticated]
+    menu_key = 'attendance'
+    
+    def _is_admin(self, user):
+        """Helper to check if user is admin"""
+        return (
+            user.user_level in ('Super Admin', 'Admin') or
+            user.is_staff or
+            user.is_superuser
+        )
+    
+    def get_queryset(self):
+        """Filter queryset based on query params"""
+        queryset = LeaveMaster.objects.all()
+        
+        # Only apply filters if explicitly requested
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+        
+        payment_status = self.request.query_params.get('payment_status')
+        if payment_status:
+            queryset = queryset.filter(payment_status=payment_status)
+        
+        # IMPORTANT: Only filter by date if month/year are provided
+        month = self.request.query_params.get('month')
+        year = self.request.query_params.get('year')
+        if month and year:
+            queryset = queryset.filter(
+                Q(leave_date__month=month, leave_date__year=year) |
+                Q(leave_date__isnull=True)
+            )
+        
+        return queryset.order_by('-created_at')
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return LeaveRequestCreateSerializer
+        return LeaveRequestSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    def create(self, request, *args, **kwargs):
+        """Create leave request with proper response"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        # Fetch the created instance with all relations
+        instance = LeaveRequest.objects.select_related(
+            'user', 'reviewed_by', 'leave_master'
+        ).get(id=serializer.instance.id)
+        
+        response_serializer = LeaveRequestSerializer(instance)
+        
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    @action(detail=False, methods=['get'], url_path='my-requests')
+    def my_requests(self, request):
+        """Get only current user's leave requests"""
+        queryset = LeaveRequest.objects.filter(
+            user=request.user
+        ).select_related('user', 'reviewed_by', 'leave_master').order_by('-created_at')
+        
+        serializer = LeaveRequestSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='pending')
+    def pending(self, request):
+        """Get all pending leave requests (Admin only)"""
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can view all pending requests'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        queryset = LeaveRequest.objects.filter(
+            status='pending'
+        ).select_related('user', 'reviewed_by', 'leave_master').order_by('-created_at')
+        
+        serializer = LeaveRequestSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='review')
+    def review(self, request, pk=None):
+        """Review leave request (Admin only)"""
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can review leave requests'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        leave_request = self.get_object()
+        
+        if leave_request.status != 'pending':
+            return Response(
+                {'error': f'This request has already been {leave_request.status}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = LeaveRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        leave_request.status = serializer.validated_data['status']
+        leave_request.admin_comment = serializer.validated_data.get('admin_comment', '')
+        leave_request.reviewed_by = request.user
+        leave_request.reviewed_at = timezone.now()
+        leave_request.save()
+        
+        response_serializer = LeaveRequestSerializer(leave_request)
+        return Response(response_serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='by-leave-master')
+    def by_leave_master(self, request):
+        """
+        Get leave requests grouped by Leave Master
+        Useful for reporting and analytics
+        """
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can access this report'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        
+        queryset = LeaveRequest.objects.filter(
+            leave_master__isnull=False
+        ).select_related('user', 'leave_master')
+        
+        if month and year:
+            queryset = queryset.filter(from_date__month=month, from_date__year=year)
+        
+        # Group by leave master
+        result = {}
+        for leave_request in queryset:
+            leave_master_id = leave_request.leave_master.id
+            leave_master_name = leave_request.leave_master.leave_name
+            
+            if leave_master_id not in result:
+                result[leave_master_id] = {
+                    'leave_master': LeaveMasterSimpleSerializer(leave_request.leave_master).data,
+                    'requests': [],
+                    'total_requests': 0,
+                    'approved': 0,
+                    'pending': 0,
+                    'rejected': 0,
+                }
+            
+            result[leave_master_id]['requests'].append(
+                LeaveRequestSerializer(leave_request).data
+            )
+            result[leave_master_id]['total_requests'] += 1
+            result[leave_master_id][leave_request.status] += 1
+        
+        return Response({
+            'success': True,
+            'data': list(result.values())
+        })
+
+
+# Keep all your other existing ViewSets (AttendanceViewSet, HolidayViewSet, etc.)
+# ... unchanged ...
