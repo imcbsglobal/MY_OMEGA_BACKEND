@@ -1,4 +1,4 @@
-# employee_management/serializers.py - FIXED
+# employee_management/serializers.py - COMPLETE FIX
 from rest_framework import serializers
 from django.apps import apps
 from .models import Employee, EmployeeDocument
@@ -28,12 +28,12 @@ class JobInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            'id', 'employee_id', 'user', 'user_name', 'user_email',  # <-- user_name now included
+            'id', 'employee_id', 'user', 'user_name', 'user_email',
             'employment_status', 'employment_type', 'department', 'designation',
             'reporting_manager', 'reporting_manager_name', 'date_of_joining',
             'date_of_leaving', 'probation_end_date', 'confirmation_date',
             'basic_salary', 'allowances', 'gross_salary', 'location', 
-            'work_location', 'duty_time'
+            'work_location', 'duty_time',
         ]
 
     def get_reporting_manager_name(self, obj):
@@ -72,7 +72,17 @@ class ContactInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = [
-            'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation'
+            'emergency_contact_name', 'emergency_contact_phone', 
+            'emergency_contact_relation', 'phone_number'
+        ]
+
+
+class PersonalInfoSerializer(serializers.ModelSerializer):
+    """NEW: Serializer for personal information fields"""
+    class Meta:
+        model = Employee
+        fields = [
+            'blood_group', 'marital_status', 'notes'
         ]
 
 
@@ -81,7 +91,8 @@ class BankInfoSerializer(serializers.ModelSerializer):
         model = Employee
         fields = [
             'salary_account_number', 'salary_bank_name', 'salary_ifsc_code',
-            'salary_branch', 'account_holder_name'
+            'salary_branch', 'account_holder_name', 'pf_number', 'esi_number',
+            'pan_number', 'aadhar_number'
         ]
 
 
@@ -98,17 +109,17 @@ class EmployeeListSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
     avatar_url = serializers.SerializerMethodField()
-    profile_picture = serializers.SerializerMethodField()  # NEW
+    profile_picture = serializers.SerializerMethodField()
     job_info = JobInfoSerializer(source='*', read_only=True)
 
     class Meta:
         model = Employee
         fields = [
             'id', 'employee_id', 'full_name', 'user_email',
-            'avatar_url', 'profile_picture',  # FIXED
+            'avatar_url', 'profile_picture',
             'designation', 'department', 'employment_status',
             'employment_type', 'location', 'is_active', 'created_at',
-            'job_info'
+            'job_info', 'phone_number'
         ]
 
     def get_full_name(self, obj):
@@ -137,62 +148,179 @@ class EmployeeListSerializer(serializers.ModelSerializer):
 class EmployeeDetailSerializer(serializers.ModelSerializer):
     job_info = JobInfoSerializer(source='*', read_only=True)
     contact_info = ContactInfoSerializer(source='*', read_only=True)
+    personal_info = PersonalInfoSerializer(source='*', read_only=True)
     bank_info = BankInfoSerializer(source='*', read_only=True)
     documents = EmployeeDocumentSerializer(source='additional_documents', many=True, read_only=True)
+
     avatar_url = serializers.SerializerMethodField()
     full_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
         fields = [
-            'id', 'employee_id', 'full_name', 'avatar_url',
-            'job_info', 'contact_info', 'bank_info', 'documents',
-            'designation', 'department', 'employment_status', 
-            'employment_type', 'location', 'work_location',
-            'blood_group', 'marital_status', 'notes',
-            'is_active', 'created_at', 'updated_at'
+            # BASIC
+            'id', 'user', 'employee_id', 'full_name', 'user_email', 'avatar', 'avatar_url',
+
+            # PERSONAL (🔥 THESE WERE MISSING)
+            'date_of_birth',
+            'blood_group',
+            'marital_status',
+
+            # CONTACT (🔥 THESE WERE MISSING)
+            'phone_number',
+            'personal_phone',
+            'residential_phone',
+            'address',
+            'place',
+            'district',
+
+            # EMERGENCY
+            'emergency_contact_name',
+            'emergency_contact_phone',
+            'emergency_contact_relation',
+
+            # JOB
+            'designation',
+            'department',
+            'employment_status',
+            'employment_type',
+            'organization',
+            'location',
+            'work_location',
+            'duty_time',
+            'date_of_joining',
+            'date_of_leaving',
+            'probation_end_date',
+            'confirmation_date',
+
+            # SALARY
+            'basic_salary',
+            'allowances',
+            'gross_salary',
+
+            # BANK
+            'account_holder_name',
+            'salary_account_number',
+            'salary_bank_name',
+            'salary_ifsc_code',
+            'salary_branch',
+
+            # GOVERNMENT IDS
+            'pf_number',
+            'esi_number',
+            'pan_number',
+            'aadhar_number',
+
+            # OTHER
+            'notes',
+            'is_active',
+            'created_at',
+            'updated_at',
+
+            # DISPLAY ONLY
+            'job_info',
+            'contact_info',
+            'personal_info',
+            'bank_info',
+            'documents',
         ]
 
     def get_full_name(self, obj):
         return obj.get_full_name()
 
-    def get_avatar_url(self, obj):
-        request = self.context.get('request')
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else ""
 
+    def get_avatar_url(self, obj):
+        request = self.context.get("request")
         if obj.avatar:
             return request.build_absolute_uri(obj.avatar.url) if request else obj.avatar.url
-
-        if obj.user and hasattr(obj.user, 'photo') and obj.user.photo:
+        if obj.user and hasattr(obj.user, "photo") and obj.user.photo:
             return request.build_absolute_uri(obj.user.photo.url) if request else obj.user.photo.url
-
         return None
 
 
 class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
+    """COMPLETE CREATE/UPDATE SERIALIZER"""
+
     class Meta:
         model = Employee
         fields = [
-            'user', 'employee_id', 'phone_number',  # <-- phone_number added
-            'employment_status', 'employment_type',
-            'department', 'designation', 'reporting_manager',
-            'date_of_joining', 'date_of_leaving', 'probation_end_date',
-            'confirmation_date', 'basic_salary', 'allowances', 'gross_salary',
-            'pf_number', 'esi_number', 'pan_number', 'aadhar_number',
-            'location', 'work_location', 'duty_time',
+            # ================= USER =================
+            'user',
+            'employee_id',
 
-            'avatar',   # ⭐⭐⭐ ADDED FIX
+            # ================= PERSONAL =================
+            'full_name',
+            'date_of_birth',
+            'blood_group',
+            'marital_status',
+            'notes',
 
-            'account_holder_name', 'salary_account_number', 'salary_bank_name',
-            'salary_ifsc_code', 'salary_branch',
-            'pan_card_attachment', 'offer_letter', 'joining_letter', 'id_card_attachment',
-            'emergency_contact_name', 'emergency_contact_phone', 'emergency_contact_relation',
-            'blood_group', 'marital_status', 'notes', 'is_active'
+            # ================= CONTACT =================
+            'phone_number',
+            'personal_phone',
+            'residential_phone',
+            'address',
+            'place',
+            'district',
+
+            # ================= EMERGENCY =================
+            'emergency_contact_name',
+            'emergency_contact_phone',
+            'emergency_contact_relation',
+
+            # ================= JOB =================
+            'employment_status',
+            'employment_type',
+            'department',
+            'designation',
+            'reporting_manager',
+            'organization',
+            'location',
+            'work_location',
+            'duty_time',
+            'date_of_joining',
+            'date_of_leaving',
+            'probation_end_date',
+            'confirmation_date',
+
+            # ================= SALARY =================
+            'basic_salary',
+            'allowances',
+            'gross_salary',
+
+            # ================= BANK =================
+            'account_holder_name',
+            'salary_account_number',
+            'salary_bank_name',
+            'salary_ifsc_code',
+            'salary_branch',
+
+            # ================= GOVERNMENT IDS =================
+            'pf_number',
+            'esi_number',
+            'pan_number',
+            'aadhar_number',
+
+            # ================= DOCUMENTS =================
+            'pan_card_attachment',
+            'offer_letter',
+            'joining_letter',
+            'id_card_attachment',
+
+            # ================= AVATAR & STATUS =================
+            'avatar',
+            'is_active',
         ]
 
     def validate_user(self, value):
         if self.instance is None:
             if Employee.objects.filter(user=value).exists():
-                raise serializers.ValidationError("This user already has an employee record.")
+                raise serializers.ValidationError(
+                    "This user already has an employee record."
+                )
         return value
 
     def validate_employee_id(self, value):
@@ -201,5 +329,7 @@ class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
             if self.instance:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise serializers.ValidationError("An employee with this ID already exists.")
+                raise serializers.ValidationError(
+                    "An employee with this ID already exists."
+                )
         return value

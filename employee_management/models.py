@@ -1,12 +1,11 @@
-# employee_management/models.py - COMPLETE WITH PHONE NUMBER
+# employee_management/models.py - COMPLETE WITH ALL FORM FIELDS
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
 class Employee(models.Model):
     """
-    Employee model - extends AppUser with employment-specific information
-    Links to your User.AppUser model
+    Employee model - complete with all form fields
     """
     
     # Link to AppUser
@@ -28,7 +27,69 @@ class Employee(models.Model):
         verbose_name='Employee ID'
     )
     
-    # NEW: Employee Phone Number for WhatsApp notifications
+    # NEW FIELDS FROM FORM
+    full_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Full name of employee',
+        verbose_name='Full Name'
+    )
+    
+    date_of_birth = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Date of Birth'
+    )
+    
+    personal_phone = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text='Personal phone number',
+        verbose_name='Personal Phone'
+    )
+    
+    residential_phone = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text='Residential phone number',
+        verbose_name='Residential Phone'
+    )
+    
+    address = models.TextField(
+        null=True,
+        blank=True,
+        help_text='Residential address',
+        verbose_name='Address'
+    )
+    
+    place = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Place/City',
+        verbose_name='Place'
+    )
+    
+    district = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='District',
+        verbose_name='District'
+    )
+    
+    organization = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text='Organization name',
+        verbose_name='Organization'
+    )
+    
+    # Employee Phone Number (for WhatsApp)
     phone_number = models.CharField(
         max_length=20,
         null=True,
@@ -38,7 +99,6 @@ class Employee(models.Model):
     )
     
     # Employee Avatar/Photo
-    # NEW: Employee Avatar/Photo
     avatar = models.ImageField(
         upload_to='employees/avatars/',
         null=True,
@@ -193,7 +253,6 @@ class Employee(models.Model):
     blood_group = models.CharField(max_length=8, null=True, blank=True)
     marital_status = models.CharField(max_length=32, null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
-    phone_number = models.CharField(max_length=15, blank=True, null=True)
  
     # Status
     is_active = models.BooleanField(default=True)
@@ -219,7 +278,11 @@ class Employee(models.Model):
         return f"{self.employee_id or 'N/A'} - {self.get_full_name()}"
     
     def get_full_name(self):
-        """Get full name from related user"""
+        """Get full name from multiple sources"""
+        # First check direct full_name field
+        if self.full_name:
+            return self.full_name
+        # Then check related user
         if self.user:
             if hasattr(self.user, 'name') and self.user.name:
                 return self.user.name
@@ -232,7 +295,7 @@ class Employee(models.Model):
         return self.employee_id or 'Unknown'
     
     @property
-    def full_name(self):
+    def full_name_property(self):
         """Property version of get_full_name for compatibility"""
         return self.get_full_name()
     

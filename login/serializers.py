@@ -4,6 +4,7 @@ from User.models import AppUser
 from .models import Menu
 
 
+
 class AppUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 

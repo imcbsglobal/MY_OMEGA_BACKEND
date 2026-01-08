@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-f7up&g(x(1zgk4t*lmp%!hz46o&9id4=ekxuo84r9(in$3q%9e
 DEBUG = True
 
 # ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1"]
-ALLOWED_HOSTS = ['myomega.imcbs.com','demomyomega.imcbs.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['myomegahrms.in','myomegahrms.in', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -201,21 +201,38 @@ else:
     MEDIA_URL = '/media/'
 
 
+# Copy this ENTIRE section and replace in your settings.py
+# Starting from DEFAULT_AUTO_FIELD to the end of SIMPLE_JWT
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
 # REST Framework Configuration
+# Replace your REST_FRAMEWORK section in settings.py with this:
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',  # For browsable API
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Use custom exception handler
+    'EXCEPTION_HANDLER': 'myomega_backend.exception_handler.custom_exception_handler',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 100,
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 }
-
 
 # SimpleJWT Configuration
 SIMPLE_JWT = {
@@ -224,32 +241,66 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': False,
-    
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
-    
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
-    
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
+
+# CORS Configuration (keep your existing one below this)
+
+
+# # SimpleJWT Configuration
+# SIMPLE_JWT = {
+#     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+#     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+#     'ROTATE_REFRESH_TOKENS': False,
+#     'BLACKLIST_AFTER_ROTATION': False,
+#     'UPDATE_LAST_LOGIN': False,
+    
+#     'ALGORITHM': 'HS256',
+#     'SIGNING_KEY': SECRET_KEY,
+#     'VERIFYING_KEY': None,
+#     'AUDIENCE': None,
+#     'ISSUER': None,
+    
+#     'AUTH_HEADER_TYPES': ('Bearer',),
+#     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+#     'USER_ID_FIELD': 'id',
+#     'USER_ID_CLAIM': 'user_id',
+    
+#     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+#     'TOKEN_TYPE_CLAIM': 'token_type',
+# }
 
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://localhost:5174",     # ✅ ADD THIS
     "http://127.0.0.1:5173",
-    "https://myomega.imcbs.com",
+    "http://127.0.0.1:5174",     # ✅ ADD THIS (safe)
+    "https://myomegahrms.in",
     "https://demomyomega.imcbs.com"
 ]
 
+
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
 
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -307,4 +358,25 @@ OFFICE_GEOFENCE_RADIUS_METERS = 250
 DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
 DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
 DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 DXING_DEFAULT_PRIORITY = 1
+# =========================
+# OFFICE GEOFENCE SETTINGS
+# =========================
+# ===============================
+# OFFICE GEOFENCE CONFIGURATION
+# ===============================
+
+OFFICE_LATITUDE = 11.618056
+OFFICE_LONGITUDE = 76.081333
+OFFICE_GEOFENCE_RADIUS_METERS = 250
+
+
+
+
+# or 500 if GPS is unstable
+ # ✅ STRICT 25 METERS
+
+
+

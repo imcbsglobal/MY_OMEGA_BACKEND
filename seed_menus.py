@@ -106,13 +106,7 @@ class Command(BaseCommand):
                                 "icon": "🗓️",
                                 "order": 1,
                             },
-                            {
-                                "name": "Request Leave",
-                                "key": "request_leave",
-                                "path": "/leave-management/add",
-                                "icon": "📝",
-                                "order": 2,
-                            },
+                            
                             {
                                 "name": "Leave List",
                                 "key": "leave_list",
@@ -134,13 +128,7 @@ class Command(BaseCommand):
                                 "icon": "🌆",
                                 "order": 5,
                             },
-                            {
-                                "name": "Break List",
-                                "key": "break_list",
-                                "path": "/leave-management/break-list",
-                                "icon": "☕",
-                                "order": 6,
-                            },
+                            
                         ]
                     },
                     {

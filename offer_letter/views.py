@@ -1,18 +1,17 @@
-from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.db import transaction
-from django.utils import timezone
 from interview_management.models import Interview
 from .models import OfferLetter
 from .serializers import (
-    OfferLetterSerializer, 
-    OfferLetterCreateSerializer, 
+    OfferLetterSerializer,
     SelectedCandidatesSerializer
 )
 
 
+# --------------------------------------------------
+# Common response helpers
+# --------------------------------------------------
 def success_response(message, data=None, status_code=status.HTTP_200_OK):
     return Response({
         'success': True,
@@ -30,203 +29,214 @@ def error_response(message, error_code='ERROR', details=None, status_code=status
     }, status=status_code)
 
 
+# --------------------------------------------------
+# LIST + CREATE OFFER LETTER
+# --------------------------------------------------
 @api_view(['GET', 'POST'])
 def offer_letter_list_create(request):
-    """
-    GET: List all offer letters with optional filtering
-    POST: Create a new offer letter
-    """
     if request.method == 'GET':
-        queryset = OfferLetter.objects.select_related('candidate', 'candidate__job_title', 'created_by')
-        
-        # Filter by status
-        status_filter = request.query_params.get('status')
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-        
-        # Filter by candidate
-        candidate_id = request.query_params.get('candidate')
-        if candidate_id:
-            queryset = queryset.filter(candidate_id=candidate_id)
-        
+        queryset = OfferLetter.objects.select_related(
+            'candidate', 'candidate__job_title', 'created_by'
+        )
         serializer = OfferLetterSerializer(queryset, many=True)
-        return success_response(
-            # message=f"Found {len(serializer.data)} offer letter(s)",
-            message=f"offer letter(s)",
-            data=serializer.data
-        )
-    
+        return success_response("Offer letters fetched", serializer.data)
+
     elif request.method == 'POST':
-        serializer = OfferLetterCreateSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            with transaction.atomic():
-                offer_letter = serializer.save()
-                return success_response(
-                    message=f"Added to Offer letter Table {offer_letter.candidate.name}",
-                    data=OfferLetterSerializer(offer_letter).data,
-                    status_code=status.HTTP_201_CREATED
-                )
-        return error_response(
-            message="Invalid data provided",
-            error_code="VALIDATION_ERROR",
-            details=serializer.errors
+        print("\n" + "=" * 80)
+        print("VIEW: RECEIVED POST REQUEST TO CREATE OFFER LETTER")
+        print("=" * 80)
+        print("Request data received:")
+        print(f"  candidate: {request.data.get('candidate')}")
+        print(f"  basic_pay: {request.data.get('basic_pay')}")
+        print(f"  dearness_allowance: {request.data.get('dearness_allowance')}")
+        print(f"  house_rent_allowance: {request.data.get('house_rent_allowance')}")
+        print(f"  special_allowance: {request.data.get('special_allowance')}")
+        print(f"  conveyance_earnings: {request.data.get('conveyance_earnings')}")
+        print(f"  salary: {request.data.get('salary')}")
+        print("=" * 80)
+
+        # Prevent duplicate offer letters for same candidate
+        candidate_id = request.data.get('candidate')
+        if candidate_id:
+            if OfferLetter.objects.filter(candidate_id=candidate_id).exists():
+                return Response({
+                    "candidate": [
+                        "An offer letter already exists for this candidate. Please edit the existing one."
+                    ]
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = OfferLetterSerializer(
+            data=request.data,
+            context={'request': request}
         )
 
+        if serializer.is_valid():
+            print("\n✅ Serializer validation PASSED")
+            offer = serializer.save(created_by=request.user)
 
+            print("\n" + "=" * 80)
+            print("VIEW: OFFER LETTER CREATED SUCCESSFULLY")
+            print("=" * 80)
+            print(f"Offer ID: {offer.id}")
+            print(f"  basic_pay: {offer.basic_pay}")
+            print(f"  dearness_allowance: {offer.dearness_allowance}")
+            print(f"  house_rent_allowance: {offer.house_rent_allowance}")
+            print(f"  special_allowance: {offer.special_allowance}")
+            print(f"  conveyance_earnings: {offer.conveyance_earnings}")
+            print(f"  salary: {offer.salary}")
+            print("=" * 80 + "\n")
+
+            return success_response(
+                "Offer letter created successfully",
+                OfferLetterSerializer(offer).data,
+                status.HTTP_201_CREATED
+            )
+
+        print("\n❌ Serializer validation FAILED")
+        print(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --------------------------------------------------
+# GET / UPDATE / DELETE OFFER LETTER
+# --------------------------------------------------
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 def offer_letter_detail(request, pk):
-    """
-    GET: Retrieve a specific offer letter
-    PUT/PATCH: Update an offer letter
-    DELETE: Delete an offer letter
-    """
     try:
-        offer_letter = OfferLetter.objects.select_related(
+        offer = OfferLetter.objects.select_related(
             'candidate', 'candidate__job_title', 'created_by'
         ).get(pk=pk)
     except OfferLetter.DoesNotExist:
-        return error_response(
-            message="Offer letter not found",
-            error_code="NOT_FOUND",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
+        return error_response("Offer letter not found", status_code=404)
+
     if request.method == 'GET':
-        serializer = OfferLetterSerializer(offer_letter)
-        return success_response(
-            message="Offer letter retrieved successfully",
-            data=serializer.data
-        )
-    
+        serializer_data = OfferLetterSerializer(offer).data
+
+        print("\n" + "=" * 80)
+        print(f"VIEW: GET REQUEST FOR OFFER LETTER ID {pk}")
+        print("=" * 80)
+        print("Database values:")
+        print(f"  basic_pay: {offer.basic_pay}")
+        print(f"  dearness_allowance: {offer.dearness_allowance}")
+        print(f"  house_rent_allowance: {offer.house_rent_allowance}")
+        print(f"  special_allowance: {offer.special_allowance}")
+        print(f"  conveyance_earnings: {offer.conveyance_earnings}")
+        print(f"  salary: {offer.salary}")
+        print("=" * 80 + "\n")
+
+        return success_response("Offer letter fetched", serializer_data)
+
     elif request.method in ['PUT', 'PATCH']:
-        partial = request.method == 'PATCH'
-        serializer = OfferLetterSerializer(offer_letter, data=request.data, partial=partial,context={'request':request})
+        print("\n" + "=" * 80)
+        print(f"VIEW: {request.method} REQUEST FOR OFFER LETTER ID {pk}")
+        print("=" * 80)
+        print("Incoming update data:")
+        print(f"  basic_pay: {request.data.get('basic_pay')}")
+        print(f"  dearness_allowance: {request.data.get('dearness_allowance')}")
+        print(f"  house_rent_allowance: {request.data.get('house_rent_allowance')}")
+        print(f"  special_allowance: {request.data.get('special_allowance')}")
+        print(f"  conveyance_earnings: {request.data.get('conveyance_earnings')}")
+        print(f"  salary: {request.data.get('salary')}")
+        print("=" * 80)
+
+        serializer = OfferLetterSerializer(
+            offer,
+            data=request.data,
+            partial=(request.method == 'PATCH'),
+            context={'request': request}
+        )
 
         if serializer.is_valid():
             serializer.save()
+            offer.refresh_from_db()
+
+            print("\n✅ OFFER LETTER UPDATED")
+            print(f"  salary: {offer.salary}")
+            print("=" * 80 + "\n")
+
             return success_response(
-                message="Offer letter updated successfully",
-                data=serializer.data
+                "Offer letter updated successfully",
+                serializer.data
             )
-        return error_response(
-            message="Invalid data provided",
-            error_code="VALIDATION_ERROR",
-            details=serializer.errors
-        )
-    
+
+        print("\n❌ Serializer validation FAILED")
+        print(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     elif request.method == 'DELETE':
-        candidate_name = offer_letter.candidate.name
-        offer_letter.delete()
-        return success_response(
-            message=f"Offer letter for {candidate_name} deleted successfully"
-        )
+        offer.delete()
+        return success_response("Offer letter deleted")
 
 
+# --------------------------------------------------
+# SELECTED CANDIDATES
+# --------------------------------------------------
 @api_view(['GET'])
 def selected_candidates_list(request):
-    """Get all candidates with 'selected' status available for offer letters"""
-    # Get candidates with selected status who don't have offer letters yet
-    candidates = Interview.objects.filter(
-        status='selected'
-    )
-    # .select_related('job_title')
-    
+    candidates = Interview.objects.filter(status='selected')
     serializer = SelectedCandidatesSerializer(candidates, many=True)
     return success_response(
-        message=f"Found {len(serializer.data)} selected candidate(s) available for offer letters",
-        data=serializer.data
+        f"Found {len(serializer.data)} selected candidate(s)",
+        serializer.data
     )
 
 
+# --------------------------------------------------
+# OFFER STATUS ACTIONS
+# --------------------------------------------------
 @api_view(['POST'])
 def send_offer(request, pk):
-    """Mark offer letter as sent"""
     try:
-        offer_letter = OfferLetter.objects.select_related(
-            'candidate', 'candidate__job_title', 'created_by'
-        ).get(pk=pk)
+        offer = OfferLetter.objects.get(pk=pk)
     except OfferLetter.DoesNotExist:
-        return error_response(
-            message="Offer letter not found",
-            error_code="NOT_FOUND",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
-    if offer_letter.status != 'draft':
-        return error_response(
-            message="Only draft offers can be sent",
-            error_code="INVALID_STATUS"
-        )
-    
-    offer_letter.status = 'sent'
-    offer_letter.sent_at = timezone.now()
-    offer_letter.save()
-    
+        return error_response("Offer letter not found", status_code=404)
+
+    if offer.candidate_status != 'draft':
+        return error_response("Only draft offers can be sent")
+
+    offer.candidate_status = 'sent'
+    offer.save()
+
     return success_response(
-        message="Offer letter marked as sent",
-        data=OfferLetterSerializer(offer_letter).data
+        "Offer letter marked as sent",
+        OfferLetterSerializer(offer).data
     )
 
 
 @api_view(['POST'])
 def accept_offer(request, pk):
-    """Accept the offer letter"""
     try:
-        offer_letter = OfferLetter.objects.select_related(
-            'candidate', 'candidate__job_title', 'created_by'
-        ).get(pk=pk)
+        offer = OfferLetter.objects.get(pk=pk)
     except OfferLetter.DoesNotExist:
-        return error_response(
-            message="Offer letter not found",
-            error_code="NOT_FOUND",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
-    if offer_letter.status != 'sent':
-        return error_response(
-            message="Only sent offers can be accepted",
-            error_code="INVALID_STATUS"
-        )
-    
-    offer_letter.status = 'accepted'
-    offer_letter.accepted_at = timezone.now()
-    offer_letter.save()
-    
+        return error_response("Offer letter not found", status_code=404)
+
+    if offer.candidate_status != 'sent':
+        return error_response("Only sent offers can be accepted")
+
+    offer.candidate_status = 'willing'
+    offer.save()
+
     return success_response(
-        message="Offer letter accepted successfully",
-        data=OfferLetterSerializer(offer_letter).data
+        "Offer letter accepted successfully",
+        OfferLetterSerializer(offer).data
     )
 
 
 @api_view(['POST'])
 def reject_offer(request, pk):
-    """Reject the offer letter"""
-    rejection_reason = request.data.get('rejection_reason', '')
-    
     try:
-        offer_letter = OfferLetter.objects.select_related(
-            'candidate', 'candidate__job_title', 'created_by'
-        ).get(pk=pk)
+        offer = OfferLetter.objects.get(pk=pk)
     except OfferLetter.DoesNotExist:
-        return error_response(
-            message="Offer letter not found",
-            error_code="NOT_FOUND",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    
-    if offer_letter.status != 'sent':
-        return error_response(
-            message="Only sent offers can be rejected",
-            error_code="INVALID_STATUS"
-        )
-    
-    offer_letter.status = 'rejected'
-    offer_letter.rejected_at = timezone.now()
-    offer_letter.rejection_reason = rejection_reason
-    offer_letter.save()
-    
-    return success_response(
-        message="Offer letter rejected",
-        data=OfferLetterSerializer(offer_letter).data
-    )
+        return error_response("Offer letter not found", status_code=404)
 
+    if offer.candidate_status != 'sent':
+        return error_response("Only sent offers can be rejected")
+
+    offer.candidate_status = 'not_willing'
+    offer.rejection_status = request.data.get('rejection_status', '')
+    offer.save()
+
+    return success_response(
+        "Offer letter rejected",
+        OfferLetterSerializer(offer).data
+    )
