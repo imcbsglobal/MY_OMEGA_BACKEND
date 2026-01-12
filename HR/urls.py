@@ -1,36 +1,25 @@
-# HR/urls.py - FIXED: Remove duplicate endpoint registrations
+# HR/urls.py - Complete URL Configuration
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-
 from .views import (
-    AttendanceViewSet, HolidayViewSet, LeaveRequestViewSet,
-    LateRequestViewSet, EarlyRequestViewSet,
-    reverse_geocode, reverse_geocode_bigdata
+    AttendanceViewSet,
+    HolidayViewSet,
+    LeaveRequestViewSet,
+    LeaveMasterViewSet,
+    LateRequestViewSet,
+    EarlyRequestViewSet,
+    reverse_geocode,
+    reverse_geocode_bigdata
 )
 
-# Create router
 router = DefaultRouter()
-
-# Register viewsets with menu_key set
-attendance_viewset = AttendanceViewSet
-attendance_viewset.menu_key = 'attendance'
-router.register(r'attendance', attendance_viewset, basename='attendance')
-
-holiday_viewset = HolidayViewSet
-holiday_viewset.menu_key = 'attendance'
-router.register(r'holidays', holiday_viewset, basename='holiday')
-
-leave_viewset = LeaveRequestViewSet
-leave_viewset.menu_key = 'attendance'
-router.register(r'leave-requests', leave_viewset, basename='leave-request')
-
-late_viewset = LateRequestViewSet
-late_viewset.menu_key = 'attendance'
-router.register(r'late-requests', late_viewset, basename='late-request')
-
-early_viewset = EarlyRequestViewSet
-early_viewset.menu_key = 'attendance'
-router.register(r'early-requests', early_viewset, basename='early-request')
+router.register(r'attendance', AttendanceViewSet, basename='attendance')
+router.register(r'holidays', HolidayViewSet, basename='holiday')
+router.register(r'leave-masters', LeaveMasterViewSet, basename='leave-master')
+router.register(r'leave-requests', LeaveRequestViewSet, basename='leave-request')
+router.register(r'late-requests', LateRequestViewSet, basename='late-request')
+router.register(r'early-requests', EarlyRequestViewSet, basename='early-request')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -48,3 +37,4 @@ urlpatterns = [
 #   - GET  /api/hr/attendance/break_summary/
 #
 # DO NOT add them again here as standalone paths - this causes 405/404 errors!
+

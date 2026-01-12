@@ -6,6 +6,8 @@ from .views import LeaveMasterViewSet
 
 router = DefaultRouter()
 router.register('leaves', LeaveMasterViewSet, basename='leave-master')
+router = DefaultRouter()
+router.register(r'', LeaveMasterViewSet, basename='leave-master')
 
 urlpatterns = [
     path('', include(router.urls)),

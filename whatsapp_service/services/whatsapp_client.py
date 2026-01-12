@@ -1,7 +1,10 @@
-# whatsapp_service/services/whatsapp_client.py
+
+# ============================================================================
+# FILE 1: whatsapp_service/services/whatsapp_client.py
+# ============================================================================
 
 import logging
-import urllib.parse
+import json
 from typing import Optional
 
 import requests
@@ -57,7 +60,7 @@ def _normalize_number_for_provider(n: Optional[str], provider: str) -> str:
         return s
 
     elif provider in ("dxing", "external_dx", "external"):
-        # DXING: expects numeric MSISDN in `recipient` param (digits only).
+        # DXING: expects numeric MSISDN (digits only).
         # 1) strip '+' / '00'
         if s.startswith("+"):
             s = s[1:]
@@ -79,15 +82,29 @@ def _normalize_number_for_provider(n: Optional[str], provider: str) -> str:
 
 def _send_via_dxing(recipient: str, message: str, priority: int = 1, timeout: int = 15):
     """
-    Send a text WhatsApp message via DXING, using query params like:
-
-    https://app.dxing.in/api/send/whatsapp
-      ?secret=...
-      &account=...
-      &recipient=$NO$
-      &type=text
-      &message=$MSG$
-      &priority=1
+    Send a text WhatsApp message via DXING using POST with JSON body.
+    
+    CORRECT API FORMAT (POST with JSON):
+    POST https://app.dxing.in/api/send/whatsapp
+    Content-Type: application/json
+    
+    {
+        "secret": "your_api_secret",
+        "account": "your_account_id",
+        "recipient": "919895123456",
+        "type": "text",
+        "message": "Hello! This is a test message.",
+        "priority": 1
+    }
+    
+    Response:
+    {
+        "status": 200,
+        "message": "Your message was successfully delivered",
+        "data": {
+            "messageId": "DXWA_544614"
+        }
+    }
     """
     api_url = getattr(settings, "DXING_API_URL",
                       "https://app.dxing.in/api/send/whatsapp").rstrip("/")
@@ -101,45 +118,78 @@ def _send_via_dxing(recipient: str, message: str, priority: int = 1, timeout: in
 
     to = _normalize_number_for_provider(recipient, "dxing")
 
-    params = {
+    # Prepare JSON payload
+    payload = {
         "secret": secret,
         "account": account,
         "recipient": to,
         "type": "text",
         "message": message,
-        "priority": getattr(settings, "DXING_DEFAULT_PRIORITY", 1),
+        "priority": priority,
     }
 
-    url = f"{api_url}?{urllib.parse.urlencode(params)}"
-    # don't log raw secret
+    headers = {
+        "Content-Type": "application/json"
+    }
+
     logger.debug(
-        "DXING request URL (masked): %s",
-        url.replace(secret, "[SECRET]") if secret else url,
+        "DXING request: POST %s with recipient=%s, message length=%d",
+        api_url, to, len(message)
     )
 
     try:
-        resp = requests.get(url, timeout=timeout)
+        # IMPORTANT: Use POST with JSON body, not GET with query params
+        resp = requests.post(
+            api_url,
+            json=payload,
+            headers=headers,
+            timeout=timeout
+        )
     except requests.RequestException as exc:
         logger.exception("DXING request failed: %s", exc)
         raise WhatsAppClientError(f"DXING request failed: {exc}") from exc
 
-    # parse response
-    content_type = resp.headers.get("Content-Type", "")
+    # Parse response
     try:
-        if "application/json" in content_type:
-            data = resp.json()
-        else:
-            data = {"status_code": resp.status_code, "text": resp.text}
-    except Exception:
+        data = resp.json()
+    except Exception as e:
+        logger.error("Failed to parse DXING response as JSON: %s", resp.text)
         data = {"status_code": resp.status_code, "text": resp.text}
 
+    # Log the full response for debugging
+    logger.info(
+        "DXING response: status_code=%s, body=%s",
+        resp.status_code, json.dumps(data, indent=2)
+    )
+
+    # Check for success
+    # DXING returns status: 200 in the JSON body for success
+    if isinstance(data, dict):
+        response_status = data.get("status", resp.status_code)
+        response_message = data.get("message", "")
+        
+        # Success conditions:
+        # 1. HTTP 200 AND JSON status: 200
+        # 2. JSON message contains success indicators
+        if response_status == 200 or "success" in response_message.lower() or "delivered" in response_message.lower():
+            logger.info(
+                "DXING send succeeded: recipient=%s, messageId=%s",
+                to, data.get("data", {}).get("messageId", "N/A")
+            )
+            return data
+        else:
+            # Error in response
+            error_msg = data.get("message", data.get("text", "Unknown error"))
+            logger.error("DXING returned error: %s", error_msg)
+            raise WhatsAppClientError(f"DXING error: {error_msg}")
+    
+    # If response is not a dict or doesn't have expected structure
     if not resp.ok:
         logger.error("DXING returned HTTP %s: %s", resp.status_code, data)
         raise WhatsAppClientError(
             f"DXING returned HTTP {resp.status_code}: {data}"
         )
 
-    logger.info("DXING send succeeded: HTTP %s, recipient=%s", resp.status_code, to)
     return data
 
 

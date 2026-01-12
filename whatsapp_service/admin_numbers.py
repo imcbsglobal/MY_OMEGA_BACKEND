@@ -1,4 +1,8 @@
-# whatsapp_service/admin_numbers.py
+
+# ============================================================================
+# FILE 2: whatsapp_service/admin_numbers.py
+# ============================================================================
+
 """
 Central place to manage admin WhatsApp numbers.
 
@@ -17,12 +21,11 @@ API_SENDER_NUMBER = None  # Set this if your API has a fixed sender number
 # ========== HR / ATTENDANCE ADMINS ==========
 # Add your HR team numbers here
 HR_ADMIN_NUMBERS = [
-    "+917356122119",     # HR Admin 1 - REPLACE WITH REAL NUMBER
-    #  "+918281561081",     # HR Admin 2 - REPLACE WITH REAL NUMBER
+    "+918281561081",     # HR Admin - UPDATE WITH YOUR ACTUAL NUMBER
 ]
 
 # Main HR fallback
-HR_MAIN_NUMBER = "++917356122119",   # REPLACE WITH REAL NUMBER
+HR_MAIN_NUMBER = None   # Optional: Set main HR number
 
 
 # ========== MANAGER FALLBACK ==========
@@ -31,9 +34,7 @@ HR_MAIN_NUMBER = "++917356122119",   # REPLACE WITH REAL NUMBER
 # - Late/Early requests
 # - Generic WhatsApp messages (when "to" not provided)
 MANAGER_FALLBACK_NUMBERS = [
-    # "+917356122119", 
-    "+917356122119", 
-    # "+918281561081",     # Manager (the number you mentioned)
+    "+918281561081",     # Manager - UPDATE WITH YOUR ACTUAL NUMBER
     # Add more manager numbers if needed
 ]
 

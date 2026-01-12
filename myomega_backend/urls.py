@@ -29,6 +29,8 @@ urlpatterns = [
     path('api/whatsapp/', include('whatsapp_service.urls')),
     path('api/certificate/', include('certificate_hub.urls')),
     path('api/master/', include('master.urls')),
+    path('api/leaves/', include('master.urls')),
+
 ]
 
 if settings.DEBUG:

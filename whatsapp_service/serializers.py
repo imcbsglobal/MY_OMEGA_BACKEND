@@ -1,4 +1,7 @@
-# whatsapp_service/serializers.py
+# ============================================================================
+# FILE 6: whatsapp_service/serializers.py
+# ============================================================================
+
 from rest_framework import serializers
 
 

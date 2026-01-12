@@ -1,9 +1,6 @@
 from django.shortcuts import render
 
 # Create your views here.
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,6 +26,8 @@ class LeaveMasterViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]  # Change to [IsAuthenticated] if needed
     
     def get_serializer_class(self):
+        # Use the same serializer for create/update since a separate
+        # create serializer is not defined in `master.serializers`.
         if self.action in ['create', 'update', 'partial_update']:
             return LeaveMasterSerializer
         return LeaveMasterSerializer
