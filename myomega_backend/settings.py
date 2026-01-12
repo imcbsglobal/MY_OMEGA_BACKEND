@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'employee_management',
     "payroll",
     'whatsapp_service',
+    'master',
 ]
 
 MIDDLEWARE = [
@@ -321,7 +322,8 @@ CORS_ALLOW_HEADERS = [
 # ===========================
 
 # Use DXING as the WhatsApp provider
-# WHATSAPP_PROVIDER = "dxing"
+# WHATSAPP_PR
+# OVIDER = "dxing"
 
 # # DXING endpoint – this matches the URL format you shared
 # DXING_API_URL = os.getenv(

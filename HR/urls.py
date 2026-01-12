@@ -36,6 +36,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('reverse-geocode/', reverse_geocode, name='reverse-geocode'),
     path('reverse-geocode-bigdata/', reverse_geocode_bigdata, name='reverse-geocode-bigdata'),
+    
 ]
 
 # NOTES:
