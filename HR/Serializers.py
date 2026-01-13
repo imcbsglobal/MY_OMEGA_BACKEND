@@ -332,15 +332,11 @@ class PunchInSerializer(serializers.Serializer):
         required=True,
         help_text='Location name/address'
     )
-    latitude = serializers.DecimalField(
-        max_digits=10, 
-        decimal_places=7, 
+    latitude = serializers.FloatField(
         required=True,
         help_text='GPS latitude'
     )
-    longitude = serializers.DecimalField(
-        max_digits=10, 
-        decimal_places=7, 
+    longitude = serializers.FloatField(
         required=True,
         help_text='GPS longitude'
     )
@@ -359,15 +355,11 @@ class PunchOutSerializer(serializers.Serializer):
         required=True,
         help_text='Location name/address'
     )
-    latitude = serializers.DecimalField(
-        max_digits=10, 
-        decimal_places=7, 
+    latitude = serializers.FloatField(
         required=True,
         help_text='GPS latitude'
     )
-    longitude = serializers.DecimalField(
-        max_digits=10, 
-        decimal_places=7, 
+    longitude = serializers.FloatField(
         required=True,
         help_text='GPS longitude'
     )

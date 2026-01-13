@@ -31,512 +31,219 @@ from User.models import AppUser
 
 
 class AttendanceViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing Attendance records with new punch in/out system
-    """
+    """Clean AttendanceViewSet with punch in/out endpoints."""
     queryset = Attendance.objects.all().select_related('user', 'verified_by')
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
 
     def _is_admin(self, user):
-        """Helper to check if user is admin"""
         return (
-            user.user_level in ('Super Admin', 'Admin') or
-            user.is_staff or
-            user.is_superuser
+            getattr(user, 'user_level', None) in ('Super Admin', 'Admin') or
+            user.is_staff or user.is_superuser
         )
 
     def get_queryset(self):
-        """Filter queryset based on permissions and query params"""
         user = self.request.user
-        queryset = Attendance.objects.select_related('user', 'verified_by')
-
-        is_admin = self._is_admin(user)
-        if not is_admin:
-            queryset = queryset.filter(user=user)
+        qs = Attendance.objects.select_related('user', 'verified_by')
+        if not self._is_admin(user):
+            qs = qs.filter(user=user)
 
         user_id = self.request.query_params.get('user_id')
-        if user_id and is_admin:
-            queryset = queryset.filter(user_id=user_id)
+        if user_id and self._is_admin(user):
+            qs = qs.filter(user_id=user_id)
 
         from_date = self.request.query_params.get('from_date')
         to_date = self.request.query_params.get('to_date')
         if from_date:
-            queryset = queryset.filter(date__gte=from_date)
+            qs = qs.filter(date__gte=from_date)
         if to_date:
-            queryset = queryset.filter(date__lte=to_date)
+            qs = qs.filter(date__lte=to_date)
 
         month = self.request.query_params.get('month')
         year = self.request.query_params.get('year')
         if month and year:
-            queryset = queryset.filter(date__month=month, date__year=year)
+            qs = qs.filter(date__month=month, date__year=year)
 
-        att_status = self.request.query_params.get('status')
-        if att_status:
-            queryset = queryset.filter(status=att_status)
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            qs = qs.filter(status=status_param)
 
         verification_status = self.request.query_params.get('verification_status')
         if verification_status:
-            queryset = queryset.filter(verification_status=verification_status)
+            qs = qs.filter(verification_status=verification_status)
 
-        return queryset.order_by('-date', '-first_punch_in_time')
-# Replace your punch_in method in HR/views.py with this debug version
+        return qs.order_by('-date', '-first_punch_in_time')
 
-    # HR/views.py - FIXED: Geofence check happens BEFORE database operations
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], url_path='punch_in')
     @transaction.atomic
     def punch_in(self, request):
         serializer = PunchInSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-@action(detail=False, methods=['post'])
-@transaction.atomic
-def punch_in(self, request):
-    serializer = PunchInSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+        user = request.user
+        today = timezone.now().date()
 
-    user = request.user
-    today = timezone.now().date()
+        lat = serializer.validated_data.get('latitude')
+        lon = serializer.validated_data.get('longitude')
 
-    # 1️⃣ GEOFENCE CHECK FIRST (before ANY database operations)
-    lat = serializer.validated_data['latitude']
-    lon = serializer.validated_data['longitude']
+        allowed, distance = validate_office_geofence(lat, lon, user=user)
+        if not allowed:
+            return Response({'error': 'Punch in denied: outside office premises', 'distance_meters': distance}, status=status.HTTP_403_FORBIDDEN)
 
-    allowed, distance = validate_office_geofence(lat, lon, user=user)
-    
-    if not allowed:
-        return Response(
-            {
-                "error": "Punch in denied: outside office premises",
-                "distance_meters": distance,
-                "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS,
-                "message": f"You are {int(distance)}m away from office. Maximum allowed distance is {settings.OFFICE_GEOFENCE_RADIUS_METERS}m.",
-                "action": "Please move closer to the office location and try again.",
-                "distance_exceeded": int(distance - settings.OFFICE_GEOFENCE_RADIUS_METERS)
-            },
-            status=status.HTTP_403_FORBIDDEN
+        attendance, created = Attendance.objects.get_or_create(
+            user=user,
+            date=today,
+            defaults={'status': 'half', 'is_currently_on_break': False}
         )
 
-    # 2️⃣ Get or create attendance record (only after geofence passes)
-    attendance, _ = Attendance.objects.get_or_create(
-        user=user,
-        date=today,
-        defaults={
-            'status': 'half',
-            'is_currently_on_break': False
-        }
-    )
+        last_punch = attendance.punch_records.order_by('-punch_time').first()
+        if last_punch and last_punch.punch_type == 'in':
+            return Response({'error': 'You are already punched in'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # 3️⃣ CHECK LAST PUNCH
-    last_punch = attendance.punch_records.order_by('-punch_time').first()
-    if last_punch and last_punch.punch_type == 'in':
-        return Response(
-            {'error': 'You are already punched in. Punch out first.'},
-            status=status.HTTP_400_BAD_REQUEST
+        punch = PunchRecord.objects.create(
+            attendance=attendance,
+            punch_type='in',
+            punch_time=timezone.now(),
+            location=serializer.validated_data.get('location', ''),
+            latitude=lat,
+            longitude=lon,
+            note=serializer.validated_data.get('note', '')
         )
 
-    # 4️⃣ CREATE PUNCH RECORD (only after all validations pass)
-    punch = PunchRecord.objects.create(
-        attendance=attendance,
-        punch_type='in',
-        punch_time=timezone.now(),
-        location=serializer.validated_data['location'],
-        latitude=lat,
-        longitude=lon,
-        note=serializer.validated_data.get('note', '')
-    )
+        if not attendance.first_punch_in_time:
+            attendance.first_punch_in_time = punch.punch_time
+            attendance.first_punch_in_location = punch.location
+            attendance.first_punch_in_latitude = punch.latitude
+            attendance.first_punch_in_longitude = punch.longitude
 
-    attendance.is_currently_on_break = False
+        attendance.is_currently_on_break = False
+        attendance.save()
 
-    if not attendance.first_punch_in_time:
-        attendance.first_punch_in_time = punch.punch_time
-        attendance.first_punch_in_location = punch.location
-        attendance.first_punch_in_latitude = lat
-        attendance.first_punch_in_longitude = lon
+        punches = attendance.punch_records.order_by('punch_time')
+        data = AttendanceSerializer(attendance, context={'request': request}).data
+        data['punch_records'] = PunchRecordSerializer(punches, many=True).data
+        data['message'] = 'Punched in successfully'
+        data['can_punch_out'] = True
+        return Response(data, status=status.HTTP_200_OK)
 
-    attendance.save()
+    @action(detail=False, methods=['post'], url_path='punch_out')
+    @transaction.atomic
+    def punch_out(self, request):
+        serializer = PunchOutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    punch_records = attendance.punch_records.order_by('punch_time')
-    response = AttendanceSerializer(attendance).data
-    response['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-    response['message'] = 'Punched in successfully'
-    response['location_accuracy'] = f"{distance:.0f}m from office"
+        user = request.user
+        today = timezone.now().date()
 
-    return Response(response, status=status.HTTP_200_OK)
+        try:
+            attendance = Attendance.objects.get(user=user, date=today)
+        except Attendance.DoesNotExist:
+            return Response({'error': 'No punch in record for today'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not attendance.first_punch_in_time:
+            return Response({'error': 'You must punch in first'}, status=status.HTTP_400_BAD_REQUEST)
 
-@action(detail=False, methods=['post'])
-@transaction.atomic
-def punch_out(self, request):
-    serializer = PunchOutSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+        last_punch = attendance.punch_records.order_by('-punch_time').first()
+        if last_punch and last_punch.punch_type == 'out':
+            return Response({'error': 'You are already punched out'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user = request.user
-    today = timezone.now().date()
+        lat = serializer.validated_data.get('latitude')
+        lon = serializer.validated_data.get('longitude')
+        allowed, distance = validate_office_geofence(lat, lon, user=user)
+        if not allowed:
+            return Response({'error': 'Punch out denied: outside office premises', 'distance_meters': distance}, status=status.HTTP_403_FORBIDDEN)
 
-    try:
-        attendance = Attendance.objects.get(user=user, date=today)
-    except Attendance.DoesNotExist:
-        return Response(
-            {'error': 'No punch in record found for today. Please punch in first.'},
-            status=status.HTTP_400_BAD_REQUEST
+        punch_record = PunchRecord.objects.create(
+            attendance=attendance,
+            punch_type='out',
+            punch_time=timezone.now(),
+            location=serializer.validated_data.get('location', ''),
+            latitude=lat,
+            longitude=lon,
+            note=serializer.validated_data.get('note', '')
         )
 
-    if not attendance.first_punch_in_time:
-        return Response(
-            {'error': 'You must punch in first before punching out'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        attendance.last_punch_out_time = punch_record.punch_time
+        attendance.last_punch_out_location = punch_record.location
+        attendance.last_punch_out_latitude = punch_record.latitude
+        attendance.last_punch_out_longitude = punch_record.longitude
+        attendance.is_currently_on_break = True
 
-    last_punch = attendance.punch_records.order_by('-punch_time').first()
-    if last_punch and last_punch.punch_type == 'out':
-        return Response(
-            {'error': 'You are already punched out. Please punch in before punching out again.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        attendance.calculate_times()
+        attendance.update_status()
+        attendance.save()
 
-    # GEOFENCE CHECK for punch out
-    lat = serializer.validated_data['latitude']
-    lon = serializer.validated_data['longitude']
+        punches = attendance.punch_records.all().order_by('punch_time')
+        data = AttendanceSerializer(attendance, context={'request': request}).data
+        data['punch_records'] = PunchRecordSerializer(punches, many=True).data
+        data['message'] = 'Punched out successfully'
+        data['can_punch_out'] = False
+        return Response(data, status=status.HTTP_200_OK)
 
-    allowed, distance = validate_office_geofence(lat, lon, user=user)
-    
-    if not allowed:
-        return Response(
-            {
-                "error": "Punch out denied: outside office premises",
-                "distance_meters": distance,
-                "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS,
-                "message": f"You are {int(distance)}m away from office. Maximum allowed distance is {settings.OFFICE_GEOFENCE_RADIUS_METERS}m.",
-                "action": "Please move closer to the office location and try again.",
-                "distance_exceeded": int(distance - settings.OFFICE_GEOFENCE_RADIUS_METERS)
-            },
-            status=status.HTTP_403_FORBIDDEN
-        )
+    @action(detail=False, methods=['get'], url_path='today_status')
+    def today_status(self, request):
+        user = request.user
+        today = timezone.now().date()
+        try:
+            attendance = Attendance.objects.get(user=user, date=today)
+            punches = attendance.punch_records.all().order_by('punch_time')
+            data = AttendanceSerializer(attendance, context={'request': request}).data
+            data['punch_records'] = PunchRecordSerializer(punches, many=True).data
+            data['can_punch_in'] = not punches.exists() or punches.last().punch_type == 'out'
+            data['can_punch_out'] = punches.exists() and punches.last().punch_type == 'in'
+            return Response(data)
+        except Attendance.DoesNotExist:
+            return Response({'message': 'No attendance record for today', 'date': today, 'can_punch_in': True, 'can_punch_out': False})
 
-    # Create punch out record
-    punch_record = PunchRecord.objects.create(
-        attendance=attendance,
-        punch_type='out',
-        punch_time=timezone.now(),
-        location=serializer.validated_data['location'],
-        latitude=lat,
-        longitude=lon,
-        note=serializer.validated_data.get('note', '')
-    )
+    @action(detail=False, methods=['get'], url_path='my_records')
+    def my_records(self, request):
+        user = request.user
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        qs = Attendance.objects.filter(user=user)
+        if month and year:
+            qs = qs.filter(date__month=month, date__year=year)
+        result = []
+        for att in qs.order_by('-date', '-first_punch_in_time'):
+            d = AttendanceSerializer(att, context={'request': request}).data
+            punches = att.punch_records.all().order_by('punch_time')
+            d['punch_records'] = PunchRecordSerializer(punches, many=True).data
+            result.append(d)
+        return Response(result)
 
-    attendance.last_punch_out_time = punch_record.punch_time
-    attendance.last_punch_out_location = punch_record.location
-    attendance.last_punch_out_latitude = lat
-    attendance.last_punch_out_longitude = lon
-    attendance.is_currently_on_break = True
-
-    attendance.calculate_times()
-    attendance.update_status()
-    attendance.save()
-
-    punch_records = attendance.punch_records.all().order_by('punch_time')
-
-    response_data = AttendanceSerializer(attendance).data
-    response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-    response_data['message'] = 'Punched out successfully'
-    response_data['total_working_hours'] = float(attendance.total_working_hours)
-    response_data['total_break_hours'] = float(attendance.total_break_hours)
-    response_data['location_accuracy'] = f"{distance:.0f}m from office"
-
-    return Response(response_data)
-
-
-    lat = serializer.validated_data['latitude']
-    lon = serializer.validated_data['longitude']
-
-    # 🔒 STRICT GEOFENCE CHECK
-    allowed, distance = validate_office_geofence(lat, lon)
-
-    if not allowed:
-        return Response(
-            {
-                "error": "Punch in denied: outside office premises",
-                "distance_meters": distance,
-                "allowed_radius_meters": settings.OFFICE_GEOFENCE_RADIUS_METERS
-            },
-            status=status.HTTP_403_FORBIDDEN
-        )
-
-    attendance, created = Attendance.objects.get_or_create(
-        user=user,
-        date=today,
-        defaults={'status': 'half', 'is_currently_on_break': False}
-    )
-
-    last_punch = attendance.punch_records.order_by('-punch_time').first()
-    if last_punch and last_punch.punch_type == 'in':
-        return Response(
-            {'error': 'You are already punched in'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    punch = PunchRecord.objects.create(
-        attendance=attendance,
-        punch_type='in',
-        punch_time=timezone.now(),
-        location=serializer.validated_data['location'],
-        latitude=lat,
-        longitude=lon,
-        note=serializer.validated_data.get('note', '')
-    )
-
-    if not attendance.first_punch_in_time:
-        attendance.first_punch_in_time = punch.punch_time
-        attendance.first_punch_in_location = punch.location
-        attendance.first_punch_in_latitude = punch.latitude
-        attendance.first_punch_in_longitude = punch.longitude
-
-    attendance.is_currently_on_break = False
-    attendance.save()
-
-    return Response(
-        AttendanceSerializer(attendance).data,
-        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
-    )
-
-
-@action(detail=False, methods=['post'])
-@transaction.atomic
-def punch_out(self, request):
-    """
-    Punch out action - can be used multiple times in a day
-    Intermediate punch outs = Going on break
-    Final punch out = End of work day
-    """
-    serializer = PunchOutSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    user = request.user
-    today = timezone.now().date()
-
-    try:
-        attendance = Attendance.objects.get(user=user, date=today)
-    except Attendance.DoesNotExist:
-        return Response(
-            {'error': 'No punch in record found for today. Please punch in first.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Check if user has punched in
-    if not attendance.first_punch_in_time:
-        return Response(
-            {'error': 'You must punch in first before punching out'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Check if last punch was OUT
-    last_punch = attendance.punch_records.order_by('-punch_time').first()
-    if last_punch and last_punch.punch_type == 'out':
-        return Response(
-            {'error': 'You are already punched out. Please punch in before punching out again.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Create new punch out record
-    punch_record = PunchRecord.objects.create(
-        attendance=attendance,
-        punch_type='out',
-        punch_time=timezone.now(),
-        location=serializer.validated_data['location'],
-        latitude=serializer.validated_data['latitude'],
-        longitude=serializer.validated_data['longitude'],
-        note=serializer.validated_data.get('note', '')
-    )
-
-    # Update last punch out
-    attendance.last_punch_out_time = punch_record.punch_time
-    attendance.last_punch_out_location = punch_record.location
-    attendance.last_punch_out_latitude = punch_record.latitude
-    attendance.last_punch_out_longitude = punch_record.longitude
-    attendance.is_currently_on_break = True
-
-    # Calculate working hours and break hours
-    attendance.calculate_times()
-    attendance.update_status()
-    attendance.save()
-
-    # Get punch records for response
-    punch_records = attendance.punch_records.all().order_by('punch_time')
-
-    response_data = AttendanceSerializer(attendance).data
-    response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-    response_data['message'] = 'Punched out successfully'
-    response_data['total_working_hours'] = float(attendance.total_working_hours)
-    response_data['total_break_hours'] = float(attendance.total_break_hours)
-
-    return Response(response_data)
-
-@action(detail=False, methods=['get'])
-def today_status(self, request):
-    """Get today's attendance status with punch records"""
-    user = request.user
-    today = timezone.now().date()
-
-    try:
-        attendance = Attendance.objects.get(user=user, date=today)
-        punch_records = attendance.punch_records.all().order_by('punch_time')
-
-        response_data = AttendanceSerializer(attendance).data
-        response_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-        response_data['can_punch_in'] = not punch_records.exists() or punch_records.last().punch_type == 'out'
-        response_data['can_punch_out'] = punch_records.exists() and punch_records.last().punch_type == 'in'
-
-        return Response(response_data)
-    except Attendance.DoesNotExist:
+    @action(detail=False, methods=['get'], url_path='my_summary')
+    def my_summary(self, request):
+        user = request.user
+        month = int(request.query_params.get('month', timezone.now().month))
+        year = int(request.query_params.get('year', timezone.now().year))
+        attendances = Attendance.objects.filter(user=user, date__month=month, date__year=year)
+        holidays = Holiday.objects.filter(date__month=month, date__year=year, is_active=True).count()
+        sundays = self._count_sundays(year, month)
+        days_in_month = calendar.monthrange(year, month)[1]
+        verified_full_days = attendances.filter(status='full', verification_status='verified').count()
+        verified_half_days = attendances.filter(status='half', verification_status='verified').count()
+        leaves = attendances.filter(status='leave').count()
+        total_working_hours = attendances.aggregate(total=Sum('total_working_hours'))['total'] or 0
+        total_break_hours = attendances.aggregate(total=Sum('total_break_hours'))['total'] or 0
+        marked_days = attendances.count()
+        not_marked = days_in_month - marked_days - holidays - sundays
         return Response({
-            'message': 'No attendance record for today',
-            'date': today,
-            'can_punch_in': True,
-            'can_punch_out': False
-        }, status=status.HTTP_200_OK)
-
-@action(detail=False, methods=['get'])
-def my_records(self, request):
-    """Get only MY attendance records with punch records"""
-    user = request.user
-    month = request.query_params.get('month')
-    year = request.query_params.get('year')
-
-    queryset = Attendance.objects.filter(user=user).select_related('user', 'verified_by')
-
-    if month and year:
-        queryset = queryset.filter(date__month=month, date__year=year)
-
-    queryset = queryset.order_by('-date', '-first_punch_in_time')
-
-    # Include punch records for each attendance
-    result = []
-    for attendance in queryset:
-        att_data = AttendanceSerializer(attendance).data
-        punch_records = attendance.punch_records.all().order_by('punch_time')
-        att_data['punch_records'] = PunchRecordSerializer(punch_records, many=True).data
-        result.append(att_data)
-
-    return Response(result)
-
-@action(detail=False, methods=['get'])
-def my_summary(self, request):
-    """Get only MY attendance summary"""
-    user = request.user
-    month = int(request.query_params.get('month', timezone.now().month))
-    year = int(request.query_params.get('year', timezone.now().year))
-
-    attendances = Attendance.objects.filter(
-        user=user,
-        date__month=month,
-        date__year=year
-    )
-
-    holidays = Holiday.objects.filter(
-        date__month=month,
-        date__year=year,
-        is_active=True
-    ).count()
-
-    sundays = self._count_sundays(year, month)
-    days_in_month = calendar.monthrange(year, month)[1]
-
-    full_days_unverified = attendances.filter(
-        status='full',
-        verification_status='unverified'
-    ).count()
-
-    verified_full_days = attendances.filter(
-        status='full',
-        verification_status='verified'
-    ).count()
-
-    half_days_unverified = attendances.filter(
-        status='half',
-        verification_status='unverified'
-    ).count()
-
-    verified_half_days = attendances.filter(
-        status='half',
-        verification_status='verified'
-    ).count()
-
-    leaves = attendances.filter(status='leave').count()
-
-    total_working_hours = attendances.aggregate(
-        total=Sum('total_working_hours')
-    )['total'] or 0
-
-    total_break_hours = attendances.aggregate(
-        total=Sum('total_break_hours')
-    )['total'] or 0
-
-    marked_days = attendances.count()
-    not_marked = days_in_month - marked_days - holidays - sundays
-
-    return Response({
-        'user_id': user.id,
-        'user_name': user.name,
-        'user_email': user.email,
-        'month': month,
-        'year': year,
-        'total_days': days_in_month,
-        'full_days_unverified': full_days_unverified,
-        'verified_full_days': verified_full_days,
-        'half_days_unverified': half_days_unverified,
-        'verified_half_days': verified_half_days,
-        'leaves': leaves,
-        'not_marked': not_marked,
-        'total_working_hours': round(total_working_hours, 2),
-        'total_break_hours': round(total_break_hours, 2),
-        'holidays': holidays,
-        'sundays': sundays,
-    })
-
-def _count_sundays(self, year, month):
-    """Count the number of Sundays in a given month"""
-    days_in_month = calendar.monthrange(year, month)[1]
-    sundays = 0
-    for day in range(1, days_in_month + 1):
-        if datetime(year, month, day).weekday() == 6:
-            sundays += 1
-    return sundays
-
-@action(detail=True, methods=['post'])
-def verify(self, request, pk=None):
-    """Verify attendance (Admin only) - recalculates times from punch records"""
-    if not self._is_admin(request.user):
-        return Response(
-            {'error': 'Only admins can verify attendance'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-
-    attendance = self.get_object()
-    serializer = AttendanceVerifySerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    # Recalculate times from punch records
-    attendance.calculate_times()
-    # attendance.update_status()
-
-    # Verify
-    attendance.verification_status = 'verified'
-    attendance.verified_by = request.user
-    attendance.verified_at = timezone.now()
-
-    admin_note = serializer.validated_data.get('admin_note', '')
-    if admin_note:
-        if attendance.admin_note:
-            attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {admin_note}"
-        else:
-            attendance.admin_note = admin_note
-
-    attendance.save()
-
-    response_serializer = AttendanceSerializer(attendance)
-    return Response({'message': 'Attendance verified', 'attendance': response_serializer.data}, status=status.HTTP_200_OK)
+            'user_id': user.id,
+            'user_name': user.name,
+            'user_email': user.email,
+            'month': month,
+            'year': year,
+            'total_days': days_in_month,
+            'verified_full_days': verified_full_days,
+            'verified_half_days': verified_half_days,
+            'leaves': leaves,
+            'not_marked': not_marked,
+            'total_working_hours': round(total_working_hours, 2),
+            'total_break_hours': round(total_break_hours, 2),
+            'holidays': holidays,
+            'sundays': sundays,
+        })
 
 @action(detail=False, methods=['post'])
 def mark_leave(self, request):
