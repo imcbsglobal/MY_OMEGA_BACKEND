@@ -284,13 +284,12 @@ SIMPLE_JWT = {
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "http://localhost:5174",     # ✅ ADD THIS
+    "http://localhost:5174",
     "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",     # ✅ ADD THIS (safe)
+    "http://127.0.0.1:5174",
     "https://myomegahrms.in",
-    "https://demomyomega.imcbs.com"
+    "https://demomyomega.imcbs.com",
 ]
-
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -303,15 +302,15 @@ CORS_ALLOW_METHODS = [
 ]
 
 CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
 ]
 
 
@@ -359,7 +358,7 @@ OFFICE_GEOFENCE_RADIUS_METERS = 250
 DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
 DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
 DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 DXING_DEFAULT_PRIORITY = 1
 # =========================
