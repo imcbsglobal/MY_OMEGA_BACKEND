@@ -314,9 +314,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 
-OFFICE_LATITUDE = 11.618056
-OFFICE_LONGITUDE = 76.081333
-OFFICE_GEOFENCE_RADIUS_METERS = 250
+
 
 
 
@@ -368,11 +366,44 @@ DXING_DEFAULT_PRIORITY = 1
 # OFFICE GEOFENCE CONFIGURATION
 # ===============================
 
-OFFICE_LATITUDE = 11.618056
-OFFICE_LONGITUDE = 76.081333
-OFFICE_GEOFENCE_RADIUS_METERS = 250
+# ===============================
+# OFFICE GEOFENCE CONFIGURATION
+# ===============================
 
+# Your Office Location: 10°55'15.8"N 75°55'33.8"E
+# NEW COORDINATES FOR TIRUR:
+OFFICE_LATITUDE = 10.921047
+OFFICE_LONGITUDE = 75.926051
+OFFICE_GEOFENCE_RADIUS_METERS = 100
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'geofence.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'HR': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 
 # or 500 if GPS is unstable

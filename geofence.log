@@ -1,0 +1,182 @@
+INFO 2026-01-14 17:25:04,489 views [PUNCH IN] Validating location for myomega@gmail.com
+INFO 2026-01-14 17:25:04,491 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-14 17:25:04,492 geofence [GEOFENCE] User Location: (11.3901568, 75.7497856)
+INFO 2026-01-14 17:25:04,493 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-14 17:25:04,493 geofence [GEOFENCE] Distance: 44127.62m | Allowed: 250m
+WARNING 2026-01-14 17:25:04,888 geofence [GEOFENCE] Distance 44127.62m exceeds limit 250m
+INFO 2026-01-14 18:05:38,869 views [PUNCH IN] Validating location for myomega@gmail.com
+INFO 2026-01-14 18:05:38,870 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-14 18:05:38,871 geofence [GEOFENCE] User Location: (11.3901568, 75.7497856)
+INFO 2026-01-14 18:05:38,872 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-14 18:05:38,873 geofence [GEOFENCE] Distance: 44127.62m | Allowed: 250m
+WARNING 2026-01-14 18:05:38,911 geofence [GEOFENCE] Distance 44127.62m exceeds limit 250m
+INFO 2026-01-14 18:05:48,829 views [PUNCH IN] Validating location for myomega@gmail.com
+INFO 2026-01-14 18:05:48,833 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-14 18:05:48,833 geofence [GEOFENCE] User Location: (11.3901568, 75.7497856)
+INFO 2026-01-14 18:05:48,834 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-14 18:05:48,834 geofence [GEOFENCE] Distance: 44127.62m | Allowed: 250m
+WARNING 2026-01-14 18:05:48,860 geofence [GEOFENCE] Distance 44127.62m exceeds limit 250m
+INFO 2026-01-14 18:13:10,361 geofence [GEOFENCE] ========================
+INFO 2026-01-14 18:13:10,363 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-14 18:13:10,364 geofence [GEOFENCE] User Location: (11.3901568, 75.7497856)
+INFO 2026-01-14 18:13:10,365 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-14 18:13:10,365 geofence [GEOFENCE] Distance: 44127.62m | Allowed: 250m
+INFO 2026-01-14 18:13:10,365 geofence [GEOFENCE] ========================
+WARNING 2026-01-14 18:13:10,479 geofence [GEOFENCE] Distance 44127.62m exceeds limit 250m
+INFO 2026-01-14 18:13:31,319 geofence [GEOFENCE] ========================
+INFO 2026-01-14 18:13:31,319 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-14 18:13:31,319 geofence [GEOFENCE] User Location: (11.3901568, 75.7497856)
+INFO 2026-01-14 18:13:31,320 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-14 18:13:31,320 geofence [GEOFENCE] Distance: 44127.62m | Allowed: 250m
+INFO 2026-01-14 18:13:31,324 geofence [GEOFENCE] ========================
+WARNING 2026-01-14 18:13:31,382 geofence [GEOFENCE] Distance 44127.62m exceeds limit 250m
+INFO 2026-01-15 11:54:15,996 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:54:16,022 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 11:54:16,025 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:54:16,088 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:54:16,102 geofence [GEOFENCE] Distance: 0.0m | Allowed: 250m
+INFO 2026-01-15 11:54:16,156 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:54:25,501 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:54:25,502 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 11:54:25,503 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:54:25,504 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:54:25,504 geofence [GEOFENCE] Distance: 0.0m | Allowed: 250m
+INFO 2026-01-15 11:54:25,505 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:56:05,511 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:56:05,512 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 11:56:05,512 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:56:05,513 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:56:05,514 geofence [GEOFENCE] Distance: 0.0m | Allowed: 250m
+INFO 2026-01-15 11:56:05,519 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:56:10,780 geofence [GEOFENCE] ========================
+INFO 2026-01-15 11:56:10,785 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 11:56:10,786 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:56:10,787 geofence [GEOFENCE] Office Location: (11.618056, 76.081333)
+INFO 2026-01-15 11:56:10,794 geofence [GEOFENCE] Distance: 0.0m | Allowed: 250m
+INFO 2026-01-15 11:56:10,806 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:07:04,982 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:07:04,983 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:07:04,984 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:07:04,984 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:07:04,985 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:07:04,986 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:07:05,509 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:10:35,631 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:10:35,632 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:10:35,632 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:10:35,633 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:10:35,634 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 300m
+INFO 2026-01-15 12:10:35,634 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:10:35,746 geofence [GEOFENCE] Distance 79332.17m exceeds limit 300m
+INFO 2026-01-15 12:11:26,675 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:11:26,675 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:11:26,676 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:11:26,676 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:11:26,677 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 400m
+INFO 2026-01-15 12:11:26,677 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:11:26,758 geofence [GEOFENCE] Distance 79332.17m exceeds limit 400m
+INFO 2026-01-15 12:11:49,052 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:11:49,053 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:11:49,054 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:11:49,062 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:11:49,066 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:11:49,067 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:11:49,504 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:13:16,297 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:13:16,298 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:13:16,299 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:13:16,307 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:13:16,309 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:13:16,310 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:13:16,442 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:14:52,146 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:14:52,146 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:14:52,147 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:14:52,147 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:14:52,148 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:14:52,149 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:14:52,241 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:16:38,300 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:16:38,301 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:16:38,302 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:16:38,302 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:16:38,303 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:16:38,304 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:16:38,779 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:18:51,174 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:18:51,180 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:18:51,181 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:18:51,181 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:18:51,182 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:18:51,182 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:18:51,281 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:20:18,832 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:20:18,833 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:20:18,834 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:20:18,834 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:20:18,837 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:20:18,837 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:20:19,004 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:40:23,644 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:40:23,652 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:40:23,653 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:40:23,653 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:40:23,655 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:40:23,655 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:40:23,799 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 12:58:05,715 geofence [GEOFENCE] ========================
+INFO 2026-01-15 12:58:05,717 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 12:58:05,717 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 12:58:05,718 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 12:58:05,719 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 12:58:05,720 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 12:58:05,814 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:05:34,571 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:05:34,578 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:05:34,583 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:05:34,593 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:05:34,595 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 13:05:34,609 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:05:34,792 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:07:09,866 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:07:09,867 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:07:09,867 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:07:09,870 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:07:09,871 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 13:07:09,872 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:07:09,915 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:09:47,040 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:09:47,041 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:09:47,041 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:09:47,042 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:09:47,043 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 13:09:47,043 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:09:47,166 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:12:02,379 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:12:02,380 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:12:02,385 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:12:02,386 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:12:02,387 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 13:12:02,388 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:12:02,612 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:12:10,872 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:12:10,873 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:12:10,873 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:12:10,874 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:12:10,874 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 13:12:10,875 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:12:10,961 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:12:24,959 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:12:24,959 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:12:24,960 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:12:24,969 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:12:24,970 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 250m
+INFO 2026-01-15 13:12:24,971 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:12:25,043 geofence [GEOFENCE] Distance 79332.17m exceeds limit 250m
+INFO 2026-01-15 13:46:06,901 geofence [GEOFENCE] ========================
+INFO 2026-01-15 13:46:06,904 geofence [GEOFENCE] Validating User myomega@gmail.com
+INFO 2026-01-15 13:46:06,906 geofence [GEOFENCE] User Location: (11.618056, 76.081333)
+INFO 2026-01-15 13:46:06,906 geofence [GEOFENCE] Office Location: (10.921047, 75.926051)
+INFO 2026-01-15 13:46:06,906 geofence [GEOFENCE] Distance: 79332.17m | Allowed: 100m
+INFO 2026-01-15 13:46:06,907 geofence [GEOFENCE] ========================
+WARNING 2026-01-15 13:46:08,719 geofence [GEOFENCE] Distance 79332.17m exceeds limit 100m
