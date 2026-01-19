@@ -813,3 +813,24 @@ INFO 2026-01-19 15:16:02,262 geofence [GEOFENCE] Distance: 79766.87m | Allowed: 
 INFO 2026-01-19 15:16:02,263 geofence [GEOFENCE] ============================================================
 WARNING 2026-01-19 15:16:02,329 geofence [GEOFENCE] Distance 79766.87m EXCEEDS 100.0m
 WARNING 2026-01-19 15:16:02,329 geofence [GEOFENCE] Excess: 79666.87m
+INFO 2026-01-19 15:19:48,965 geofence [GEOFENCE] ============================================================
+INFO 2026-01-19 15:19:48,966 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-19 15:19:48,966 geofence [GEOFENCE] User: (11.618008, 76.081510)
+INFO 2026-01-19 15:19:48,967 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-19 15:19:48,967 geofence [GEOFENCE] Distance: 27.29m | Allowed: 50.0m
+INFO 2026-01-19 15:19:48,968 geofence [GEOFENCE] ============================================================
+INFO 2026-01-19 15:19:49,397 geofence [GEOFENCE] Buffer remaining: 22.71m
+INFO 2026-01-19 15:21:45,533 geofence [GEOFENCE] ============================================================
+INFO 2026-01-19 15:21:45,533 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-19 15:21:45,534 geofence [GEOFENCE] User: (11.618008, 76.081510)
+INFO 2026-01-19 15:21:45,535 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-19 15:21:45,535 geofence [GEOFENCE] Distance: 27.29m | Allowed: 50.0m
+INFO 2026-01-19 15:21:45,535 geofence [GEOFENCE] ============================================================
+INFO 2026-01-19 15:21:45,603 geofence [GEOFENCE] Buffer remaining: 22.71m
+INFO 2026-01-19 15:21:54,097 geofence [GEOFENCE] ============================================================
+INFO 2026-01-19 15:21:54,098 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-19 15:21:54,099 geofence [GEOFENCE] User: (11.618008, 76.081510)
+INFO 2026-01-19 15:21:54,100 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-19 15:21:54,101 geofence [GEOFENCE] Distance: 27.29m | Allowed: 50.0m
+INFO 2026-01-19 15:21:54,101 geofence [GEOFENCE] ============================================================
+INFO 2026-01-19 15:21:54,172 geofence [GEOFENCE] Buffer remaining: 22.71m
