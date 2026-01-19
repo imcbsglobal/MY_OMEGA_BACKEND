@@ -1,4 +1,4 @@
-# HR/urls.py - Complete URL Configuration
+# HR/urls.py - FIXED VERSION (No Duplicates)
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -9,15 +9,21 @@ from .views import (
     LeaveMasterViewSet,
     LateRequestViewSet,
     EarlyRequestViewSet,
+    get_office_geofence_info,
     reverse_geocode,
     reverse_geocode_bigdata
 )
 
 router = DefaultRouter()
+
+# Register all viewsets - MAKE SURE EACH BASENAME IS UNIQUE
 router.register(r'attendance', AttendanceViewSet, basename='attendance')
 router.register(r'holidays', HolidayViewSet, basename='holiday')
 router.register(r'leave-masters', LeaveMasterViewSet, basename='leave-master')
-router.register(r'leave-requests', LeaveRequestViewSet, basename='leave-request')
+
+# ✅ ONLY ONE 'leave' registration - remove any duplicates!
+router.register(r'leave', LeaveRequestViewSet, basename='leave')
+
 router.register(r'late-requests', LateRequestViewSet, basename='late-request')
 router.register(r'early-requests', EarlyRequestViewSet, basename='early-request')
 
@@ -25,16 +31,16 @@ urlpatterns = [
     path('', include(router.urls)),
     path('reverse-geocode/', reverse_geocode, name='reverse-geocode'),
     path('reverse-geocode-bigdata/', reverse_geocode_bigdata, name='reverse-geocode-bigdata'),
-    
+    path('geofence-info/', get_office_geofence_info, name='geofence-info'),
 ]
 
-# NOTES:
-# Break endpoints are automatically registered via @action decorators in AttendanceViewSet:
-#   - GET  /api/hr/attendance/active_break/
-#   - POST /api/hr/attendance/start_break/
-#   - POST /api/hr/attendance/end_break/
-#   - GET  /api/hr/attendance/today_breaks/
-#   - GET  /api/hr/attendance/break_summary/
+# ================================================================
+# IMPORTANT: Each router.register() basename must be UNIQUE
+# ================================================================
+# ✅ CORRECT - One registration per viewset
+# ❌ WRONG - Do NOT have multiple lines with same basename
 #
-# DO NOT add them again here as standalone paths - this causes 405/404 errors!
-
+# Example of WRONG (causes error):
+#   router.register(r'leave', LeaveRequestViewSet, basename='leave')
+#   router.register(r'leave', LeaveRequestViewSet, basename='leave')  # DUPLICATE!
+# ================================================================

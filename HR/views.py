@@ -8,7 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import datetime, time
 from django.conf import settings
-from .geofence import validate_office_geofence
+# from .geofence import validate_office_geofence
 
 import calendar
 import requests
@@ -87,9 +87,59 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         lat = serializer.validated_data.get('latitude')
         lon = serializer.validated_data.get('longitude')
 
+        # 🔴 CRITICAL: Print received coordinates for debugging
+        print("=" * 80)
+        print(f"🔍 PUNCH IN ATTEMPT")
+        print(f"User: {user.email}")
+        print(f"Received Latitude: {lat}")
+        print(f"Received Longitude: {lon}")
+        print(f"Office Latitude: {settings.OFFICE_LATITUDE}")
+        print(f"Office Longitude: {settings.OFFICE_LONGITUDE}")
+        print(f"Allowed Radius: {settings.OFFICE_GEOFENCE_RADIUS_METERS}m")
+        print("=" * 80)
+
+        # ✅ VALIDATE GEOFENCE - NO BYPASS
         allowed, distance = validate_office_geofence(lat, lon, user=user)
+        
+        # 🔴 Print validation result
+        print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
+        print("=" * 80)
+        
         if not allowed:
-            return Response({'error': 'Punch in denied: outside office premises', 'distance_meters': distance}, status=status.HTTP_403_FORBIDDEN)
+            office_info = {
+                'latitude': settings.OFFICE_LATITUDE,
+                'longitude': settings.OFFICE_LONGITUDE,
+                'radius': settings.OFFICE_GEOFENCE_RADIUS_METERS,
+                'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
+            }
+            excess_distance = distance - office_info['radius']
+            
+            # 🔴 Log rejection
+            print(f"❌ PUNCH IN REJECTED!")
+            print(f"Distance: {distance}m")
+            print(f"Excess: {excess_distance}m")
+            print("=" * 80)
+            
+            return Response({
+                'error': 'Punch in denied: You are outside the office premises',
+                'detail': f'You are {distance:.0f}m away from office. You need to be within {office_info["radius"]:.0f}m.',
+                'distance_meters': distance,
+                'allowed_radius': office_info['radius'],
+                'excess_distance': round(excess_distance, 2),
+                'office_location': {
+                    'latitude': office_info['latitude'],
+                    'longitude': office_info['longitude'],
+                    'address': office_info['address']
+                },
+                'user_location': {
+                    'latitude': lat,
+                    'longitude': lon
+                }
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # ✅ Geofence passed - proceed with punch in
+        print(f"✅ PUNCH IN ALLOWED - Distance: {distance}m")
+        print("=" * 80)
 
         attendance, created = Attendance.objects.get_or_create(
             user=user,
@@ -99,7 +149,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         last_punch = attendance.punch_records.order_by('-punch_time').first()
         if last_punch and last_punch.punch_type == 'in':
-            return Response({'error': 'You are already punched in'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'You are already punched in'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         punch = PunchRecord.objects.create(
             attendance=attendance,
@@ -123,9 +175,12 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         punches = attendance.punch_records.order_by('punch_time')
         data = AttendanceSerializer(attendance, context={'request': request}).data
         data['punch_records'] = PunchRecordSerializer(punches, many=True).data
-        data['message'] = 'Punched in successfully'
+        data['message'] = f'Punched in successfully (Distance from office: {distance:.0f}m)'
         data['can_punch_out'] = True
+        data['distance_from_office'] = distance
+        
         return Response(data, status=status.HTTP_200_OK)
+
 
     @action(detail=False, methods=['post'], url_path='punch_out')
     @transaction.atomic
@@ -139,20 +194,77 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         try:
             attendance = Attendance.objects.get(user=user, date=today)
         except Attendance.DoesNotExist:
-            return Response({'error': 'No punch in record for today'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'No punch in record for today'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         if not attendance.first_punch_in_time:
-            return Response({'error': 'You must punch in first'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'You must punch in first'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         last_punch = attendance.punch_records.order_by('-punch_time').first()
         if last_punch and last_punch.punch_type == 'out':
-            return Response({'error': 'You are already punched out'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'You are already punched out'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         lat = serializer.validated_data.get('latitude')
         lon = serializer.validated_data.get('longitude')
+        
+        # 🔴 CRITICAL: Print received coordinates for debugging
+        print("=" * 80)
+        print(f"🔍 PUNCH OUT ATTEMPT")
+        print(f"User: {user.email}")
+        print(f"Received Latitude: {lat}")
+        print(f"Received Longitude: {lon}")
+        print(f"Office Latitude: {settings.OFFICE_LATITUDE}")
+        print(f"Office Longitude: {settings.OFFICE_LONGITUDE}")
+        print(f"Allowed Radius: {settings.OFFICE_GEOFENCE_RADIUS_METERS}m")
+        print("=" * 80)
+        
+        # ✅ VALIDATE GEOFENCE - NO BYPASS
         allowed, distance = validate_office_geofence(lat, lon, user=user)
+        
+        # 🔴 Print validation result
+        print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
+        print("=" * 80)
+        
         if not allowed:
-            return Response({'error': 'Punch out denied: outside office premises', 'distance_meters': distance}, status=status.HTTP_403_FORBIDDEN)
+            office_info = {
+                'latitude': settings.OFFICE_LATITUDE,
+                'longitude': settings.OFFICE_LONGITUDE,
+                'radius': settings.OFFICE_GEOFENCE_RADIUS_METERS,
+                'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
+            }
+            excess_distance = distance - office_info['radius']
+            
+            # 🔴 Log rejection
+            print(f"❌ PUNCH OUT REJECTED!")
+            print(f"Distance: {distance}m")
+            print(f"Excess: {excess_distance}m")
+            print("=" * 80)
+            
+            return Response({
+                'error': 'Punch out denied: You are outside the office premises',
+                'detail': f'You are {distance:.0f}m away from office. You need to be within {office_info["radius"]:.0f}m.',
+                'distance_meters': distance,
+                'allowed_radius': office_info['radius'],
+                'excess_distance': round(excess_distance, 2),
+                'office_location': {
+                    'latitude': office_info['latitude'],
+                    'longitude': office_info['longitude'],
+                    'address': office_info['address']
+                },
+                'user_location': {
+                    'latitude': lat,
+                    'longitude': lon
+                }
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # ✅ Geofence passed - proceed with punch out
+        print(f"✅ PUNCH OUT ALLOWED - Distance: {distance}m")
+        print("=" * 80)
 
         punch_record = PunchRecord.objects.create(
             attendance=attendance,
@@ -177,8 +289,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         punches = attendance.punch_records.all().order_by('punch_time')
         data = AttendanceSerializer(attendance, context={'request': request}).data
         data['punch_records'] = PunchRecordSerializer(punches, many=True).data
-        data['message'] = 'Punched out successfully'
+        data['message'] = f'Punched out successfully (Distance from office: {distance:.0f}m)'
         data['can_punch_out'] = False
+        data['distance_from_office'] = distance
+        
         return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='today_status')
@@ -212,14 +326,35 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             result.append(d)
         return Response(result)
 
+    def _count_sundays(self, year, month):
+        """Count the number of Sundays in a given month"""
+        import calendar
+        from datetime import datetime
+        
+        days_in_month = calendar.monthrange(year, month)[1]
+        sundays = 0
+        
+        for day in range(1, days_in_month + 1):
+            date = datetime(year, month, day)
+            if date.weekday() == 6:  # 6 = Sunday
+                sundays += 1
+        
+        return sundays
+
+    # ... rest of your existing methods ...
+    
     @action(detail=False, methods=['get'], url_path='my_summary')
     def my_summary(self, request):
         user = request.user
         month = int(request.query_params.get('month', timezone.now().month))
         year = int(request.query_params.get('year', timezone.now().year))
+        
         attendances = Attendance.objects.filter(user=user, date__month=month, date__year=year)
         holidays = Holiday.objects.filter(date__month=month, date__year=year, is_active=True).count()
+        
+        # ✅ NOW THIS WILL WORK
         sundays = self._count_sundays(year, month)
+        
         days_in_month = calendar.monthrange(year, month)[1]
         verified_full_days = attendances.filter(status='full', verification_status='verified').count()
         verified_half_days = attendances.filter(status='half', verification_status='verified').count()
@@ -228,6 +363,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         total_break_hours = attendances.aggregate(total=Sum('total_break_hours'))['total'] or 0
         marked_days = attendances.count()
         not_marked = days_in_month - marked_days - holidays - sundays
+        
         return Response({
             'user_id': user.id,
             'user_name': user.name,
@@ -1716,6 +1852,28 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             'data': list(result.values())
         })
 
+
+
+
+
+# HR/views.py - Add this new endpoint
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_office_geofence_info(request):
+    """
+    Get office geofence configuration for display purposes only
+    Frontend should NOT use this for validation - validation happens server-side
+    """
+    from django.conf import settings
+    
+    return Response({
+        'office_latitude': settings.OFFICE_LATITUDE,
+        'office_longitude': settings.OFFICE_LONGITUDE,
+        'radius_meters': settings.OFFICE_GEOFENCE_RADIUS_METERS,
+        'office_address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location'),
+        'message': 'You must be within the office radius to punch in/out'
+    })
 
 # Keep all your other existing ViewSets (AttendanceViewSet, HolidayViewSet, etc.)
 # ... unchanged ...
