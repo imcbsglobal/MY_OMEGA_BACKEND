@@ -834,3 +834,712 @@ INFO 2026-01-19 15:21:54,100 geofence [GEOFENCE] Office: (11.618074, 76.081269)
 INFO 2026-01-19 15:21:54,101 geofence [GEOFENCE] Distance: 27.29m | Allowed: 50.0m
 INFO 2026-01-19 15:21:54,101 geofence [GEOFENCE] ============================================================
 INFO 2026-01-19 15:21:54,172 geofence [GEOFENCE] Buffer remaining: 22.71m
+INFO 2026-01-20 09:58:42,387 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:42,388 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 09:58:42,388 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 09:58:42,389 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 09:58:42,389 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-20 09:58:42,389 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:42,987 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-20 09:58:48,651 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:48,652 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 09:58:48,700 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 09:58:48,700 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 09:58:48,701 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-20 09:58:48,701 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:48,724 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-20 09:58:51,580 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:51,580 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 09:58:51,581 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 09:58:51,581 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 09:58:51,582 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-20 09:58:51,582 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:51,603 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-20 09:58:55,161 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:55,162 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 09:58:55,162 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 09:58:55,163 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 09:58:55,164 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-20 09:58:55,164 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:55,216 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-20 09:58:58,417 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:58,418 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 09:58:58,418 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 09:58:58,418 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 09:58:58,419 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-20 09:58:58,419 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 09:58:58,453 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-20 10:49:57,101 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 10:49:57,101 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 10:49:57,102 geofence [GEOFENCE] User: (11.618006, 76.081513)
+INFO 2026-01-20 10:49:57,102 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 10:49:57,102 geofence [GEOFENCE] Distance: 27.66m | Allowed: 50.0m
+INFO 2026-01-20 10:49:57,103 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 10:49:57,156 geofence [GEOFENCE] Buffer remaining: 22.34m
+INFO 2026-01-20 12:34:53,484 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 12:34:53,485 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 12:34:53,486 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 12:34:53,491 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 12:34:53,493 geofence [GEOFENCE] Distance: 27.6m | Allowed: 50.0m
+INFO 2026-01-20 12:34:53,495 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 12:34:53,584 geofence [GEOFENCE] Buffer remaining: 22.40m
+INFO 2026-01-20 12:34:56,101 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 12:34:56,102 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-20 12:34:56,102 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-20 12:34:56,107 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-20 12:34:56,108 geofence [GEOFENCE] Distance: 27.6m | Allowed: 50.0m
+INFO 2026-01-20 12:34:56,109 geofence [GEOFENCE] ============================================================
+INFO 2026-01-20 12:34:56,129 geofence [GEOFENCE] Buffer remaining: 22.40m
+INFO 2026-01-22 09:59:56,370 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 09:59:56,377 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 09:59:56,377 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 09:59:56,378 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 09:59:56,379 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 09:59:56,379 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 09:59:57,895 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:06,311 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:06,312 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:06,313 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:06,313 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:06,314 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:06,314 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:06,385 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:08,382 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:08,382 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:08,383 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:08,383 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:08,384 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:08,385 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:08,486 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:14,989 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:14,990 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:14,991 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:14,992 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:14,993 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:14,995 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:15,112 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:26,610 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:26,610 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:26,611 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:26,613 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:26,614 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:26,615 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:26,699 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:32,793 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:32,794 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:32,795 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:32,796 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:32,797 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:32,798 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:33,065 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:43,057 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:43,058 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:43,059 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:43,104 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:43,104 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:43,105 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:43,173 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:46,207 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:46,207 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:46,208 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:46,209 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:46,209 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:46,210 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:46,280 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:48,780 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:48,781 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:48,788 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:48,789 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:48,789 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:48,790 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:48,852 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:52,578 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:52,579 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:52,579 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:52,580 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:52,581 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:52,586 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:52,654 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:00:56,206 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:56,207 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:00:56,207 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:00:56,208 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:00:56,208 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:00:56,209 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:00:56,294 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 10:01:09,108 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:01:09,109 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 10:01:09,110 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 10:01:09,110 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 10:01:09,111 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 10:01:09,113 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 10:01:09,157 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 11:29:20,514 views === LATE REQUEST CREATE START ===
+INFO 2026-01-22 11:29:20,707 views User: 1
+INFO 2026-01-22 11:29:20,709 views Request data: {'date': '2026-01-23', 'late_by_minutes': 30, 'reason': 'xfgsg'}
+INFO 2026-01-22 11:29:20,721 views Serializer validation...
+INFO 2026-01-22 11:29:20,722 views Serializer validation passed
+INFO 2026-01-22 11:29:20,723 views Performing create...
+INFO 2026-01-22 11:29:20,723 views Creating late request for user: 1
+ERROR 2026-01-22 11:29:20,732 views Perform create failed: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+ERROR 2026-01-22 11:29:21,035 views === LATE REQUEST CREATE FAILED ===
+ERROR 2026-01-22 11:29:21,035 views Error: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+ERROR 2026-01-22 11:29:21,039 views Traceback (most recent call last):
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\psycopg\cursor.py", line 723, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UndefinedColumn: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1052, in create
+    self.perform_create(serializer)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1030, in perform_create
+    serializer.save(user=self.request.user)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\rest_framework\serializers.py", line 208, in save
+    self.instance = self.create(validated_data)
+                    ~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\rest_framework\serializers.py", line 989, in create
+    instance = ModelClass._default_manager.create(**validated_data)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 679, in create
+    obj.save(force_insert=True, using=self.db)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 822, in save
+    self.save_base(
+    ~~~~~~~~~~~~~~^
+        using=using,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        update_fields=update_fields,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 909, in save_base
+    updated = self._save_table(
+        raw,
+    ...<4 lines>...
+        update_fields,
+    )
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 1067, in _save_table
+    results = self._do_insert(
+        cls._base_manager, using, fields, returning_fields, raw
+    )
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 1108, in _do_insert
+    return manager._insert(
+           ~~~~~~~~~~~~~~~^
+        [self],
+        ^^^^^^^
+    ...<3 lines>...
+        raw=raw,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 1847, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 1823, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\psycopg\cursor.py", line 723, in execute
+    raise ex.with_traceback(None)
+django.db.utils.ProgrammingError: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+
+INFO 2026-01-22 11:32:22,190 views === LATE REQUEST CREATE START ===
+INFO 2026-01-22 11:32:22,190 views User: 1
+INFO 2026-01-22 11:32:22,191 views Request data: {'date': '2026-01-23', 'late_by_minutes': 30, 'reason': 'xfgsg'}
+INFO 2026-01-22 11:32:22,191 views Serializer validation...
+INFO 2026-01-22 11:32:22,193 views Serializer validation passed
+INFO 2026-01-22 11:32:22,194 views Performing create...
+INFO 2026-01-22 11:32:22,195 views Creating late request for user: 1
+ERROR 2026-01-22 11:32:22,198 views Perform create failed: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+ERROR 2026-01-22 11:32:22,217 views === LATE REQUEST CREATE FAILED ===
+ERROR 2026-01-22 11:32:22,217 views Error: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+ERROR 2026-01-22 11:32:22,222 views Traceback (most recent call last):
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\psycopg\cursor.py", line 723, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.UndefinedColumn: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1052, in create
+    self.perform_create(serializer)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1030, in perform_create
+    serializer.save(user=self.request.user)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\rest_framework\serializers.py", line 208, in save
+    self.instance = self.create(validated_data)
+                    ~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\rest_framework\serializers.py", line 989, in create
+    instance = ModelClass._default_manager.create(**validated_data)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 679, in create
+    obj.save(force_insert=True, using=self.db)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 822, in save
+    self.save_base(
+    ~~~~~~~~~~~~~~^
+        using=using,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        update_fields=update_fields,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 909, in save_base
+    updated = self._save_table(
+        raw,
+    ...<4 lines>...
+        update_fields,
+    )
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 1067, in _save_table
+    results = self._do_insert(
+        cls._base_manager, using, fields, returning_fields, raw
+    )
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\base.py", line 1108, in _do_insert
+    return manager._insert(
+           ~~~~~~~~~~~~~~~^
+        [self],
+        ^^^^^^^
+    ...<3 lines>...
+        raw=raw,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 1847, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 1823, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\psycopg\cursor.py", line 723, in execute
+    raise ex.with_traceback(None)
+django.db.utils.ProgrammingError: column "leave_master_id" of relation "hr_late_request" does not exist
+LINE 1: INSERT INTO "hr_late_request" ("user_id", "leave_master_id",...
+                                                  ^
+
+INFO 2026-01-22 11:40:43,480 views === LATE REQUEST CREATE START ===
+INFO 2026-01-22 11:40:43,508 views User: 1
+INFO 2026-01-22 11:40:43,517 views Request data: {'date': '2026-01-22', 'late_by_minutes': 30, 'reason': 'scsdvdvdf'}
+INFO 2026-01-22 11:40:43,567 views Serializer validation...
+INFO 2026-01-22 11:40:43,606 views Serializer validation passed
+INFO 2026-01-22 11:40:43,643 views Performing create...
+INFO 2026-01-22 11:40:43,669 views Creating late request for user: 1
+INFO 2026-01-22 11:40:44,190 views Late request created successfully: 1
+INFO 2026-01-22 11:40:44,191 views Perform create completed
+INFO 2026-01-22 11:40:44,192 views Fetching created instance...
+ERROR 2026-01-22 11:40:44,194 views Failed to serialize response: Invalid field name(s) given in select_related: 'leave_master'. Choices are: user, reviewed_by
+ERROR 2026-01-22 11:40:44,473 views === LATE REQUEST CREATE FAILED ===
+ERROR 2026-01-22 11:40:44,473 views Error: Invalid field name(s) given in select_related: 'leave_master'. Choices are: user, reviewed_by
+ERROR 2026-01-22 11:40:44,478 views Traceback (most recent call last):
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1064, in create
+    ).get(id=serializer.instance.id)
+      ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 645, in get
+    num = len(clone)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 382, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 1928, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 1549, in execute_sql
+    sql, params = self.as_sql()
+                  ~~~~~~~~~~~^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 736, in as_sql
+    extra_select, order_by, group_by = self.pre_sql_setup(
+                                       ~~~~~~~~~~~~~~~~~~^
+        with_col_aliases=with_col_aliases or bool(combinator),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 84, in pre_sql_setup
+    self.setup_query(with_col_aliases=with_col_aliases)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 73, in setup_query
+    self.select, self.klass_info, self.annotation_col_map = self.get_select(
+                                                            ~~~~~~~~~~~~~~~^
+        with_col_aliases=with_col_aliases,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 279, in get_select
+    related_klass_infos = self.get_related_selections(select, select_mask)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 1367, in get_related_selections
+    raise FieldError(
+    ...<6 lines>...
+    )
+django.core.exceptions.FieldError: Invalid field name(s) given in select_related: 'leave_master'. Choices are: user, reviewed_by
+
+INFO 2026-01-22 11:41:44,789 views === LATE REQUEST CREATE START ===
+INFO 2026-01-22 11:41:44,790 views User: 1
+INFO 2026-01-22 11:41:44,790 views Request data: {'date': '2026-01-22', 'late_by_minutes': 30, 'reason': 'scsdvdvdf'}
+INFO 2026-01-22 11:41:44,791 views Serializer validation...
+INFO 2026-01-22 11:41:44,792 views Serializer validation passed
+INFO 2026-01-22 11:41:44,792 views Performing create...
+INFO 2026-01-22 11:41:44,793 views Creating late request for user: 1
+INFO 2026-01-22 11:41:45,276 views Late request created successfully: 2
+INFO 2026-01-22 11:41:45,276 views Perform create completed
+INFO 2026-01-22 11:41:45,277 views Fetching created instance...
+ERROR 2026-01-22 11:41:45,278 views Failed to serialize response: Invalid field name(s) given in select_related: 'leave_master'. Choices are: user, reviewed_by
+ERROR 2026-01-22 11:41:45,295 views === LATE REQUEST CREATE FAILED ===
+ERROR 2026-01-22 11:41:45,295 views Error: Invalid field name(s) given in select_related: 'leave_master'. Choices are: user, reviewed_by
+ERROR 2026-01-22 11:41:45,298 views Traceback (most recent call last):
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1064, in create
+    ).get(id=serializer.instance.id)
+      ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 645, in get
+    num = len(clone)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 382, in __len__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 1928, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\query.py", line 91, in __iter__
+    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 1549, in execute_sql
+    sql, params = self.as_sql()
+                  ~~~~~~~~~~~^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 736, in as_sql
+    extra_select, order_by, group_by = self.pre_sql_setup(
+                                       ~~~~~~~~~~~~~~~~~~^
+        with_col_aliases=with_col_aliases or bool(combinator),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 84, in pre_sql_setup
+    self.setup_query(with_col_aliases=with_col_aliases)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 73, in setup_query
+    self.select, self.klass_info, self.annotation_col_map = self.get_select(
+                                                            ~~~~~~~~~~~~~~~^
+        with_col_aliases=with_col_aliases,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 279, in get_select
+    related_klass_infos = self.get_related_selections(select, select_mask)
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\django\db\models\sql\compiler.py", line 1367, in get_related_selections
+    raise FieldError(
+    ...<6 lines>...
+    )
+django.core.exceptions.FieldError: Invalid field name(s) given in select_related: 'leave_master'. Choices are: user, reviewed_by
+
+INFO 2026-01-22 11:49:28,768 views === LATE REQUEST CREATE START ===
+INFO 2026-01-22 11:49:28,768 views User: 1
+INFO 2026-01-22 11:49:28,769 views Request data: {'date': '2026-01-22', 'late_by_minutes': 30, 'reason': 'scsdvdvdf'}
+INFO 2026-01-22 11:49:28,770 views Serializer validation...
+INFO 2026-01-22 11:49:28,771 views Serializer validation passed
+INFO 2026-01-22 11:49:28,771 views Performing create...
+INFO 2026-01-22 11:49:28,772 views Creating late request for user: 1
+INFO 2026-01-22 11:49:29,209 views Late request created successfully: 3
+INFO 2026-01-22 11:49:29,210 views Perform create completed
+INFO 2026-01-22 11:49:29,213 views Fetching created instance...
+INFO 2026-01-22 11:49:29,221 views Instance serialized successfully
+INFO 2026-01-22 11:49:29,221 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-22 12:13:02,547 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:13:02,551 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:13:02,552 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-22 12:13:02,552 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:13:02,553 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-22 12:13:02,553 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:13:03,003 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-22 12:13:34,469 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:13:34,470 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:13:34,470 geofence [GEOFENCE] User: (11.618004, 76.081512)
+INFO 2026-01-22 12:13:34,470 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:13:34,470 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-22 12:13:34,471 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:13:34,501 geofence [GEOFENCE] Buffer remaining: 22.42m
+INFO 2026-01-22 12:23:43,908 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:23:43,909 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:23:43,911 geofence [GEOFENCE] User: (11.618013, 76.081510)
+INFO 2026-01-22 12:23:43,912 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:23:43,913 geofence [GEOFENCE] Distance: 27.13m | Allowed: 50.0m
+INFO 2026-01-22 12:23:43,913 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:23:43,956 geofence [GEOFENCE] Buffer remaining: 22.87m
+INFO 2026-01-22 12:28:21,859 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:28:21,859 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:28:21,859 geofence [GEOFENCE] User: (11.618013, 76.081510)
+INFO 2026-01-22 12:28:21,859 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:28:21,860 geofence [GEOFENCE] Distance: 27.13m | Allowed: 50.0m
+INFO 2026-01-22 12:28:21,860 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:28:21,894 geofence [GEOFENCE] Buffer remaining: 22.87m
+INFO 2026-01-22 12:36:38,064 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:36:38,065 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:36:38,067 geofence [GEOFENCE] User: (11.618012, 76.081513)
+INFO 2026-01-22 12:36:38,068 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:36:38,074 geofence [GEOFENCE] Distance: 27.49m | Allowed: 50.0m
+INFO 2026-01-22 12:36:38,075 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:36:38,114 geofence [GEOFENCE] Buffer remaining: 22.51m
+INFO 2026-01-22 12:46:49,809 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:46:49,809 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:46:49,810 geofence [GEOFENCE] User: (11.618009, 76.081510)
+INFO 2026-01-22 12:46:49,810 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:46:49,811 geofence [GEOFENCE] Distance: 27.22m | Allowed: 50.0m
+INFO 2026-01-22 12:46:49,811 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:46:49,846 geofence [GEOFENCE] Buffer remaining: 22.78m
+INFO 2026-01-22 12:51:28,909 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:51:28,910 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:51:28,910 geofence [GEOFENCE] User: (11.618009, 76.081510)
+INFO 2026-01-22 12:51:28,911 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:51:28,911 geofence [GEOFENCE] Distance: 27.22m | Allowed: 50.0m
+INFO 2026-01-22 12:51:28,911 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:51:28,946 geofence [GEOFENCE] Buffer remaining: 22.78m
+INFO 2026-01-22 12:56:00,579 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:56:00,580 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 12:56:00,580 geofence [GEOFENCE] User: (11.618004, 76.081511)
+INFO 2026-01-22 12:56:00,580 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 12:56:00,581 geofence [GEOFENCE] Distance: 27.51m | Allowed: 50.0m
+INFO 2026-01-22 12:56:00,581 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 12:56:00,581 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 12:56:00,581 geofence [GEOFENCE] Buffer remaining: 22.49m
+INFO 2026-01-22 13:09:44,718 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 13:09:44,719 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 13:09:44,720 geofence [GEOFENCE] User: (11.618004, 76.081511)
+INFO 2026-01-22 13:09:44,721 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 13:09:44,722 geofence [GEOFENCE] Distance: 27.51m | Allowed: 50.0m
+INFO 2026-01-22 13:09:44,723 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 13:09:44,724 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 13:09:44,726 geofence [GEOFENCE] Buffer remaining: 22.49m
+INFO 2026-01-22 13:27:45,428 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 13:27:45,429 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 13:27:45,430 geofence [GEOFENCE] User: (11.618007, 76.081510)
+INFO 2026-01-22 13:27:45,430 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 13:27:45,431 geofence [GEOFENCE] Distance: 27.24m | Allowed: 50.0m
+INFO 2026-01-22 13:27:45,431 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 13:27:45,432 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 13:27:45,432 geofence [GEOFENCE] Buffer remaining: 22.76m
+INFO 2026-01-22 14:10:40,108 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:10:40,109 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 14:10:40,109 geofence [GEOFENCE] User: (11.618007, 76.081510)
+INFO 2026-01-22 14:10:40,110 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 14:10:40,110 geofence [GEOFENCE] Distance: 27.24m | Allowed: 50.0m
+INFO 2026-01-22 14:10:40,110 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:10:40,111 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 14:10:40,111 geofence [GEOFENCE] Buffer remaining: 22.76m
+INFO 2026-01-22 14:24:15,413 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:24:15,414 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 14:24:15,414 geofence [GEOFENCE] User: (11.618015, 76.081509)
+INFO 2026-01-22 14:24:15,414 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 14:24:15,415 geofence [GEOFENCE] Distance: 26.96m | Allowed: 50.0m
+INFO 2026-01-22 14:24:15,417 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:24:15,418 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 14:24:15,419 geofence [GEOFENCE] Buffer remaining: 23.04m
+INFO 2026-01-22 14:40:24,485 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:40:24,486 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 14:40:24,487 geofence [GEOFENCE] User: (11.618011, 76.081511)
+INFO 2026-01-22 14:40:24,487 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 14:40:24,488 geofence [GEOFENCE] Distance: 27.27m | Allowed: 50.0m
+INFO 2026-01-22 14:40:24,488 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:40:24,488 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 14:40:24,489 geofence [GEOFENCE] Buffer remaining: 22.73m
+INFO 2026-01-22 14:40:28,665 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:40:28,665 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 14:40:28,665 geofence [GEOFENCE] User: (11.618011, 76.081511)
+INFO 2026-01-22 14:40:28,666 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 14:40:28,666 geofence [GEOFENCE] Distance: 27.27m | Allowed: 50.0m
+INFO 2026-01-22 14:40:28,666 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 14:40:28,667 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 14:40:28,667 geofence [GEOFENCE] Buffer remaining: 22.73m
+INFO 2026-01-22 15:07:14,616 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:07:14,617 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:07:14,617 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 15:07:14,617 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:07:14,618 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 15:07:14,618 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:07:14,620 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:07:14,620 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 15:12:05,161 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:12:05,162 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:12:05,162 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 15:12:05,162 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:12:05,163 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 15:12:05,163 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:12:05,163 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:12:05,163 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 15:13:30,586 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:13:30,586 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:13:30,586 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 15:13:30,590 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:13:30,591 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 15:13:30,591 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:13:30,592 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:13:30,592 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 15:26:58,960 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:26:58,960 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:26:58,961 geofence [GEOFENCE] User: (11.618010, 76.081512)
+INFO 2026-01-22 15:26:58,962 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:26:58,962 geofence [GEOFENCE] Distance: 27.39m | Allowed: 50.0m
+INFO 2026-01-22 15:26:58,962 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:26:58,964 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:26:58,965 geofence [GEOFENCE] Buffer remaining: 22.61m
+INFO 2026-01-22 15:30:30,566 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:30:30,566 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:30:30,567 geofence [GEOFENCE] User: (11.618010, 76.081511)
+INFO 2026-01-22 15:30:30,567 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:30:30,567 geofence [GEOFENCE] Distance: 27.26m | Allowed: 50.0m
+INFO 2026-01-22 15:30:30,568 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:30:30,568 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:30:30,568 geofence [GEOFENCE] Buffer remaining: 22.74m
+INFO 2026-01-22 15:45:08,339 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:45:08,339 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:45:08,339 geofence [GEOFENCE] User: (11.618010, 76.081511)
+INFO 2026-01-22 15:45:08,340 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:45:08,342 geofence [GEOFENCE] Distance: 27.26m | Allowed: 50.0m
+INFO 2026-01-22 15:45:08,352 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:45:08,352 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:45:08,353 geofence [GEOFENCE] Buffer remaining: 22.74m
+INFO 2026-01-22 15:48:52,305 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:48:52,305 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:48:52,306 geofence [GEOFENCE] User: (11.618010, 76.081511)
+INFO 2026-01-22 15:48:52,306 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:48:52,306 geofence [GEOFENCE] Distance: 27.26m | Allowed: 50.0m
+INFO 2026-01-22 15:48:52,306 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:48:52,307 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:48:52,307 geofence [GEOFENCE] Buffer remaining: 22.74m
+INFO 2026-01-22 15:49:07,328 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:49:07,329 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:49:07,329 geofence [GEOFENCE] User: (11.618010, 76.081511)
+INFO 2026-01-22 15:49:07,329 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:49:07,330 geofence [GEOFENCE] Distance: 27.26m | Allowed: 50.0m
+INFO 2026-01-22 15:49:07,330 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:49:07,333 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:49:07,334 geofence [GEOFENCE] Buffer remaining: 22.74m
+INFO 2026-01-22 15:49:11,243 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:49:11,244 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:49:11,244 geofence [GEOFENCE] User: (11.618010, 76.081511)
+INFO 2026-01-22 15:49:11,244 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:49:11,245 geofence [GEOFENCE] Distance: 27.26m | Allowed: 50.0m
+INFO 2026-01-22 15:49:11,245 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:49:11,245 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:49:11,246 geofence [GEOFENCE] Buffer remaining: 22.74m
+INFO 2026-01-22 15:49:58,550 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:49:58,550 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:49:58,551 geofence [GEOFENCE] User: (11.618010, 76.081511)
+INFO 2026-01-22 15:49:58,551 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:49:58,551 geofence [GEOFENCE] Distance: 27.26m | Allowed: 50.0m
+INFO 2026-01-22 15:49:58,552 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:49:58,552 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:49:58,552 geofence [GEOFENCE] Buffer remaining: 22.74m
+INFO 2026-01-22 15:50:41,133 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:50:41,143 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:50:41,152 geofence [GEOFENCE] User: (11.618012, 76.081510)
+INFO 2026-01-22 15:50:41,155 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:50:41,157 geofence [GEOFENCE] Distance: 27.16m | Allowed: 50.0m
+INFO 2026-01-22 15:50:41,157 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:50:41,158 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:50:41,158 geofence [GEOFENCE] Buffer remaining: 22.84m
+INFO 2026-01-22 15:51:38,109 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:51:38,109 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-22 15:51:38,109 geofence [GEOFENCE] User: (11.618012, 76.081510)
+INFO 2026-01-22 15:51:38,110 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-22 15:51:38,110 geofence [GEOFENCE] Distance: 27.16m | Allowed: 50.0m
+INFO 2026-01-22 15:51:38,110 geofence [GEOFENCE] ============================================================
+INFO 2026-01-22 15:51:38,110 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-22 15:51:38,110 geofence [GEOFENCE] Buffer remaining: 22.84m
+INFO 2026-01-23 09:57:35,849 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 09:57:35,852 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-23 09:57:35,853 geofence [GEOFENCE] User: (11.618013, 76.081510)
+INFO 2026-01-23 09:57:35,854 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-23 09:57:35,858 geofence [GEOFENCE] Distance: 27.08m | Allowed: 50.0m
+INFO 2026-01-23 09:57:35,873 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 09:57:35,891 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-23 09:57:35,898 geofence [GEOFENCE] Buffer remaining: 22.92m
+INFO 2026-01-23 09:57:43,103 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 09:57:43,104 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-23 09:57:43,105 geofence [GEOFENCE] User: (11.618013, 76.081510)
+INFO 2026-01-23 09:57:43,105 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-23 09:57:43,108 geofence [GEOFENCE] Distance: 27.08m | Allowed: 50.0m
+INFO 2026-01-23 09:57:43,112 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 09:57:43,114 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-23 09:57:43,117 geofence [GEOFENCE] Buffer remaining: 22.92m
+INFO 2026-01-23 09:58:57,464 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 09:58:57,465 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-23 09:58:57,466 geofence [GEOFENCE] User: (11.618013, 76.081510)
+INFO 2026-01-23 09:58:57,466 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-23 09:58:57,470 geofence [GEOFENCE] Distance: 27.08m | Allowed: 50.0m
+INFO 2026-01-23 09:58:57,472 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 09:58:57,473 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-23 09:58:57,474 geofence [GEOFENCE] Buffer remaining: 22.92m

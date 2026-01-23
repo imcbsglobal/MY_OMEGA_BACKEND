@@ -61,13 +61,13 @@ def validate_office_geofence(user_lat, user_lon, user=None):
     
     # ✅ STEP 6: STRICT VALIDATION - NO EXCEPTIONS
     if distance > allowed_radius:
-        logger.warning(f"[GEOFENCE] ❌ REJECTED - {user_info}")
+        logger.warning(f"[GEOFENCE]  REJECTED - {user_info}")
         logger.warning(f"[GEOFENCE] Distance {distance}m EXCEEDS {allowed_radius}m")
         logger.warning(f"[GEOFENCE] Excess: {distance - allowed_radius:.2f}m")
         return False, distance
     
     # ✅ SUCCESS
-    logger.info(f"[GEOFENCE] ✅ ALLOWED - {user_info}")
+    logger.info(f"[GEOFENCE]  ALLOWED - {user_info}")
     logger.info(f"[GEOFENCE] Buffer remaining: {allowed_radius - distance:.2f}m")
     return True, distance
 

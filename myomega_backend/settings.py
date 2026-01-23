@@ -378,7 +378,7 @@ DXING_DEFAULT_PRIORITY = 1
 
 # # Geofence Radius (in meters)
 # # Users must be within this distance to punch in/out
-# OFFICE_GEOFENCE_RADIUS_METERS = 100  # 100 meters = strict enforcement
+# OFFICE_GEOFENCE_RADIUS_METERS = 100  # 100 meters = strict enforcement 
 
 # # Office address for display
 # OFFICE_ADDRESS = "Tirur, Malappuram, Kerala, India"

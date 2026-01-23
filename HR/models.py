@@ -1,4 +1,5 @@
-# HR/models.py - Updated with unified LeaveMaster model
+# HR/models.py - FIXED VERSION
+
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -7,10 +8,7 @@ from decimal import Decimal
 
 
 class Holiday(models.Model):
-    """
-    Model to store company holidays
-    Includes mandatory holidays (paid) and special holidays
-    """
+    """Model to store company holidays"""
     HOLIDAY_TYPE_CHOICES = [
         ('mandatory', 'Mandatory Holiday (Paid)'),
         ('special', 'Special Holiday (Paid)'),
@@ -50,16 +48,13 @@ class Holiday(models.Model):
 
 
 class EmployeeLeaveBalance(models.Model):
-    """
-    Track leave balances for each employee
-    """
+    """Track leave balances for each employee"""
     user = models.OneToOneField(
         AppUser,
         on_delete=models.CASCADE,
         related_name='leave_balance'
     )
     
-    # Casual Leave - 1 per month, carries forward
     casual_leave_balance = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -73,7 +68,6 @@ class EmployeeLeaveBalance(models.Model):
         help_text='Casual leave used this year'
     )
     
-    # Sick Leave - 3 per year
     sick_leave_balance = models.IntegerField(
         default=3,
         help_text='Sick leave balance for the year'
@@ -83,7 +77,6 @@ class EmployeeLeaveBalance(models.Model):
         help_text='Sick leave used this year'
     )
     
-    # Special Leave - 7 per year (HR can mark)
     special_leave_balance = models.IntegerField(
         default=7,
         help_text='Special leave balance for the year'
@@ -93,7 +86,6 @@ class EmployeeLeaveBalance(models.Model):
         help_text='Special leave used this year'
     )
     
-    # Unpaid Leave tracking
     unpaid_leave_taken = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -101,7 +93,6 @@ class EmployeeLeaveBalance(models.Model):
         help_text='Total unpaid leave taken this year'
     )
     
-    # Year tracking
     year = models.IntegerField(default=timezone.now().year)
     last_casual_credit_month = models.IntegerField(default=0)
     
@@ -116,119 +107,10 @@ class EmployeeLeaveBalance(models.Model):
     
     def __str__(self):
         return f"{self.user.name} - Leave Balance {self.year}"
-    
-    def credit_monthly_casual_leave(self, month):
-        """Credit 1 casual leave for the month if not already credited"""
-        if self.last_casual_credit_month < month:
-            self.casual_leave_balance += Decimal('1.0')
-            self.last_casual_credit_month = month
-            self.save()
-            return True
-        return False
-    
-    def reset_yearly_balances(self):
-        """Reset balances at the start of new year"""
-        self.sick_leave_balance = 3
-        self.sick_leave_used = 0
-        self.special_leave_balance = 7
-        self.special_leave_used = 0
-        self.casual_leave_used = 0
-        self.unpaid_leave_taken = 0
-        self.last_casual_credit_month = 0
-        # Casual leave carries forward, don't reset
-        self.save()
-    
-    def has_sufficient_balance(self, leave_type, days):
-        """Check if employee has sufficient leave balance"""
-        if leave_type == 'casual':
-            return self.casual_leave_balance >= Decimal(str(days))
-        elif leave_type == 'sick':
-            return self.sick_leave_balance >= days
-        elif leave_type == 'special':
-            return self.special_leave_balance >= days
-        return True  # Unpaid leave always available
-
-
-# HR/models.py - LeaveMaster Model Section
-from django.db import models
-from django.utils import timezone
-from User.models import AppUser
-
-class LeaveMaster(models.Model):
-    """
-    Master table for managing different types of leaves
-    """
-    CATEGORY_CHOICES = [
-        ('festival', 'Festival Leave'),
-        ('national', 'National Holiday'),
-        ('company', 'Company Holiday'),
-        ('special', 'Special Leave'),
-        ('casual', 'Casual Leave'),
-        ('sick', 'Sick Leave'),
-        ('earned', 'Earned Leave'),
-        ('emergency', 'Emergency Leave'),
-        ('unpaid', 'Unpaid Leave'),
-        ('mandatory_holiday', 'Mandatory Holiday'),
-    ]
-    
-    PAYMENT_STATUS_CHOICES = [
-        ('paid', 'Paid Leave'),
-        ('unpaid', 'Unpaid Leave'),
-    ]
-    
-    leave_name = models.CharField(max_length=200, help_text='Name of the leave (e.g., Diwali, Christmas)')
-    leave_date = models.DateField(null=True, blank=True, help_text='Specific date for the leave (optional)')
-    category = models.CharField(
-        max_length=20,
-        choices=CATEGORY_CHOICES,
-        default='special',
-        help_text='Category of leave'
-    )
-    payment_status = models.CharField(
-        max_length=10,
-        choices=PAYMENT_STATUS_CHOICES,
-        default='paid',
-        help_text='Whether this leave is paid or unpaid'
-    )
-    description = models.TextField(blank=True, null=True, help_text='Description of the leave')
-    is_active = models.BooleanField(default=True, help_text='Whether this leave type is currently active')
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey(
-        AppUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_leave_masters',
-        help_text='Admin who created this leave type'
-    )
-    
-    class Meta:
-        db_table = 'hr_leave_master'
-        verbose_name = 'Leave Master'
-        verbose_name_plural = 'Leave Masters'
-        ordering = ['leave_date', 'leave_name']
-    
-    def __str__(self):
-        return f"{self.leave_name} ({self.get_category_display()})"
 
 
 class LeaveRequest(models.Model):
-    """
-    Model to store leave requests from employees
-    UPDATED: Added link to LeaveMaster
-    """
-    LEAVE_TYPE_CHOICES = [
-        ('casual', 'Casual Leave (Paid)'),
-        ('sick', 'Sick Leave (Paid)'),
-        ('special', 'Special Leave (Paid)'),
-        ('unpaid', 'Unpaid Leave'),
-        ('emergency', 'Emergency Leave'),
-        ('earned', 'Earned Leave'),
-        ('leave_master', 'Leave Master Type'),  # For LeaveMaster based leaves
-    ]
-    
+    """Leave requests using master.LeaveMaster"""
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
@@ -242,24 +124,25 @@ class LeaveRequest(models.Model):
         help_text='User requesting leave'
     )
     
-    # Link to Leave Master (optional)
     leave_master = models.ForeignKey(
-        LeaveMaster,
-        on_delete=models.SET_NULL,
+        'master.LeaveMaster',
+        on_delete=models.PROTECT,
+        related_name='hr_leave_requests',
+        db_column='leave_master_id',
+        to_field='id',
+    )
+
+    leave_type = models.CharField(
+        max_length=50,
         null=True,
         blank=True,
-        related_name='leave_requests',
-        help_text='Leave Master entry if this request is based on a predefined leave'
+        help_text='Deprecated - use leave_master instead'
     )
     
-    leave_type = models.CharField(
-        max_length=20,
-        choices=LEAVE_TYPE_CHOICES,
-        help_text='Type of leave'
-    )
     from_date = models.DateField(help_text='Leave start date')
     to_date = models.DateField(help_text='Leave end date')
     reason = models.TextField(help_text='Reason for leave')
+    
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
@@ -267,17 +150,15 @@ class LeaveRequest(models.Model):
         help_text='Leave request status'
     )
     
-    # Leave balance tracking
     is_paid = models.BooleanField(
         default=True,
-        help_text='Whether this leave is paid or unpaid'
+        help_text='Auto-set from Leave Master payment status'
     )
     deducted_from_balance = models.BooleanField(
         default=False,
         help_text='Whether leave has been deducted from balance'
     )
     
-    # Admin response
     reviewed_by = models.ForeignKey(
         AppUser,
         on_delete=models.SET_NULL,
@@ -289,7 +170,6 @@ class LeaveRequest(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
     admin_comment = models.TextField(blank=True, null=True)
     
-    # System fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -300,9 +180,7 @@ class LeaveRequest(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        if self.leave_master:
-            return f"{self.user.name} - {self.leave_master.leave_name} - {self.from_date} to {self.to_date}"
-        return f"{self.user.name} - {self.leave_type} - {self.from_date} to {self.to_date}"
+        return f"{self.user.name} - {self.leave_master.leave_name} - {self.from_date} to {self.to_date}"
     
     @property
     def total_days(self):
@@ -310,102 +188,98 @@ class LeaveRequest(models.Model):
         delta = self.to_date - self.from_date
         return delta.days + 1
     
-    def get_leave_display_name(self):
-        """Get the display name for the leave"""
-        if self.leave_master:
-            return self.leave_master.leave_name
-        return self.get_leave_type_display()
-    
     def save(self, *args, **kwargs):
-        """Override save to auto-set is_paid based on leave_master"""
+        """Auto-set is_paid and leave_type from leave_master"""
         if self.leave_master:
             self.is_paid = (self.leave_master.payment_status == 'paid')
-            # Set leave_type to 'leave_master' if using LeaveMaster
-            if not self.leave_type or self.leave_type == 'leave_master':
-                self.leave_type = 'leave_master'
+            if not self.leave_type:
+                self.leave_type = self.leave_master.leave_name
         super().save(*args, **kwargs)
+
+
+class LateRequest(models.Model):
+    """Late arrival requests - NO LEAVE MASTER REQUIRED"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
     
-    def approve_and_deduct_balance(self, approved_by):
-        """Approve leave and deduct from employee's balance"""
-        if self.status == 'approved' and self.deducted_from_balance:
-            return False, "Leave already approved and deducted"
-        
-        # Get or create leave balance for current year
-        balance, created = EmployeeLeaveBalance.objects.get_or_create(
-            user=self.user,
-            year=self.from_date.year,
-            defaults={
-                'casual_leave_balance': 0,
-                'sick_leave_balance': 3,
-                'special_leave_balance': 7,
-            }
-        )
-        
-        days = self.total_days
-        
-        # Check and deduct based on leave type
-        if self.leave_type == 'casual':
-            if balance.casual_leave_balance >= Decimal(str(days)):
-                balance.casual_leave_balance -= Decimal(str(days))
-                balance.casual_leave_used += Decimal(str(days))
-                self.is_paid = True
-            else:
-                # Convert to unpaid if insufficient balance
-                balance.unpaid_leave_taken += Decimal(str(days))
-                self.is_paid = False
-                self.leave_type = 'unpaid'
-                
-        elif self.leave_type == 'sick':
-            if balance.sick_leave_balance >= days:
-                balance.sick_leave_balance -= days
-                balance.sick_leave_used += days
-                self.is_paid = True
-            else:
-                # Convert to unpaid if insufficient balance
-                balance.unpaid_leave_taken += Decimal(str(days))
-                self.is_paid = False
-                self.leave_type = 'unpaid'
-                
-        elif self.leave_type == 'special':
-            if balance.special_leave_balance >= days:
-                balance.special_leave_balance -= days
-                balance.special_leave_used += days
-                self.is_paid = True
-            else:
-                return False, "Insufficient special leave balance. HR must approve."
-                
-        elif self.leave_type == 'unpaid':
-            balance.unpaid_leave_taken += Decimal(str(days))
-            self.is_paid = False
-        
-        balance.save()
-        
-        self.status = 'approved'
-        self.reviewed_by = approved_by
-        self.reviewed_at = timezone.now()
-        self.deducted_from_balance = True
-        self.save()
-        
-        return True, "Leave approved successfully"
+    user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name='late_requests')
+    date = models.DateField()
+    late_by_minutes = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(240)])
+    reason = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    
+    reviewed_by = models.ForeignKey(
+        AppUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reviewed_late_requests'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    admin_comment = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'hr_late_request'
+        verbose_name = 'Late Request'
+        verbose_name_plural = 'Late Requests'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.name} - Late by {self.late_by_minutes} mins on {self.date}"
+
+
+class EarlyRequest(models.Model):
+    """Early departure requests - NO LEAVE MASTER REQUIRED"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name='early_requests')
+    date = models.DateField()
+    early_by_minutes = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(240)])
+    reason = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    
+    reviewed_by = models.ForeignKey(
+        AppUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reviewed_early_requests'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    admin_comment = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'hr_early_request'
+        verbose_name = 'Early Request'
+        verbose_name_plural = 'Early Requests'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.name} - Early by {self.early_by_minutes} mins on {self.date}"
 
 
 class Attendance(models.Model):
-    """
-    Model to store daily attendance records with multiple punch in/out
-    Enhanced with leave tracking
-    """
+    """Attendance with Leave Master integration"""
     STATUS_CHOICES = [
         ('full', 'Full Day'),
         ('half', 'Half Day'),
         ('leave', 'Leave'),
-        ('casual_leave', 'Casual Leave (Paid)'),
-        ('sick_leave', 'Sick Leave (Paid)'),
-        ('special_leave', 'Special Leave (Paid)'),
-        ('unpaid_leave', 'Unpaid Leave'),
-        ('mandatory_holiday', 'Mandatory Holiday (Paid)'),
-        ('special_holiday', 'Special Holiday (Paid)'),
-        ('sunday', 'Sunday (Paid)'),
         ('wfh', 'Work From Home'),
+        ('sunday', 'Sunday (Paid)'),
+        ('holiday', 'Holiday (Paid)'),
     ]
     
     VERIFICATION_CHOICES = [
@@ -424,19 +298,18 @@ class Attendance(models.Model):
         help_text='Attendance date'
     )
     
-    # First Punch In (Start of Day)
+    # Punch times
     first_punch_in_time = models.DateTimeField(null=True, blank=True)
     first_punch_in_location = models.CharField(max_length=255, blank=True, null=True)
     first_punch_in_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     first_punch_in_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     
-    # Last Punch Out (End of Day)
     last_punch_out_time = models.DateTimeField(null=True, blank=True)
     last_punch_out_location = models.CharField(max_length=255, blank=True, null=True)
     last_punch_out_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     last_punch_out_longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
     
-    # Calculated Times
+    # Calculated times
     total_working_hours = models.DecimalField(
         max_digits=5, 
         decimal_places=2, 
@@ -452,39 +325,47 @@ class Attendance(models.Model):
     
     is_currently_on_break = models.BooleanField(default=False)
     
-    # Status and Verification
+    # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='half')
     verification_status = models.CharField(max_length=15, choices=VERIFICATION_CHOICES, default='unverified')
     
     # Holiday tracking
-    is_sunday = models.BooleanField(default=False, help_text='Automatically marked as Sunday')
-    is_holiday = models.BooleanField(default=False, help_text='Holiday day')
+    is_sunday = models.BooleanField(default=False)
+    is_holiday = models.BooleanField(default=False)
     holiday = models.ForeignKey(
         Holiday,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='attendances',
-        help_text='Associated holiday if applicable'
+        related_name='attendances'
     )
     
     # Leave tracking
-    is_paid_leave = models.BooleanField(
-        default=False,
-        help_text='Whether this is a paid leave day'
-    )
-    leave_type = models.CharField(
-        max_length=20,
-        blank=True,
+    is_leave = models.BooleanField(default=False)
+    leave_request = models.ForeignKey(
+        LeaveRequest,
+        on_delete=models.SET_NULL,
         null=True,
-        help_text='Type of leave if applicable'
+        blank=True,
+        related_name='attendances'
+    )
+    leave_master = models.ForeignKey(
+        'master.LeaveMaster',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attendances'
+    )
+    is_paid_day = models.BooleanField(
+        default=True,
+        help_text='For payroll: whether this day is paid'
     )
     
     # Notes
     note = models.TextField(blank=True, null=True)
     admin_note = models.TextField(blank=True, null=True)
     
-    # Admin actions
+    # Verification
     verified_by = models.ForeignKey(
         AppUser,
         on_delete=models.SET_NULL,
@@ -494,7 +375,6 @@ class Attendance(models.Model):
     )
     verified_at = models.DateTimeField(null=True, blank=True)
     
-    # System fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -510,6 +390,8 @@ class Attendance(models.Model):
             models.Index(fields=['verification_status']),
             models.Index(fields=['is_sunday']),
             models.Index(fields=['is_holiday']),
+            models.Index(fields=['is_leave']),
+            models.Index(fields=['is_paid_day']),
         ]
     
     def __str__(self):
@@ -518,10 +400,11 @@ class Attendance(models.Model):
     def save(self, *args, **kwargs):
         """Override save to automatically mark Sundays and holidays"""
         # Check if this date is a Sunday
-        if self.date and self.date.weekday() == 6:  # 6 = Sunday
+        if self.date and self.date.weekday() == 6:
             self.is_sunday = True
-            if not self.first_punch_in_time:  # Only set if not manually marked
+            if not self.first_punch_in_time:
                 self.status = 'sunday'
+                self.is_paid_day = True
                 self.verification_status = 'verified'
         
         # Check if this date is a holiday
@@ -530,25 +413,18 @@ class Attendance(models.Model):
                 holiday = Holiday.objects.get(date=self.date, is_active=True)
                 self.is_holiday = True
                 self.holiday = holiday
-                if not self.first_punch_in_time:  # Only set if not manually marked
-                    if holiday.holiday_type == 'mandatory':
-                        self.status = 'mandatory_holiday'
-                    elif holiday.holiday_type == 'special':
-                        self.status = 'special_holiday'
+                if not self.first_punch_in_time:
+                    self.status = 'holiday'
+                    self.is_paid_day = holiday.is_paid
                     self.verification_status = 'verified'
             except Holiday.DoesNotExist:
                 pass
         
+        # Set is_paid_day from leave_master if on leave
+        if self.leave_master:
+            self.is_paid_day = (self.leave_master.payment_status == 'paid')
+        
         super().save(*args, **kwargs)
-    
-    def is_paid_day(self):
-        """Check if this day counts as paid"""
-        paid_statuses = [
-            'full', 'half', 'casual_leave', 'sick_leave', 
-            'special_leave', 'mandatory_holiday', 'special_holiday', 
-            'sunday', 'wfh'
-        ]
-        return self.status in paid_statuses
     
     def calculate_times(self):
         """Calculate total working hours and break hours from punch records"""
@@ -599,10 +475,8 @@ class Attendance(models.Model):
                 self.is_currently_on_break = True
     
     def update_status(self):
-        """Update attendance status based on working hours and leave type"""
-        # Don't change status if it's a special day
-        if self.status in ['casual_leave', 'sick_leave', 'special_leave', 
-                          'unpaid_leave', 'mandatory_holiday', 'special_holiday', 'sunday']:
+        """Update attendance status based on working hours"""
+        if self.status in ['leave', 'holiday', 'sunday']:
             return
         
         if self.total_working_hours >= 7.5:
@@ -641,62 +515,3 @@ class PunchRecord(models.Model):
     
     def __str__(self):
         return f"{self.attendance.user.name} - {self.get_punch_type_display()} - {self.punch_time}"
-
-
-class LateRequest(models.Model):
-    """Late arrival requests"""
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
-    ]
-    
-    user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name='late_requests')
-    date = models.DateField()
-    late_by_minutes = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(240)])
-    reason = models.TextField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    reviewed_by = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_late_requests')
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    admin_comment = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'hr_late_request'
-        verbose_name = 'Late Request'
-        verbose_name_plural = 'Late Requests'
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.user.name} - Late by {self.late_by_minutes} mins on {self.date}"
-
-
-class EarlyRequest(models.Model):
-    """Early departure requests"""
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
-    ]
-    
-    user = models.ForeignKey(AppUser, on_delete=models.CASCADE, related_name='early_requests')
-    date = models.DateField()
-    early_by_minutes = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(240)])
-    reason = models.TextField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    reviewed_by = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_early_requests')
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-    admin_comment = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'hr_early_request'
-        verbose_name = 'Early Request'
-        verbose_name_plural = 'Early Requests'
-        ordering = ['-created_at']
-        unique_together = ['user', 'date']
-    
-    def __str__(self):
-        return f"{self.user.name} - Early by {self.early_by_minutes} mins on {self.date}"

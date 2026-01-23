@@ -1,4 +1,4 @@
-# HR/views.py - Updated with new Punch In/Out Break System
+from rest_framework.exceptions import ValidationError
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -8,11 +8,12 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import datetime, time
 from django.conf import settings
-# from .geofence import validate_office_geofence
+from master.models import LeaveMaster  # ✅ CORRECT - Import from master app
+from .models import LeaveRequest  # ✅ LeaveRequest is in HR.models
 
 import calendar
 import requests
-from django.conf import settings
+
 from HR.utils.geofence import validate_office_geofence
 from .models import (
     Attendance, Holiday, LeaveRequest, LateRequest,
@@ -20,13 +21,14 @@ from .models import (
 )
 from .Serializers import (
     AttendanceSerializer, PunchInSerializer, PunchOutSerializer,
-    AttendanceVerifySerializer, AttendanceUpdateStatusSerializer,
     HolidaySerializer, LeaveRequestSerializer,
     LeaveRequestCreateSerializer, LeaveRequestReviewSerializer,
     LateRequestSerializer, LateRequestCreateSerializer,
     EarlyRequestSerializer, EarlyRequestCreateSerializer,
     PunchRecordSerializer
 )
+from master.models import LeaveMaster
+from master.serializers import LeaveMasterSerializer
 from User.models import AppUser
 
 
@@ -87,9 +89,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         lat = serializer.validated_data.get('latitude')
         lon = serializer.validated_data.get('longitude')
 
-        # 🔴 CRITICAL: Print received coordinates for debugging
         print("=" * 80)
-        print(f"🔍 PUNCH IN ATTEMPT")
+        print(f"🔵 PUNCH IN ATTEMPT")
         print(f"User: {user.email}")
         print(f"Received Latitude: {lat}")
         print(f"Received Longitude: {lon}")
@@ -98,10 +99,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         print(f"Allowed Radius: {settings.OFFICE_GEOFENCE_RADIUS_METERS}m")
         print("=" * 80)
 
-        # ✅ VALIDATE GEOFENCE - NO BYPASS
+        # ✅ VALIDATE GEOFENCE
         allowed, distance = validate_office_geofence(lat, lon, user=user)
         
-        # 🔴 Print validation result
         print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
         print("=" * 80)
         
@@ -114,7 +114,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             }
             excess_distance = distance - office_info['radius']
             
-            # 🔴 Log rejection
             print(f"❌ PUNCH IN REJECTED!")
             print(f"Distance: {distance}m")
             print(f"Excess: {excess_distance}m")
@@ -141,10 +140,15 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         print(f"✅ PUNCH IN ALLOWED - Distance: {distance}m")
         print("=" * 80)
 
+        # ✅ FIX: Explicitly set is_paid_day when creating attendance
         attendance, created = Attendance.objects.get_or_create(
             user=user,
             date=today,
-            defaults={'status': 'half', 'is_currently_on_break': False}
+            defaults={
+                'status': 'half', 
+                'is_currently_on_break': False,
+                'is_paid_day': True,  # ✅ CRITICAL: Explicitly set this!
+            }
         )
 
         last_punch = attendance.punch_records.order_by('-punch_time').first()
@@ -227,7 +231,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         allowed, distance = validate_office_geofence(lat, lon, user=user)
         
         # 🔴 Print validation result
-        print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
+        print(f" Geofence Result: allowed={allowed}, distance={distance}m")
         print("=" * 80)
         
         if not allowed:
@@ -820,7 +824,10 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         return LeaveRequestSerializer
 
     def perform_create(self, serializer):
+        """Create leave request with the authenticated user"""
         serializer.save(user=self.request.user)
+
+
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -980,8 +987,10 @@ logger = logging.getLogger(__name__)
 
 
 class LateRequestViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing Late Requests"""
-    queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
+    """
+    ViewSet for managing Late Requests - NOW REQUIRES leave_master
+    """
+    queryset = LateRequest.objects.all().select_related('user', 'reviewed_by', 'leave_master')
     serializer_class = LateRequestSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
@@ -994,7 +1003,7 @@ class LateRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = LateRequest.objects.select_related('user', 'reviewed_by')
+        queryset = LateRequest.objects.select_related('user', 'reviewed_by', 'leave_master')
         is_admin = self._is_admin(user)
         if not is_admin:
             queryset = queryset.filter(user=user)
@@ -1032,34 +1041,21 @@ class LateRequestViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             logger.info(f"Serializer validation...")
 
-            try:
-                serializer.is_valid(raise_exception=True)
-                logger.info(f"Serializer validation passed")
-            except Exception as e:
-                logger.error(f"Serializer validation failed: {e}")
-                logger.error(f"Validation errors: {serializer.errors}")
-                raise
+            serializer.is_valid(raise_exception=True)
+            logger.info(f"Serializer validation passed")
 
             logger.info(f"Performing create...")
-            try:
-                self.perform_create(serializer)
-                logger.info(f"Perform create completed")
-            except Exception as e:
-                logger.error(f"Perform create failed: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                raise
+            self.perform_create(serializer)
+            logger.info(f"Perform create completed")
 
             logger.info(f"Fetching created instance...")
-            try:
-                instance = LateRequest.objects.get(id=serializer.instance.id)
-                response_serializer = LateRequestSerializer(instance)
-                logger.info(f"Instance serialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to serialize response: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                raise
+            # ✅ REMOVE 'leave_master' FROM HERE - Line 1064
+            instance = LateRequest.objects.select_related(
+                'user', 'reviewed_by'  # ✅ Only these two
+            ).get(id=serializer.instance.id)
+            
+            response_serializer = LateRequestSerializer(instance)
+            logger.info(f"Instance serialized successfully")
 
             logger.info(f"=== LATE REQUEST CREATE SUCCESS ===")
             return Response(
@@ -1083,7 +1079,9 @@ class LateRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='my-requests')
     def my_requests(self, request):
-        qs = LateRequest.objects.filter(user=request.user).order_by('-created_at')
+        qs = LateRequest.objects.filter(user=request.user).select_related(
+            'user', 'reviewed_by', 'leave_master'
+        ).order_by('-created_at')
         serializer = LateRequestSerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -1122,11 +1120,15 @@ class LateRequestViewSet(viewsets.ModelViewSet):
         instance.admin_comment = f"{instance.admin_comment}\n{combined}" if instance.admin_comment else combined
         instance.save()
         return Response(LateRequestSerializer(instance).data)
+    
+   
 
 
 class EarlyRequestViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing Early Requests"""
-    queryset = EarlyRequest.objects.all().select_related('user', 'reviewed_by')
+    """
+    ViewSet for managing Early Requests - NOW REQUIRES leave_master
+    """
+    queryset = EarlyRequest.objects.all().select_related('user', 'reviewed_by', 'leave_master')
     serializer_class = EarlyRequestSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
@@ -1139,7 +1141,7 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = EarlyRequest.objects.select_related('user', 'reviewed_by')
+        queryset = EarlyRequest.objects.select_related('user', 'reviewed_by', 'leave_master')
         is_admin = self._is_admin(user)
         if not is_admin:
             queryset = queryset.filter(user=user)
@@ -1166,9 +1168,28 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        # ✅ REMOVE 'leave_master' FROM HERE TOO
+        instance = EarlyRequest.objects.select_related(
+            'user', 'reviewed_by'  # ✅ Only these two
+        ).get(id=serializer.instance.id)
+        
+        response_serializer = EarlyRequestSerializer(instance)
+        
+        return Response(
+            response_serializer.data,
+            status=status.HTTP_201_CREATED
+        )
+
     @action(detail=False, methods=['get'], url_path='my-requests')
     def my_requests(self, request):
-        qs = EarlyRequest.objects.filter(user=request.user).order_by('-created_at')
+        qs = EarlyRequest.objects.filter(user=request.user).select_related(
+            'user', 'reviewed_by', 'leave_master'
+        ).order_by('-created_at')
         serializer = EarlyRequestSerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -1207,6 +1228,8 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
         instance.admin_comment = f"{instance.admin_comment}\n{combined}" if instance.admin_comment else combined
         instance.save()
         return Response(EarlyRequestSerializer(instance).data)
+    
+    
 
 
 # Reverse Geocoding Functions (unchanged)
@@ -1438,30 +1461,16 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import LeaveMaster, LeaveRequest
+from master.models import LeaveMaster  # ✅ Import from master app
+from .models import LeaveRequest 
 from .Serializers import (
     LeaveMasterSerializer,
-    LeaveMasterSimpleSerializer,
     LeaveRequestSerializer,
     LeaveRequestCreateSerializer,
     LeaveRequestReviewSerializer,
 )
 
 
-# HR/views.py - Fixed LeaveMasterViewSet with proper active-leaves endpoint
-
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
-
-from .models import LeaveMaster
-from .Serializers import (
-    LeaveMasterSerializer,
-    LeaveMasterSimpleSerializer,
-    LeaveMasterCreateSerializer,
-)
 
 
 class LeaveMasterViewSet(viewsets.ModelViewSet):
@@ -1679,7 +1688,7 @@ class LeaveMasterViewSet(viewsets.ModelViewSet):
 
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     """
-    Enhanced ViewSet for managing Leave Requests with Leave Master integration
+    ViewSet for managing Leave Requests - NOW REQUIRES leave_master from master app
     """
     queryset = LeaveRequest.objects.all().select_related('user', 'reviewed_by', 'leave_master')
     serializer_class = LeaveRequestSerializer
@@ -1695,85 +1704,67 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         )
     
     def get_queryset(self):
-        """Filter queryset based on query params"""
-        queryset = LeaveMaster.objects.all()
-        
-        # Only apply filters if explicitly requested
-        is_active = self.request.query_params.get('is_active')
-        if is_active is not None:
-            queryset = queryset.filter(is_active=is_active.lower() == 'true')
-        
+        """Filter queryset based on permissions and query params"""
+        user = self.request.user
+        queryset = LeaveRequest.objects.select_related('user', 'reviewed_by', 'leave_master')
+
+        is_admin = self._is_admin(user)
+
+        if not is_admin:
+            queryset = queryset.filter(user=user)
+
+        user_id = self.request.query_params.get('user_id')
+        if user_id and is_admin:
+            queryset = queryset.filter(user_id=user_id)
+
+        req_status = self.request.query_params.get('status')
+        if req_status:
+            queryset = queryset.filter(status=req_status)
+
+        # Filter by leave_master category
         category = self.request.query_params.get('category')
         if category:
-            queryset = queryset.filter(category=category)
-        
-        payment_status = self.request.query_params.get('payment_status')
-        if payment_status:
-            queryset = queryset.filter(payment_status=payment_status)
-        
-        # IMPORTANT: Only filter by date if month/year are provided
+            queryset = queryset.filter(leave_master__category=category)
+
+        from_date = self.request.query_params.get('from_date')
+        to_date = self.request.query_params.get('to_date')
+        if from_date:
+            queryset = queryset.filter(from_date__gte=from_date)
+        if to_date:
+            queryset = queryset.filter(to_date__lte=to_date)
+
         month = self.request.query_params.get('month')
         year = self.request.query_params.get('year')
         if month and year:
-            queryset = queryset.filter(
-                Q(leave_date__month=month, leave_date__year=year) |
-                Q(leave_date__isnull=True)
-            )
-        
+            queryset = queryset.filter(from_date__month=month, from_date__year=year)
+
         return queryset.order_by('-created_at')
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return LeaveRequestCreateSerializer
         return LeaveRequestSerializer
-    
+
     def perform_create(self, serializer):
+        """Create leave request with the authenticated user"""
         serializer.save(user=self.request.user)
-    
+
+
     def create(self, request, *args, **kwargs):
-        """Create leave request with proper response"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        
-        # Fetch the created instance with all relations
+
         instance = LeaveRequest.objects.select_related(
             'user', 'reviewed_by', 'leave_master'
         ).get(id=serializer.instance.id)
-        
         response_serializer = LeaveRequestSerializer(instance)
-        
+
         return Response(
             response_serializer.data,
             status=status.HTTP_201_CREATED
         )
-    
-    @action(detail=False, methods=['get'], url_path='my-requests')
-    def my_requests(self, request):
-        """Get only current user's leave requests"""
-        queryset = LeaveRequest.objects.filter(
-            user=request.user
-        ).select_related('user', 'reviewed_by', 'leave_master').order_by('-created_at')
-        
-        serializer = LeaveRequestSerializer(queryset, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'], url_path='pending')
-    def pending(self, request):
-        """Get all pending leave requests (Admin only)"""
-        if not self._is_admin(request.user):
-            return Response(
-                {'error': 'Only admins can view all pending requests'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        queryset = LeaveRequest.objects.filter(
-            status='pending'
-        ).select_related('user', 'reviewed_by', 'leave_master').order_by('-created_at')
-        
-        serializer = LeaveRequestSerializer(queryset, many=True)
-        return Response(serializer.data)
-    
+
     @action(detail=True, methods=['post'], url_path='review')
     def review(self, request, pk=None):
         """Review leave request (Admin only)"""
@@ -1782,74 +1773,147 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
                 {'error': 'Only admins can review leave requests'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         leave_request = self.get_object()
-        
+
         if leave_request.status != 'pending':
             return Response(
                 {'error': f'This request has already been {leave_request.status}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = LeaveRequestReviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         leave_request.status = serializer.validated_data['status']
         leave_request.admin_comment = serializer.validated_data.get('admin_comment', '')
         leave_request.reviewed_by = request.user
         leave_request.reviewed_at = timezone.now()
         leave_request.save()
-        
+
         response_serializer = LeaveRequestSerializer(leave_request)
         return Response(response_serializer.data)
-    
-    @action(detail=False, methods=['get'], url_path='by-leave-master')
-    def by_leave_master(self, request):
-        """
-        Get leave requests grouped by Leave Master
-        Useful for reporting and analytics
-        """
+
+    @action(detail=True, methods=['post'], url_path='override-review')
+    def override_review(self, request, pk=None):
+        """Admin override for leave request status"""
         if not self._is_admin(request.user):
             return Response(
-                {'error': 'Only admins can access this report'},
+                {'error': 'Only admins can override leave requests.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
-        
-        queryset = LeaveRequest.objects.filter(
-            leave_master__isnull=False
-        ).select_related('user', 'leave_master')
-        
-        if month and year:
-            queryset = queryset.filter(from_date__month=month, from_date__year=year)
-        
-        # Group by leave master
-        result = {}
-        for leave_request in queryset:
-            leave_master_id = leave_request.leave_master.id
-            leave_master_name = leave_request.leave_master.leave_name
-            
-            if leave_master_id not in result:
-                result[leave_master_id] = {
-                    'leave_master': LeaveMasterSimpleSerializer(leave_request.leave_master).data,
-                    'requests': [],
-                    'total_requests': 0,
-                    'approved': 0,
-                    'pending': 0,
-                    'rejected': 0,
-                }
-            
-            result[leave_master_id]['requests'].append(
-                LeaveRequestSerializer(leave_request).data
+
+        leave_request = self.get_object()
+
+        serializer = LeaveRequestReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_status = serializer.validated_data['status']
+        admin_comment = serializer.validated_data.get('admin_comment', '')
+
+        prev_status = leave_request.status
+
+        leave_request.status = new_status
+        leave_request.reviewed_by = request.user
+        leave_request.reviewed_at = timezone.now()
+
+        user_label = request.user.name if hasattr(request.user, 'name') else request.user.username
+        override_note = f"[OVERRIDE by {user_label} at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}] changed from {prev_status}"
+
+        combined_note_parts = []
+        if admin_comment:
+            combined_note_parts.append(admin_comment)
+        combined_note_parts.append(override_note)
+        combined = "\n".join([p for p in combined_note_parts if p])
+
+        if leave_request.admin_comment:
+            leave_request.admin_comment = f"{leave_request.admin_comment}\n{combined}"
+        else:
+            leave_request.admin_comment = combined
+
+        leave_request.save()
+
+        response_serializer = LeaveRequestSerializer(leave_request)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='my-requests')
+    def my_requests(self, request):
+        """Get only current user's leave requests"""
+        queryset = self.filter_queryset(
+            LeaveRequest.objects.filter(user=request.user)
+        ).select_related('user', 'reviewed_by', 'leave_master')
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='pending')
+    def pending(self, request):
+        """Get all pending leave requests (Admin only)"""
+        if not self._is_admin(request.user):
+            return Response(
+                {'error': 'Only admins can view all pending requests'},
+                status=status.HTTP_403_FORBIDDEN
             )
-            result[leave_master_id]['total_requests'] += 1
-            result[leave_master_id][leave_request.status] += 1
+
+        queryset = self.filter_queryset(
+            LeaveRequest.objects.filter(status='pending')
+        ).select_related('user', 'reviewed_by', 'leave_master')
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='summary')
+    def summary(self, request):
+        """Get leave request summary statistics"""
+        user = request.user
+        is_admin = self._is_admin(user)
+
+        user_id = request.query_params.get('user_id', user.id)
+
+        if not is_admin and int(user_id) != user.id:
+            return Response(
+                {'error': 'You can only view your own summary'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        month = int(request.query_params.get('month', timezone.now().month))
+        year = int(request.query_params.get('year', timezone.now().year))
+
+        requests_qs = LeaveRequest.objects.filter(
+            user_id=user_id,
+            from_date__month=month,
+            from_date__year=year
+        )
+
+        total = requests_qs.count()
+        pending = requests_qs.filter(status='pending').count()
+        approved = requests_qs.filter(status='approved').count()
+        rejected = requests_qs.filter(status='rejected').count()
+
+        total_days = sum([req.total_days for req in requests_qs])
+        approved_days = sum([req.total_days for req in requests_qs.filter(status='approved')])
+
+        return Response({
+            'user_id': user_id,
+            'month': month,
+            'year': year,
+            'total_requests': total,
+            'pending': pending,
+            'approved': approved,
+            'rejected': rejected,
+            'total_days_requested': total_days,
+            'approved_days': approved_days,
+        })
+    
+    @action(detail=False, methods=['get'], url_path='available-leave-types')
+    def available_leave_types(self, request):
+        """Get available leave types from master.LeaveMaster"""
+        leave_types = LeaveMaster.objects.filter(is_active=True).order_by('category', 'leave_name')
+        serializer = LeaveMasterSerializer(leave_types, many=True)
         
         return Response({
             'success': True,
-            'data': list(result.values())
+            'data': serializer.data,
+            'count': leave_types.count()
         })
 
 

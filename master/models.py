@@ -1,6 +1,4 @@
-from django.db import models
-
-# Create your models here.
+# master/models.py
 from django.db import models
 
 class LeaveMaster(models.Model):
@@ -21,9 +19,15 @@ class LeaveMaster(models.Model):
     category = models.CharField(max_length=30, choices=LEAVE_CATEGORIES)
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS)
     is_active = models.BooleanField(default=True)
-
+    description = models.TextField(blank=True, null=True, help_text='Description of the leave type')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'hr_leave_master'  # ✅ ADD THIS LINE
+        verbose_name = 'Leave Master'
+        verbose_name_plural = 'Leave Masters'
+        ordering = ['leave_date', 'leave_name']
 
     def __str__(self):
         return self.leave_name

@@ -92,17 +92,20 @@ class HolidayAdmin(admin.ModelAdmin):
 @admin.register(LeaveRequest)
 class LeaveRequestAdmin(admin.ModelAdmin):
     list_display = [
-        'user', 'leave_type', 'from_date', 'to_date',
+        'user', 'leave_master', 'from_date', 'to_date',
         'status', 'total_days', 'created_at'
     ]
-    list_filter = ['leave_type', 'status', 'from_date']
-    search_fields = ['user__name', 'user__email', 'reason']
-    readonly_fields = ['total_days', 'created_at', 'updated_at']
+    list_filter = ['status', 'from_date']  # You can filter by category through leave_master
+    search_fields = ['user__name', 'user__email', 'reason', 'leave_master__leave_name']
+    readonly_fields = ['total_days', 'created_at', 'updated_at', 'is_paid']
     date_hierarchy = 'from_date'
 
     fieldsets = (
         ('Leave Request', {
-            'fields': ('user', 'leave_type', 'from_date', 'to_date', 'reason')
+            'fields': ('user', 'leave_master', 'from_date', 'to_date', 'reason')
+        }),
+        ('Leave Details', {
+            'fields': ('is_paid', 'deducted_from_balance')
         }),
         ('Status', {
             'fields': ('status', 'reviewed_by', 'reviewed_at', 'admin_comment')

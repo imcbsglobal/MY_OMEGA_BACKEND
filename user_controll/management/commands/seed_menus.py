@@ -1,3 +1,4 @@
+# user_controll/management/commands/seed_menus.py
 from django.core.management.base import BaseCommand
 from user_controll.models import MenuItem
 
@@ -6,7 +7,7 @@ class Command(BaseCommand):
     help = 'Seed menu items matching your HR System structure with correct paths'
 
     def handle(self, *args, **options):
-        # First, let's clear old menu items to avoid conflicts
+        # Clear old menu items to avoid conflicts
         self.stdout.write("Clearing existing menu items...")
         MenuItem.objects.all().delete()
         self.stdout.write(self.style.SUCCESS("✓ Cleared existing menu items"))
@@ -124,6 +125,71 @@ class Command(BaseCommand):
                             },
                         ],
                     },
+                    {
+                        "name": "HR Master",
+                        "key": "hr_master",
+                        "path": "#",
+                        "icon": "⚙️",
+                        "order": 10,
+                        "children": [
+                            {
+                                "name": "Employee Management",
+                                "key": "hr_master_employee",
+                                "path": "/hr/master/employee-management",
+                                "icon": "👥",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Job Titles",
+                                "key": "hr_master_job_titles",
+                                "path": "/hr/master/job-titles",
+                                "icon": "💼",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Leave Types",
+                                "key": "hr_master_leave_types",
+                                "path": "/hr/master/leave-types",
+                                "icon": "🗓️",
+                                "order": 3,
+                            },
+                            {
+                                "name": "Salary Certificate",
+                                "key": "hr_master_salary_certificate",
+                                "path": "/hr/master/salary-certificate",
+                                "icon": "💰",
+                                "order": 4,
+                            },
+                            {
+                                "name": "Experience Certificate",
+                                "key": "hr_master_experience_certificate",
+                                "path": "/hr/master/experience-certificate",
+                                "icon": "🎓",
+                                "order": 5,
+                            },
+                            {
+                                "name": "Deductions",
+                                "key": "hr_master_deductions",
+                                "path": "/hr/master/deductions",
+                                "icon": "💸",
+                                "order": 6,
+                            },
+                            {
+                                "name": "Allowances",
+                                "key": "hr_master_allowances",
+                                "path": "/hr/master/allowances",
+                                "icon": "💵",
+                                "order": 7,
+                            },
+                            {
+                                "name": "WhatsApp Admin",
+                                "key": "hr_master_whatsapp_admin",
+                                "path": "/hr/master/whatsapp-admin",
+                                "icon": "📱",
+                                "order": 8,
+                            },
+                        ],
+                    },
                 ],
             },
 
@@ -213,6 +279,13 @@ class Command(BaseCommand):
                         "icon": "➕",
                         "order": 3,
                     },
+                    {
+                        "name": "WhatsApp Admin",
+                        "key": "master_whatsapp_admin",
+                        "path": "/master/whatsapp-admin",
+                        "icon": "📱",
+                        "order": 4,
+                    },
                 ],
             },
         ]
@@ -237,7 +310,13 @@ class Command(BaseCommand):
 
             if created:
                 created_count += 1
-                self.stdout.write(self.style.SUCCESS(f"✓ Created: {menu_data['name']:40} [{menu_data['key']:25}] -> {menu_data.get('path', '#')}"))
+                indent = "  " * (1 if parent else 0)
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"{indent}✓ Created: {menu_data['name']:40} "
+                        f"[{menu_data['key']:35}] -> {menu_data.get('path', '#')}"
+                    )
+                )
             else:
                 menu.name = menu_data["name"]
                 menu.path = menu_data.get("path", "")
@@ -247,25 +326,55 @@ class Command(BaseCommand):
                 menu.is_active = True
                 menu.save()
                 updated_count += 1
-                self.stdout.write(self.style.WARNING(f"⚠ Updated: {menu_data['name']:40} [{menu_data['key']:25}] -> {menu_data.get('path', '#')}"))
+                indent = "  " * (1 if parent else 0)
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"{indent}⚠ Updated: {menu_data['name']:40} "
+                        f"[{menu_data['key']:35}] -> {menu_data.get('path', '#')}"
+                    )
+                )
 
+            # Process children
             for child_data in menu_data.get("children", []):
                 create_or_update_menu(child_data, parent=menu)
 
-        self.stdout.write("\n" + "=" * 80)
+        self.stdout.write("\n" + "=" * 110)
         self.stdout.write("Starting menu seed process...")
-        self.stdout.write("=" * 80 + "\n")
+        self.stdout.write("=" * 110 + "\n")
 
         for menu_data in menus:
             create_or_update_menu(menu_data)
 
-        self.stdout.write("\n" + "=" * 80)
+        self.stdout.write("\n" + "=" * 110)
         self.stdout.write(self.style.SUCCESS("✅ Process complete!"))
         self.stdout.write(self.style.SUCCESS(f"   - Created: {created_count} new items"))
         self.stdout.write(self.style.SUCCESS(f"   - Updated: {updated_count} existing items"))
-        self.stdout.write("=" * 80 + "\n")
+        self.stdout.write("=" * 110 + "\n")
         
+        # Verify HR Master structure
+        self.stdout.write("\n🔍 VERIFYING HR MASTER STRUCTURE:")
+        self.stdout.write("-" * 110)
+        
+        try:
+            hr_master = MenuItem.objects.get(key='hr_master')
+            children = hr_master.children.filter(is_active=True).order_by('order')
+            self.stdout.write(self.style.SUCCESS(f"\n✅ HR Master found with {children.count()} children:"))
+            for i, child in enumerate(children, 1):
+                self.stdout.write(f"   {i}. {child.name} ({child.key}) - {child.path}")
+            
+            # Check if Allowances exists
+            if children.filter(key='hr_master_allowances').exists():
+                self.stdout.write(self.style.SUCCESS("\n✅ Allowances menu item found under HR Master!"))
+            else:
+                self.stdout.write(self.style.ERROR("\n❌ Allowances NOT found under HR Master!"))
+                
+        except MenuItem.DoesNotExist:
+            self.stdout.write(self.style.ERROR("❌ HR Master menu not found!"))
+        
+        self.stdout.write("\n" + "=" * 110)
         self.stdout.write("\n💡 Next steps:")
-        self.stdout.write("   1. Run: python manage.py fix_menu_access your@email.com")
-        self.stdout.write("   2. Or run: python manage.py fix_all_user_menus --confirm")
-        self.stdout.write("   3. Then logout and login again\n")
+        self.stdout.write("   1. Logout from application")
+        self.stdout.write("   2. Clear browser cache: localStorage.clear() + sessionStorage.clear()")
+        self.stdout.write("   3. Login again")
+        self.stdout.write("   4. Check HR Management → HR Master → Allowances should be there!\n")
+        self.stdout.write("=" * 110 + "\n")
