@@ -988,9 +988,9 @@ logger = logging.getLogger(__name__)
 
 class LateRequestViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing Late Requests - NOW REQUIRES leave_master
+    ViewSet for managing Late Requests
     """
-    queryset = LateRequest.objects.all().select_related('user', 'reviewed_by', 'leave_master')
+    queryset = LateRequest.objects.all().select_related('user', 'reviewed_by')
     serializer_class = LateRequestSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
@@ -1003,7 +1003,7 @@ class LateRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = LateRequest.objects.select_related('user', 'reviewed_by', 'leave_master')
+        queryset = LateRequest.objects.select_related('user', 'reviewed_by')
         is_admin = self._is_admin(user)
         if not is_admin:
             queryset = queryset.filter(user=user)
@@ -1126,9 +1126,9 @@ class LateRequestViewSet(viewsets.ModelViewSet):
 
 class EarlyRequestViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing Early Requests - NOW REQUIRES leave_master
+    ViewSet for managing Early Requests
     """
-    queryset = EarlyRequest.objects.all().select_related('user', 'reviewed_by', 'leave_master')
+    queryset = EarlyRequest.objects.all().select_related('user', 'reviewed_by')
     serializer_class = EarlyRequestSerializer
     permission_classes = [IsAuthenticated]
     menu_key = 'attendance'
@@ -1141,7 +1141,7 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = EarlyRequest.objects.select_related('user', 'reviewed_by', 'leave_master')
+        queryset = EarlyRequest.objects.select_related('user', 'reviewed_by')
         is_admin = self._is_admin(user)
         if not is_admin:
             queryset = queryset.filter(user=user)

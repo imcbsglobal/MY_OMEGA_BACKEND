@@ -24,7 +24,6 @@ class LeaveMaster(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'hr_leave_master'  # ✅ ADD THIS LINE
         verbose_name = 'Leave Master'
         verbose_name_plural = 'Leave Masters'
         ordering = ['leave_date', 'leave_name']

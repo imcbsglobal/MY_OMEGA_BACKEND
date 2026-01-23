@@ -1543,3 +1543,23 @@ INFO 2026-01-23 09:58:57,470 geofence [GEOFENCE] Distance: 27.08m | Allowed: 50.
 INFO 2026-01-23 09:58:57,472 geofence [GEOFENCE] ============================================================
 INFO 2026-01-23 09:58:57,473 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
 INFO 2026-01-23 09:58:57,474 geofence [GEOFENCE] Buffer remaining: 22.92m
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] User: (11.618017, 76.081513)
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] Distance: 27.3m | Allowed: 50.0m
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] ============================================================
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE]  ALLOWED - User admin@gmail.com
+INFO 2026-01-23 17:23:44,017 geofence [GEOFENCE] Buffer remaining: 22.70m
+INFO 2026-01-23 17:40:29,124 views === LATE REQUEST CREATE START ===
+INFO 2026-01-23 17:40:29,124 views User: 8
+INFO 2026-01-23 17:40:29,124 views Request data: {'date': '2026-01-24', 'late_by_minutes': 4, 'reason': 'trafic'}
+INFO 2026-01-23 17:40:29,124 views Serializer validation...
+INFO 2026-01-23 17:40:29,124 views Serializer validation passed
+INFO 2026-01-23 17:40:29,124 views Performing create...
+INFO 2026-01-23 17:40:29,124 views Creating late request for user: 8
+INFO 2026-01-23 17:40:29,201 views Late request created successfully: 4
+INFO 2026-01-23 17:40:29,201 views Perform create completed
+INFO 2026-01-23 17:40:29,201 views Fetching created instance...
+INFO 2026-01-23 17:40:29,233 views Instance serialized successfully
+INFO 2026-01-23 17:40:29,249 views === LATE REQUEST CREATE SUCCESS ===
