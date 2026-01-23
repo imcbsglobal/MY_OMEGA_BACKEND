@@ -548,3 +548,321 @@ class DebugRoutesView(APIView):
             except NoReverseMatch:
                 result[n] = None
         return Response(result)
+
+
+
+
+
+# payroll/views.py - ADD THIS TO YOUR EXISTING VIEWS FILE
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from employee_management.models import Employee
+from .services import PayrollCalculationService
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_attendance_summary_for_payroll(request):
+    """
+    Get detailed attendance summary for payroll calculation
+    
+    Query Parameters:
+    - employee_id: Required - Employee ID
+    - month: Required - Month name (e.g., "November")
+    - year: Required - Year (e.g., 2024)
+    
+    Returns comprehensive attendance breakdown including:
+    - Total days, working days, sundays, holidays
+    - Full days, half days, WFH days
+    - All leave types (casual, sick, special, mandatory)
+    - Leave balance information
+    - Days breakdown for salary calculation
+    """
+    employee_id = request.query_params.get('employee_id')
+    month = request.query_params.get('month')
+    year = request.query_params.get('year')
+    
+    if not employee_id or not month or not year:
+        return Response({
+            'error': 'employee_id, month, and year are required parameters'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        employee = Employee.objects.get(id=employee_id)
+    except Employee.DoesNotExist:
+        return Response({
+            'error': 'Employee not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Convert month name to number
+    month_number = PayrollCalculationService.MONTH_NAME_TO_NUMBER.get(month)
+    if not month_number:
+        return Response({
+            'error': f'Invalid month name: {month}. Use full month names like "November"'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Get comprehensive attendance data
+        attendance_data = PayrollCalculationService.calculate_employee_payroll_data(
+            employee=employee,
+            year=int(year),
+            month=month_number
+        )
+        
+        # Get employee name safely
+        employee_name = (
+            employee.get_full_name() if hasattr(employee, 'get_full_name') and callable(employee.get_full_name)
+            else getattr(employee, 'full_name', None)
+            or getattr(employee, 'name', None)
+            or f'Employee_{employee.id}'
+        )
+        
+        # Format response
+        response_data = {
+            'success': True,
+            'employee': {
+                'id': employee.id,
+                'name': employee_name,
+                'employee_id': getattr(employee, 'employee_id', None),
+            },
+            'period': {
+                'month': month,
+                'month_number': month_number,
+                'year': int(year),
+            },
+            
+            # Days breakdown
+            'days_summary': {
+                'total_days_in_month': attendance_data['total_days_in_month'],
+                'total_working_days': attendance_data['total_working_days'],
+                'sundays': attendance_data['sundays'],
+                'holidays': {
+                    'mandatory': attendance_data['mandatory_holidays'],
+                    'special': attendance_data['special_holidays'],
+                    'total_paid': attendance_data['total_paid_holidays'],
+                },
+            },
+            
+            # Attendance breakdown
+            'attendance': {
+                'full_days_worked': attendance_data['full_days_worked'],
+                'half_days_worked': attendance_data['half_days_worked'],
+                'wfh_days': attendance_data['wfh_days'],
+                'total_worked': (
+                    attendance_data['full_days_worked'] + 
+                    attendance_data['half_days_worked'] + 
+                    attendance_data['wfh_days']
+                ),
+            },
+            
+            # Leave breakdown
+            'leaves': {
+                'casual_leave': {
+                    'taken_paid': attendance_data['casual_leave_days'],
+                    'taken_this_month': attendance_data['this_month_usage']['casual_used'],
+                    'balance': attendance_data['leave_balance']['casual_balance'],
+                    'used_total': attendance_data['leave_balance']['casual_used'],
+                    'remaining': attendance_data['leave_balance']['casual_remaining'],
+                },
+                'sick_leave': {
+                    'taken_paid': attendance_data['sick_leave_days'],
+                    'taken_this_month': attendance_data['this_month_usage']['sick_used'],
+                    'balance': attendance_data['leave_balance']['sick_balance'],
+                    'used_total': attendance_data['leave_balance']['sick_used'],
+                    'remaining': attendance_data['leave_balance']['sick_remaining'],
+                },
+                'special_leave': {
+                    'taken_paid': attendance_data['special_leave_days'],
+                    'taken_this_month': attendance_data['this_month_usage']['special_used'],
+                    'balance': attendance_data['leave_balance']['special_balance'],
+                    'used_total': attendance_data['leave_balance']['special_used'],
+                    'remaining': attendance_data['leave_balance']['special_remaining'],
+                },
+                'mandatory_holiday_leaves': attendance_data['mandatory_holiday_leaves'],
+                'unpaid_leave': {
+                    'this_month': attendance_data['unpaid_leave_days'],
+                    'total_year': attendance_data['leave_balance']['unpaid_taken'],
+                },
+            },
+            
+            # Salary calculation summary
+            'payroll_summary': {
+                'paid_working_days': attendance_data['paid_working_days'],
+                'total_paid_days': attendance_data['total_paid_days'],
+                'effective_paid_days': attendance_data['effective_paid_days'],
+                'days_to_deduct': attendance_data['days_to_deduct'],
+                'not_marked_days': attendance_data['not_marked_days'],
+            },
+            
+            # Quick stats
+            'quick_stats': {
+                'attendance_percentage': round(
+                    (attendance_data['effective_paid_days'] / attendance_data['total_working_days'] * 100)
+                    if attendance_data['total_working_days'] > 0 else 0,
+                    2
+                ),
+                'total_leaves_taken': (
+                    attendance_data['casual_leave_days'] +
+                    attendance_data['sick_leave_days'] +
+                    attendance_data['special_leave_days'] +
+                    attendance_data['mandatory_holiday_leaves'] +
+                    attendance_data['unpaid_leave_days']
+                ),
+                'paid_leaves_taken': (
+                    attendance_data['casual_leave_days'] +
+                    attendance_data['sick_leave_days'] +
+                    attendance_data['special_leave_days'] +
+                    attendance_data['mandatory_holiday_leaves']
+                ),
+            }
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'error': f'Failed to calculate attendance summary: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_employees_attendance_summary(request):
+    """
+    Get attendance summary for ALL employees for a specific month/year
+    
+    Query Parameters:
+    - month: Required - Month name (e.g., "November")
+    - year: Required - Year (e.g., 2024)
+    - department: Optional - Filter by department
+    
+    Returns array of attendance summaries for all employees
+    """
+    month = request.query_params.get('month')
+    year = request.query_params.get('year')
+    department = request.query_params.get('department')
+    
+    if not month or not year:
+        return Response({
+            'error': 'month and year are required parameters'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Convert month name to number
+    month_number = PayrollCalculationService.MONTH_NAME_TO_NUMBER.get(month)
+    if not month_number:
+        return Response({
+            'error': f'Invalid month name: {month}. Use full month names like "November"'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Get all employees
+        employees_qs = Employee.objects.all()
+        
+        # Filter by department if provided
+        if department:
+            employees_qs = employees_qs.filter(department=department)
+        
+        employees_qs = employees_qs.order_by('id')
+        
+        summaries = []
+        
+        for employee in employees_qs:
+            try:
+                # Get attendance data for each employee
+                attendance_data = PayrollCalculationService.calculate_employee_payroll_data(
+                    employee=employee,
+                    year=int(year),
+                    month=month_number
+                )
+                
+                # Get employee name safely
+                employee_name = (
+                    employee.get_full_name() if hasattr(employee, 'get_full_name') and callable(employee.get_full_name)
+                    else getattr(employee, 'full_name', None)
+                    or getattr(employee, 'name', None)
+                    or f'Employee_{employee.id}'
+                )
+                
+                # Get base salary
+                base_salary = PayrollCalculationService.get_employee_salary(employee)
+                
+                summary = {
+                    'employee_id': employee.id,
+                    'employee_name': employee_name,
+                    'department': getattr(employee, 'department', None),
+                    'designation': getattr(employee, 'designation', None),
+                    'base_salary': float(base_salary),
+                    
+                    'attendance_summary': {
+                        'total_working_days': attendance_data['total_working_days'],
+                        'full_days': attendance_data['full_days_worked'],
+                        'half_days': attendance_data['half_days_worked'],
+                        'wfh_days': attendance_data['wfh_days'],
+                        'casual_leave': attendance_data['casual_leave_days'],
+                        'sick_leave': attendance_data['sick_leave_days'],
+                        'special_leave': attendance_data['special_leave_days'],
+                        'unpaid_leave': attendance_data['unpaid_leave_days'],
+                        'not_marked': attendance_data['not_marked_days'],
+                        'effective_paid_days': attendance_data['effective_paid_days'],
+                    },
+                    
+                    'leave_balance': {
+                        'casual_remaining': attendance_data['leave_balance']['casual_remaining'],
+                        'sick_remaining': attendance_data['leave_balance']['sick_remaining'],
+                        'special_remaining': attendance_data['leave_balance']['special_remaining'],
+                    },
+                    
+                    'attendance_percentage': round(
+                        (attendance_data['effective_paid_days'] / attendance_data['total_working_days'] * 100)
+                        if attendance_data['total_working_days'] > 0 else 0,
+                        2
+                    ),
+                }
+                
+                summaries.append(summary)
+                
+            except Exception as e:
+                print(f"Error calculating for employee {employee.id}: {e}")
+                continue
+        
+        return Response({
+            'success': True,
+            'period': {
+                'month': month,
+                'month_number': month_number,
+                'year': int(year),
+            },
+            'total_employees': len(summaries),
+            'summaries': summaries
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'error': f'Failed to calculate attendance summaries: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Add this to your existing PayrollViewSet class
+@action(detail=False, methods=['get'], url_path='attendance_summary')
+def attendance_summary(self, request):
+    """
+    Get attendance summary for payroll calculation
+    Can be called as: /api/payroll/attendance_summary/?employee_id=1&month=November&year=2024
+    """
+    return get_attendance_summary_for_payroll(request)
+
+
+@action(detail=False, methods=['get'], url_path='all_attendance_summaries')
+def all_attendance_summaries(self, request):
+    """
+    Get attendance summaries for all employees
+    Can be called as: /api/payroll/all_attendance_summaries/?month=November&year=2024
+    """
+    return get_all_employees_attendance_summary(request)        

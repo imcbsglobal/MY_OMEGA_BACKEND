@@ -1,24 +1,73 @@
-
-# ============================================================================
-# FILE 3: whatsapp_service/utils.py
-# ============================================================================
-
-"""
-Helper utilities for WhatsApp messaging.
-Used by:
-- whatsapp_service.views (punch in/out, generic request)
-- HR.signals (attendance, leave, late, early)
-"""
-
+# whatsapp_service/utils.py
 import logging
-from typing import Optional
-
-from django.conf import settings
+from typing import Optional, List
 
 from .services.whatsapp_client import send_text, WhatsAppClientError
-from . import admin_numbers
 
 logger = logging.getLogger(__name__)
+
+
+# ================== ADMIN NUMBER HELPERS (FROM DATABASE) ==================
+
+def get_admin_numbers_by_role(role: str, active_only: bool = True) -> List[str]:
+    """
+    Get admin numbers from database by role.
+    Automatically excludes API sender numbers.
+    """
+    try:
+        from .models import AdminNumber
+        
+        query = AdminNumber.objects.filter(role=role)
+        if active_only:
+            query = query.filter(is_active=True)
+        
+        # Exclude API sender numbers
+        query = query.filter(is_api_sender=False)
+        
+        numbers = [admin.phone_number for admin in query]
+        return numbers
+    except Exception as e:
+        logger.error(f"Error loading admin numbers for role {role}: {e}")
+        return []
+
+
+def get_hr_admin_numbers() -> List[str]:
+    """Get HR admin numbers from database."""
+    return get_admin_numbers_by_role('hr_admin')
+
+
+def get_manager_fallback_numbers() -> List[str]:
+    """Get manager numbers from database."""
+    return get_admin_numbers_by_role('manager')
+
+
+def get_payroll_admin_numbers() -> List[str]:
+    """Get payroll admin numbers from database."""
+    return get_admin_numbers_by_role('payroll_admin')
+
+
+def get_global_cc_numbers() -> List[str]:
+    """Get global CC numbers from database."""
+    return get_admin_numbers_by_role('global_cc')
+
+
+def get_all_notification_recipients() -> List[str]:
+    """
+    Get all unique notification recipients from database.
+    Excludes API sender numbers.
+    """
+    try:
+        from .models import AdminNumber
+        
+        admins = AdminNumber.objects.filter(
+            is_active=True,
+            is_api_sender=False  # Exclude API sender
+        ).values_list('phone_number', flat=True)
+        
+        return list(set(admins))  # Remove duplicates
+    except Exception as e:
+        logger.error(f"Error loading all notification recipients: {e}")
+        return []
 
 
 # ================== LOW-LEVEL SEND HELPERS ==================
@@ -47,7 +96,7 @@ def send_whatsapp_notification(phone_number: str, message: str):
 def get_user_phone(user) -> Optional[str]:
     """
     Get user's WhatsApp-compatible phone number as a string.
-    Now checks BOTH user.phone_number AND Employee model phone.
+    Checks BOTH user.phone_number AND Employee model phone.
     
     Priority:
     1. User.phone_number (if available)
@@ -84,10 +133,8 @@ def get_user_phone(user) -> Optional[str]:
     
     # Second, try to get phone from Employee model
     try:
-        # Import here to avoid circular imports
         from employee_management.models import Employee
         
-        # Try to get employee record linked to this user
         employee = Employee.objects.filter(user=user).first()
         if employee:
             # Priority 1: Employee's direct phone number
@@ -118,13 +165,11 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
       1. If the employee has a linked user -> use get_user_phone(user)
       2. Employee.phone_number
       3. Employee.emergency_contact_phone
-    Normalizes by ensuring a '+' prefix for simple numeric values when possible.
     """
     numbers = []
     try:
         from employee_management.models import Employee
     except Exception as e:
-        # Employee model not available
         logger.warning("Employee model not available when gathering employee numbers: %s", e)
         return []
 
@@ -134,18 +179,15 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
         s = str(s).strip()
         if not s:
             return None
-        # if it already starts with +, return as-is
         if s.startswith("+"):
             return s
-        # If only digits (or digits + spaces/hyphens), add +
         raw = s.replace(" ", "").replace("-", "")
         if raw.isdigit():
             return "+" + raw
-        return s  # return as-is and let provider normalization handle it
+        return s
 
     qs = Employee.objects.all()
     for emp in qs:
-        # 1) if employee has user, try get_user_phone (respects user's whatsapp_preferences)
         user = getattr(emp, "user", None)
         phone = None
         if user:
@@ -154,11 +196,9 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
             except Exception:
                 phone = None
 
-        # 2) Employee.phone_number
         if not phone:
             phone = getattr(emp, "phone_number", None)
 
-        # 3) Employee.emergency_contact_phone
         if not phone:
             phone = getattr(emp, "emergency_contact_phone", None)
 
@@ -183,32 +223,22 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
 
 def notify_hr_admin(message: str):
     """
-    Notify HR admins using numbers defined in admin_numbers.py.
-
-    Priority:
-    1. HR_ADMIN_NUMBERS
-    2. HR_MAIN_NUMBER
-    3. settings.WHATSAPP_PHONE_NUMBER (last fallback)
+    Notify HR admins using numbers from database.
     """
     if not message:
         return
 
-    numbers = admin_numbers.get_hr_admin_numbers()
+    numbers = get_hr_admin_numbers()
+    
     if not numbers:
-        main = admin_numbers.get_hr_main_number()
-        if main:
-            numbers = [main]
-        else:
-            default = getattr(settings, "WHATSAPP_PHONE_NUMBER", None)
-            if default:
-                numbers = [default]
+        logger.error("No HR admin numbers configured in database")
+        return
 
     for num in numbers:
         send_whatsapp_notification(num, message)
 
 
 # ================== MESSAGE FORMATTERS ==================
-# These are used by HR.signals.py
 
 def _user_name(user) -> str:
     return getattr(user, "name", None) or getattr(user, "username", "User")
@@ -223,26 +253,25 @@ def _safe_date(dt) -> str:
     return "Not specified"
 
 
-def format_punch_message(user, action,):
+def format_punch_message(user, action, location="Not recorded", time=""):
     """
     Format punch in/out message.
     action: "PUNCH IN" or "PUNCH OUT"
     """
     user_name = _user_name(user)
 
-
-    return f"""🔔 Attendance Alert
+    return f"""📍 Attendance Alert
 
 Employee: {user_name}
 Action: {action}
+Location: {location}
+Time: {time}
 
 Thank you!"""
 
 
 def format_leave_request_message(leave_request):
-    """
-    Format leave request submission message (to employee + HR).
-    """
+    """Format leave request submission message (to employee + HR)."""
     user_name = _user_name(leave_request.user)
 
     if hasattr(leave_request, "get_leave_type_display"):
@@ -268,9 +297,7 @@ Status: Pending Approval"""
 
 
 def format_leave_approval_message(leave_request, approved_by):
-    """
-    Format leave approval/rejection message (to employee).
-    """
+    """Format leave approval/rejection message (to employee)."""
     user_name = _user_name(leave_request.user)
     approver_name = _user_name(approved_by)
 
@@ -305,9 +332,7 @@ Approved/Updated by: {approver_name}"""
 
 
 def format_late_request_message(late_request):
-    """
-    Format late-coming request submission message.
-    """
+    """Format late-coming request submission message."""
     user_name = _user_name(late_request.user)
     reason = getattr(late_request, "reason", "") or "No reason provided"
     late_by = getattr(late_request, "late_by_minutes", None)
@@ -325,9 +350,7 @@ Status: Pending Approval"""
 
 
 def format_late_approval_message(late_request, approved_by):
-    """
-    Format late-coming approval/rejection message.
-    """
+    """Format late-coming approval/rejection message."""
     user_name = _user_name(late_request.user)
     approver_name = _user_name(approved_by)
     reason = getattr(late_request, "reason", "") or "No reason provided"
@@ -354,9 +377,7 @@ Approved/Updated by: {approver_name}"""
 
 
 def format_early_request_message(early_request):
-    """
-    Format early-going request submission message.
-    """
+    """Format early-going request submission message."""
     user_name = _user_name(early_request.user)
     reason = getattr(early_request, "reason", "") or "No reason provided"
     early_by = getattr(early_request, "early_by_minutes", None)
@@ -374,9 +395,7 @@ Status: Pending Approval"""
 
 
 def format_early_approval_message(early_request, approved_by):
-    """
-    Format early-going approval/rejection message.
-    """
+    """Format early-going approval/rejection message."""
     user_name = _user_name(early_request.user)
     approver_name = _user_name(approved_by)
     reason = getattr(early_request, "reason", "") or "No reason provided"

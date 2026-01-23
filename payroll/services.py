@@ -1,4 +1,4 @@
-# payroll/services.py - COMPLETE LEAVE INTEGRATION WITH PAYROLL
+# payroll/services.py - FIXED LEAVE BALANCE HANDLING
 
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -72,22 +72,68 @@ class PayrollCalculationService:
     
     @staticmethod
     def get_or_create_leave_balance(user, year):
-        """Get or create employee leave balance for the year"""
-        balance, created = EmployeeLeaveBalance.objects.get_or_create(
-            user=user,
-            year=year,
-            defaults={
-                'casual_leave_balance': Decimal('0.00'),
-                'casual_leave_used': Decimal('0.00'),
-                'sick_leave_balance': PayrollCalculationService.SICK_LEAVE_YEARLY,
-                'sick_leave_used': 0,
-                'special_leave_balance': 7,  # Special leaves
-                'special_leave_used': 0,
-                'unpaid_leave_taken': Decimal('0.00'),
-                'last_casual_credit_month': 0
-            }
-        )
-        return balance
+        """
+        Get or create employee leave balance for the year
+        FIXED: Handle case where unique constraint is on user_id only, not (user_id, year)
+        """
+        try:
+            # Try to get existing balance
+            balance = EmployeeLeaveBalance.objects.filter(user=user, year=year).first()
+            
+            if balance:
+                return balance
+            
+            # Check if there's a balance for this user (any year) due to unique constraint
+            existing_balance = EmployeeLeaveBalance.objects.filter(user=user).first()
+            
+            if existing_balance:
+                # If the existing balance is for a different year, update it
+                if existing_balance.year != year:
+                    existing_balance.year = year
+                    existing_balance.casual_leave_balance = Decimal('0.00')
+                    existing_balance.casual_leave_used = Decimal('0.00')
+                    existing_balance.sick_leave_balance = PayrollCalculationService.SICK_LEAVE_YEARLY
+                    existing_balance.sick_leave_used = 0
+                    existing_balance.special_leave_balance = 7
+                    existing_balance.special_leave_used = 0
+                    existing_balance.unpaid_leave_taken = Decimal('0.00')
+                    existing_balance.last_casual_credit_month = 0
+                    existing_balance.save()
+                return existing_balance
+            
+            # Create new balance
+            balance = EmployeeLeaveBalance.objects.create(
+                user=user,
+                year=year,
+                casual_leave_balance=Decimal('0.00'),
+                casual_leave_used=Decimal('0.00'),
+                sick_leave_balance=PayrollCalculationService.SICK_LEAVE_YEARLY,
+                sick_leave_used=0,
+                special_leave_balance=7,
+                special_leave_used=0,
+                unpaid_leave_taken=Decimal('0.00'),
+                last_casual_credit_month=0
+            )
+            return balance
+            
+        except Exception as e:
+            print(f"Error in get_or_create_leave_balance: {e}")
+            # Fallback: try to get any existing balance or create minimal one
+            balance = EmployeeLeaveBalance.objects.filter(user=user).first()
+            if not balance:
+                balance = EmployeeLeaveBalance.objects.create(
+                    user=user,
+                    year=year,
+                    casual_leave_balance=Decimal('0.00'),
+                    casual_leave_used=Decimal('0.00'),
+                    sick_leave_balance=PayrollCalculationService.SICK_LEAVE_YEARLY,
+                    sick_leave_used=0,
+                    special_leave_balance=7,
+                    special_leave_used=0,
+                    unpaid_leave_taken=Decimal('0.00'),
+                    last_casual_credit_month=0
+                )
+            return balance
     
     @staticmethod
     def update_casual_leave_balance(balance, current_month):
@@ -371,19 +417,7 @@ class PayrollCalculationService:
     
     @staticmethod
     def calculate_salary(base_salary, working_days, paid_days, allowances=0, deductions=0):
-        """
-        Calculate salary based on paid days - NO TAX
-        
-        Args:
-            base_salary: Monthly base salary
-            working_days: Total working days in month
-            paid_days: Days to be paid for (including paid leaves)
-            allowances: Additional allowances
-            deductions: Deductions (insurance, loans, etc.)
-        
-        Returns:
-            dict: Salary breakdown without tax
-        """
+        """Calculate salary based on paid days - NO TAX"""
         base_salary = Decimal(str(base_salary))
         allowances = Decimal(str(allowances))
         deductions = Decimal(str(deductions))
@@ -411,15 +445,13 @@ class PayrollCalculationService:
             'allowances': float(allowances),
             'gross_pay': float(gross_pay),
             'deductions': float(deductions),
-            'tax': float(tax),  # Always 0
+            'tax': float(tax),
             'net_pay': float(net_pay),
         }
     
     @staticmethod
     def calculate_preview(employee, month, year, base_salary, allowances=0, deductions=0):
-        """
-        Calculate complete payroll preview with full leave breakdown
-        """
+        """Calculate complete payroll preview with full leave breakdown"""
         month_number = PayrollCalculationService.MONTH_NAME_TO_NUMBER.get(month)
         if not month_number:
             raise ValueError(f"Invalid month name: {month}")
@@ -476,9 +508,7 @@ class PayrollCalculationService:
     
     @staticmethod
     def generate_payroll_summary_text(payroll_data):
-        """
-        Generate a human-readable summary of the payroll calculation
-        """
+        """Generate a human-readable summary of the payroll calculation"""
         att = payroll_data['attendance_breakdown']
         sal = payroll_data['salary_calculation']
         summ = payroll_data['summary']
