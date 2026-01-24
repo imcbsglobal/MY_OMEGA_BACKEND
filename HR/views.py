@@ -25,7 +25,7 @@ from .Serializers import (
     LeaveRequestCreateSerializer, LeaveRequestReviewSerializer,
     LateRequestSerializer, LateRequestCreateSerializer,
     EarlyRequestSerializer, EarlyRequestCreateSerializer,
-    PunchRecordSerializer
+    PunchRecordSerializer, AttendanceUpdateStatusSerializer
 )
 from master.models import LeaveMaster
 from master.serializers import LeaveMasterSerializer
@@ -697,38 +697,50 @@ def monthly_grid(self, request):
 
     return Response(result)
 
-@action(detail=True, methods=['patch'])
-def update_status(self, request, pk=None):
-    """Update attendance status (Admin only)"""
-    if not self._is_admin(request.user):
-        return Response({'error': 'Only admins can update attendance status'}, status=status.HTTP_403_FORBIDDEN)
+    @action(detail=True, methods=['patch'], url_path='update_status')
+    def update_status(self, request, pk=None):
+        """Update attendance status (Admin only)"""
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can update attendance status'}, status=status.HTTP_403_FORBIDDEN)
 
-    attendance = self.get_object()
-    serializer = AttendanceUpdateStatusSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+        attendance = self.get_object()
+        serializer = AttendanceUpdateStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    old_status = attendance.status
-    new_status = serializer.validated_data['status']
-    admin_note = serializer.validated_data.get('admin_note', '')
+        old_status = attendance.status
+        new_status = serializer.validated_data['status']
+        admin_note = serializer.validated_data.get('admin_note', '')
+        leave_master_id = serializer.validated_data.get('leave_master')
 
-    # Handle leave status
-    if new_status == 'leave':
-        attendance.first_punch_in_time = None
-        attendance.last_punch_out_time = None
-        attendance.first_punch_in_location = None
-        attendance.last_punch_out_location = None
-        attendance.first_punch_in_latitude = None
-        attendance.first_punch_in_longitude = None
-        attendance.last_punch_out_latitude = None
-        attendance.last_punch_out_longitude = None
-        attendance.total_working_hours = 0
-        attendance.total_break_hours = 0
-        attendance.is_currently_on_break = False
+        # Handle leave status
+        if new_status in ['leave', 'special_leave', 'mandatory_holiday']:
+            attendance.first_punch_in_time = None
+            attendance.last_punch_out_time = None
+            attendance.first_punch_in_location = None
+            attendance.last_punch_out_location = None
+            attendance.first_punch_in_latitude = None
+            attendance.first_punch_in_longitude = None
+            attendance.last_punch_out_latitude = None
+            attendance.last_punch_out_longitude = None
+            attendance.total_working_hours = 0
+            attendance.total_break_hours = 0
+            attendance.is_currently_on_break = False
 
-        # Delete all punch records
-        attendance.punch_records.all().delete()
+            # Delete all punch records
+            attendance.punch_records.all().delete()
 
-        auto_note = f"Status changed to leave from {old_status}"
+            # Set leave_master if provided
+            if leave_master_id:
+                try:
+                    leave_master = LeaveMaster.objects.get(id=leave_master_id)
+                    attendance.leave_master = leave_master
+                    attendance.is_leave = True
+                    # Set payment status from leave master
+                    attendance.is_paid_day = (leave_master.payment_status == 'paid')
+                except LeaveMaster.DoesNotExist:
+                    return Response({'error': f'Leave Master with id {leave_master_id} not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+            auto_note = f"Status changed to {new_status} from {old_status}"
         if attendance.admin_note:
             attendance.admin_note += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {auto_note}"
         else:
