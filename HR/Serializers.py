@@ -404,6 +404,25 @@ class PunchOutSerializer(serializers.Serializer):
     )
 
 
+class AttendanceUpdateStatusSerializer(serializers.Serializer):
+    """
+    Serializer for updating attendance status
+    """
+    status = serializers.CharField(
+        help_text='New status for the attendance record'
+    )
+    leave_master = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text='Leave Master ID (optional, for leave/special_leave/mandatory_holiday status)'
+    )
+    admin_note = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text='Admin note for the update'
+    )
+
+
 # ========== HOLIDAY SERIALIZERS ==========
 
 class HolidaySerializer(serializers.ModelSerializer):

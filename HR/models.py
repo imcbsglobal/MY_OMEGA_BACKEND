@@ -280,6 +280,8 @@ class Attendance(models.Model):
         ('wfh', 'Work From Home'),
         ('sunday', 'Sunday (Paid)'),
         ('holiday', 'Holiday (Paid)'),
+        ('special_leave', 'Special Leave'),
+        ('mandatory_holiday', 'Mandatory Holiday'),
     ]
     
     VERIFICATION_CHOICES = [
