@@ -1543,3 +1543,27 @@ INFO 2026-01-23 09:58:57,470 geofence [GEOFENCE] Distance: 27.08m | Allowed: 50.
 INFO 2026-01-23 09:58:57,472 geofence [GEOFENCE] ============================================================
 INFO 2026-01-23 09:58:57,473 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
 INFO 2026-01-23 09:58:57,474 geofence [GEOFENCE] Buffer remaining: 22.92m
+INFO 2026-01-24 09:50:14,738 geofence [GEOFENCE] ============================================================
+INFO 2026-01-24 09:50:14,739 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-24 09:50:14,740 geofence [GEOFENCE] User: (11.618009, 76.081510)
+INFO 2026-01-24 09:50:14,745 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-24 09:50:14,747 geofence [GEOFENCE] Distance: 27.19m | Allowed: 50.0m
+INFO 2026-01-24 09:50:14,747 geofence [GEOFENCE] ============================================================
+INFO 2026-01-24 09:50:14,747 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-24 09:50:14,748 geofence [GEOFENCE] Buffer remaining: 22.81m
+INFO 2026-01-24 09:50:32,487 geofence [GEOFENCE] ============================================================
+INFO 2026-01-24 09:50:32,487 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-24 09:50:32,487 geofence [GEOFENCE] User: (11.618009, 76.081510)
+INFO 2026-01-24 09:50:32,489 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-24 09:50:32,490 geofence [GEOFENCE] Distance: 27.19m | Allowed: 50.0m
+INFO 2026-01-24 09:50:32,490 geofence [GEOFENCE] ============================================================
+INFO 2026-01-24 09:50:32,491 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-24 09:50:32,492 geofence [GEOFENCE] Buffer remaining: 22.81m
+INFO 2026-01-24 15:42:34,397 geofence [GEOFENCE] ============================================================
+INFO 2026-01-24 15:42:34,397 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-24 15:42:34,398 geofence [GEOFENCE] User: (11.618012, 76.081514)
+INFO 2026-01-24 15:42:34,398 geofence [GEOFENCE] Office: (11.618074, 76.081269)
+INFO 2026-01-24 15:42:34,398 geofence [GEOFENCE] Distance: 27.58m | Allowed: 50.0m
+INFO 2026-01-24 15:42:34,399 geofence [GEOFENCE] ============================================================
+INFO 2026-01-24 15:42:34,399 geofence [GEOFENCE]  ALLOWED - User myomega@gmail.com
+INFO 2026-01-24 15:42:34,399 geofence [GEOFENCE] Buffer remaining: 22.42m
