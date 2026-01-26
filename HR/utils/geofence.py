@@ -1,4 +1,4 @@
-# HR/utils/geofence.py - STRICT GEOFENCE ENFORCEMENT
+# HR/utils/geofence.py - TEMPORARY BYPASS FOR TESTING
 
 from django.conf import settings
 from .geolocation import haversine_distance
@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 def validate_office_geofence(user_lat, user_lon, user=None):
     """
+    ⚠️ GEOFENCE TEMPORARILY DISABLED FOR TESTING
     Validates if user is within office geofence radius.
-    STRICT ENFORCEMENT - NO BYPASS ALLOWED
     
     Args:
         user_lat (float): User's latitude
@@ -21,7 +21,20 @@ def validate_office_geofence(user_lat, user_lon, user=None):
         tuple: (allowed: bool, distance_in_meters: float)
     """
     
-    # ✅ STEP 1: Verify settings are configured
+    # 🔴 TEMPORARY BYPASS - REMOVE THIS IN PRODUCTION
+    GEOFENCE_ENABLED = False  # Set to True to re-enable geofence
+    
+    if not GEOFENCE_ENABLED:
+        logger.warning("[GEOFENCE] ⚠️ GEOFENCE DISABLED - ALLOWING ALL LOCATIONS")
+        user_info = f"User {user.email}" if user else "Unknown user"
+        logger.warning(f"[GEOFENCE] {user_info} - Location: ({user_lat}, {user_lon})")
+        # Return True with a fake distance of 0
+        return True, 0.0
+    
+    # ✅ Original geofence logic below (currently disabled)
+    # ---------------------------------------------------
+    
+    # Verify settings are configured
     if not all([
         hasattr(settings, 'OFFICE_LATITUDE'),
         hasattr(settings, 'OFFICE_LONGITUDE'),
@@ -30,7 +43,7 @@ def validate_office_geofence(user_lat, user_lon, user=None):
         logger.error("[GEOFENCE] ❌ Office location settings not configured!")
         return False, 0
     
-    # ✅ STEP 2: Validate and convert coordinates
+    # Validate and convert coordinates
     try:
         user_lat = float(user_lat)
         user_lon = float(user_lon)
@@ -41,16 +54,16 @@ def validate_office_geofence(user_lat, user_lon, user=None):
         logger.error(f"[GEOFENCE] ❌ Invalid coordinates: {e}")
         return False, 0
     
-    # ✅ STEP 3: Validate coordinate ranges
+    # Validate coordinate ranges
     if not (-90 <= user_lat <= 90) or not (-180 <= user_lon <= 180):
         logger.error(f"[GEOFENCE] ❌ Invalid coordinates range")
         return False, 0
     
-    # ✅ STEP 4: Calculate actual distance from office
+    # Calculate actual distance from office
     distance = haversine_distance(user_lat, user_lon, office_lat, office_lon)
     distance = round(distance, 2)
     
-    # ✅ STEP 5: Log validation attempt
+    # Log validation attempt
     user_info = f"User {user.email}" if user else "Unknown user"
     logger.info(f"[GEOFENCE] {'='*60}")
     logger.info(f"[GEOFENCE] Validating: {user_info}")
@@ -59,15 +72,15 @@ def validate_office_geofence(user_lat, user_lon, user=None):
     logger.info(f"[GEOFENCE] Distance: {distance}m | Allowed: {allowed_radius}m")
     logger.info(f"[GEOFENCE] {'='*60}")
     
-    # ✅ STEP 6: STRICT VALIDATION - NO EXCEPTIONS
+    # STRICT VALIDATION
     if distance > allowed_radius:
-        logger.warning(f"[GEOFENCE]  REJECTED - {user_info}")
+        logger.warning(f"[GEOFENCE] ❌ REJECTED - {user_info}")
         logger.warning(f"[GEOFENCE] Distance {distance}m EXCEEDS {allowed_radius}m")
         logger.warning(f"[GEOFENCE] Excess: {distance - allowed_radius:.2f}m")
         return False, distance
     
-    # ✅ SUCCESS
-    logger.info(f"[GEOFENCE]  ALLOWED - {user_info}")
+    # SUCCESS
+    logger.info(f"[GEOFENCE] ✅ ALLOWED - {user_info}")
     logger.info(f"[GEOFENCE] Buffer remaining: {allowed_radius - distance:.2f}m")
     return True, distance
 
