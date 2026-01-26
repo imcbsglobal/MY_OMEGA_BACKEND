@@ -10,6 +10,7 @@ from datetime import datetime, time
 from django.conf import settings
 from master.models import LeaveMaster  # ✅ CORRECT - Import from master app
 from .models import LeaveRequest  # ✅ LeaveRequest is in HR.models
+from master.serializers import LeaveMasterCreateSerializer
 
 import calendar
 import requests
@@ -323,7 +324,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         if month and year:
             qs = qs.filter(date__month=month, date__year=year)
         result = []
-        for att in qs.order_by('-date', '-first_punch_in_time'):
+        for att in qs.order_by('date', 'first_punch_in_time'):
             d = AttendanceSerializer(att, context={'request': request}).data
             punches = att.punch_records.all().order_by('punch_time')
             d['punch_records'] = PunchRecordSerializer(punches, many=True).data
