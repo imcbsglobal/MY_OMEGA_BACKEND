@@ -343,10 +343,11 @@ OFFICE_LONGITUDE = 75.921333  # Tirur longitude (corrected)
 
 # Geofence Radius (in meters)
 # Users must be within this distance to punch in/out
-OFFICE_GEOFENCE_RADIUS_METERS = 100  # 100 meters = strict enforcement 
+OFFICE_GEOFENCE_RADIUS_METERS = 600  # 600 meters = wider coverage
 
 # Office address for display
 OFFICE_ADDRESS = "Tirur, Malappuram, Kerala, India"
+
 
 
 # OFFICE_LATITUDE = 11.618074   # Your current location
