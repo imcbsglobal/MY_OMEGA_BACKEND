@@ -1325,12 +1325,20 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
 
 
 # Reverse Geocoding Functions (unchanged)
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def reverse_geocode(request):
-    """Reverse geocode coordinates to address"""
-    latitude = request.data.get('latitude')
-    longitude = request.data.get('longitude')
+    """
+    Reverse geocode coordinates to address.
+    Supports both GET (with query params) and POST (with body) methods.
+    """
+    # Support both GET and POST methods
+    if request.method == 'GET':
+        latitude = request.query_params.get('latitude')
+        longitude = request.query_params.get('longitude')
+    else:
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
 
     if not latitude or not longitude:
         return Response(
@@ -1382,6 +1390,7 @@ def reverse_geocode(request):
         })
 
 
+# The reverse_geocode_bigdata function is already correct with @api_view(['POST'])
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def reverse_geocode_bigdata(request):
@@ -1408,18 +1417,19 @@ def reverse_geocode_bigdata(request):
 
         if response.status_code == 200:
             data = response.json()
-
-            address_parts = []
+            
+            # Build address from components
+            components = []
             if data.get('locality'):
-                address_parts.append(data['locality'])
+                components.append(data['locality'])
             if data.get('city'):
-                address_parts.append(data['city'])
+                components.append(data['city'])
             if data.get('principalSubdivision'):
-                address_parts.append(data['principalSubdivision'])
+                components.append(data['principalSubdivision'])
             if data.get('countryName'):
-                address_parts.append(data['countryName'])
-
-            address = ', '.join(address_parts) if address_parts else f'Lat: {latitude}, Lon: {longitude}'
+                components.append(data['countryName'])
+            
+            address = ', '.join(components) if components else f'{latitude}, {longitude}'
 
             return Response({
                 'address': address,
@@ -1431,7 +1441,8 @@ def reverse_geocode_bigdata(request):
         return Response({
             'address': f'Lat: {latitude}, Lon: {longitude}',
             'latitude': latitude,
-            'longitude': longitude
+            'longitude': longitude,
+            'details': {}
         })
 
     except requests.exceptions.RequestException as e:
@@ -1439,6 +1450,7 @@ def reverse_geocode_bigdata(request):
             'address': f'Lat: {latitude}, Lon: {longitude}',
             'latitude': latitude,
             'longitude': longitude,
+            'details': {},
             'error': str(e)
         })
 

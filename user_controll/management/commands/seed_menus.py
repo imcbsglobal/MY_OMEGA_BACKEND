@@ -188,6 +188,13 @@ class Command(BaseCommand):
                                 "icon": "📱",
                                 "order": 8,
                             },
+                            {
+                                "name": "Office Setup",
+                                "key": "hr_master_office_setup",
+                                "path": "/hr/master/office-setup",
+                                "icon": "🏢",
+                                "order": 9,
+                            },
                         ],
                     },
                 ],
@@ -286,6 +293,13 @@ class Command(BaseCommand):
                         "icon": "📱",
                         "order": 4,
                     },
+                    {
+                        "name": "Vehicle Master",
+                        "key": "master_vehicle",
+                        "path": "/master/vehicle-master",
+                        "icon": "🚗",
+                        "order": 5,
+                    },
                 ],
             },
         ]
@@ -351,30 +365,30 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"   - Updated: {updated_count} existing items"))
         self.stdout.write("=" * 110 + "\n")
         
-        # Verify HR Master structure
-        self.stdout.write("\n🔍 VERIFYING HR MASTER STRUCTURE:")
+        # Verify Master Data structure
+        self.stdout.write("\n🔍 VERIFYING MASTER DATA STRUCTURE:")
         self.stdout.write("-" * 110)
         
         try:
-            hr_master = MenuItem.objects.get(key='hr_master')
-            children = hr_master.children.filter(is_active=True).order_by('order')
-            self.stdout.write(self.style.SUCCESS(f"\n✅ HR Master found with {children.count()} children:"))
+            master = MenuItem.objects.get(key='master')
+            children = master.children.filter(is_active=True).order_by('order')
+            self.stdout.write(self.style.SUCCESS(f"\n✅ Master Data found with {children.count()} children:"))
             for i, child in enumerate(children, 1):
                 self.stdout.write(f"   {i}. {child.name} ({child.key}) - {child.path}")
             
-            # Check if Allowances exists
-            if children.filter(key='hr_master_allowances').exists():
-                self.stdout.write(self.style.SUCCESS("\n✅ Allowances menu item found under HR Master!"))
+            # Check if Vehicle Master exists
+            if children.filter(key='master_vehicle').exists():
+                self.stdout.write(self.style.SUCCESS("\n✅ Vehicle Master menu item found under Master Data!"))
             else:
-                self.stdout.write(self.style.ERROR("\n❌ Allowances NOT found under HR Master!"))
+                self.stdout.write(self.style.ERROR("\n❌ Vehicle Master NOT found under Master Data!"))
                 
         except MenuItem.DoesNotExist:
-            self.stdout.write(self.style.ERROR("❌ HR Master menu not found!"))
+            self.stdout.write(self.style.ERROR("❌ Master Data menu not found!"))
         
         self.stdout.write("\n" + "=" * 110)
         self.stdout.write("\n💡 Next steps:")
         self.stdout.write("   1. Logout from application")
         self.stdout.write("   2. Clear browser cache: localStorage.clear() + sessionStorage.clear()")
         self.stdout.write("   3. Login again")
-        self.stdout.write("   4. Check HR Management → HR Master → Allowances should be there!\n")
+        self.stdout.write("   4. Check Master Data → Vehicle Master should be there!\n")
         self.stdout.write("=" * 110 + "\n")

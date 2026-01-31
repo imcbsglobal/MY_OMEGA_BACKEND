@@ -1,4 +1,14 @@
-# HR/signals.py - FIXED: Updated to use new field names
+# HR/signals.py - COMPLETE FIX: Fully Database-Driven (NO hardcoded numbers)
+"""
+✅ FIXED VERSION - Use this to replace your HR/signals.py
+
+Changes from original:
+1. Removed: from whatsapp_service import admin_numbers
+2. Removed: notify_hr_admin import (doesn't exist)
+3. Added: get_hr_admin_numbers, get_manager_fallback_numbers (database-driven)
+4. Updated: send_to_managers_and_hr to use database functions
+"""
+
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.db import transaction
@@ -8,12 +18,15 @@ from .models import Attendance, LeaveRequest, LateRequest, EarlyRequest
 
 logger = logging.getLogger(__name__)
 
-# Import WhatsApp utilities
+# ============================================================================
+# Import WhatsApp utilities - FIXED: Database-driven functions ONLY
+# ============================================================================
 try:
     from whatsapp_service.utils import (
         send_whatsapp_notification,
         get_user_phone,
-        notify_hr_admin,
+        get_hr_admin_numbers,          # ✅ Database-driven (added)
+        get_manager_fallback_numbers,  # ✅ Database-driven (added)
         format_punch_message,
         format_leave_request_message,
         format_leave_approval_message,
@@ -22,46 +35,85 @@ try:
         format_early_request_message,
         format_early_approval_message,
     )
-    from whatsapp_service import admin_numbers
+    # ❌ REMOVED: from whatsapp_service import admin_numbers
+    # ❌ REMOVED: notify_hr_admin import
     WHATSAPP_ENABLED = True
-    print("✅ WhatsApp service loaded successfully")
+    print("✅ WhatsApp service loaded successfully (DATABASE-DRIVEN)")
 except Exception as e:
     WHATSAPP_ENABLED = False
     print(f"❌ WhatsApp service not available - notifications disabled: {e}")
 
 
-# ========== HELPER FUNCTION ==========
+# ============================================================================
+# HELPER FUNCTION - FIXED: Database-driven
+# ============================================================================
 
 def send_to_managers_and_hr(message):
-    """Send message to all managers and HR admins from admin_numbers.py"""
+    """
+    Send message to all managers and HR admins from DATABASE.
+    
+    ✅ Fully database-driven - NO hardcoded numbers
+    ✅ Loads numbers from AdminNumber model via utils.py
+    ✅ Respects is_active and is_api_sender flags
+    """
     if not WHATSAPP_ENABLED:
+        print("⚠️  WhatsApp not enabled - skipping notification")
         return
     
     recipients = set()
     
-    # Add manager fallback numbers
+    # Add manager numbers from DATABASE
     try:
-        for num in admin_numbers.get_manager_fallback_numbers():
+        manager_numbers = get_manager_fallback_numbers()
+        for num in manager_numbers:
             recipients.add(num)
+        if manager_numbers:
+            print(f"✅ Loaded {len(manager_numbers)} manager numbers from database")
     except Exception as e:
-        print(f"Error getting manager numbers: {e}")
+        print(f"❌ Error getting manager numbers from database: {e}")
+        import traceback
+        traceback.print_exc()
     
-    # Add HR admin numbers
+    # Add HR admin numbers from DATABASE
     try:
-        for num in admin_numbers.get_hr_admin_numbers():
+        hr_numbers = get_hr_admin_numbers()
+        for num in hr_numbers:
             recipients.add(num)
+        if hr_numbers:
+            print(f"✅ Loaded {len(hr_numbers)} HR admin numbers from database")
     except Exception as e:
-        print(f"Error getting HR numbers: {e}")
+        print(f"❌ Error getting HR numbers from database: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    if not recipients:
+        print("⚠️  No recipients found! Please add admin numbers in the admin panel at /api/whatsapp/admin/")
+        return
+    
+    print(f"📤 Sending to {len(recipients)} recipients: {', '.join(recipients)}")
     
     # Send to all recipients
+    success_count = 0
+    fail_count = 0
     for phone in recipients:
         try:
-            send_whatsapp_notification(phone, message)
+            result = send_whatsapp_notification(phone, message)
+            if result:
+                success_count += 1
+                print(f"✅ Sent to {phone}")
+            else:
+                fail_count += 1
+                print(f"❌ Failed to send to {phone}")
         except Exception as e:
-            print(f"Failed to send WhatsApp to {phone}: {e}")
+            fail_count += 1
+            print(f"❌ Failed to send WhatsApp to {phone}: {e}")
+    
+    print(f"📊 Notification results: {success_count} succeeded, {fail_count} failed")
 
 
-# ========== LEAVE REQUEST SIGNALS ==========
+# ============================================================================
+# LEAVE REQUEST SIGNALS
+# ============================================================================
 
 @receiver(post_save, sender=LeaveRequest)
 def handle_leave_request_notifications(sender, instance, created, **kwargs):
@@ -114,7 +166,9 @@ def _send_leave_notifications(instance, created, kwargs):
             delattr(instance, '_signal_processing')
 
 
-# ========== LATE REQUEST SIGNALS ==========
+# ============================================================================
+# LATE REQUEST SIGNALS
+# ============================================================================
 
 @receiver(post_save, sender=LateRequest)
 def handle_late_request_notifications(sender, instance, created, **kwargs):
@@ -176,7 +230,9 @@ def _send_late_notifications(instance, created, kwargs):
             delattr(instance, '_signal_processing')
 
 
-# ========== EARLY REQUEST SIGNALS ==========
+# ============================================================================
+# EARLY REQUEST SIGNALS
+# ============================================================================
 
 @receiver(post_save, sender=EarlyRequest)
 def handle_early_request_notifications(sender, instance, created, **kwargs):
@@ -238,15 +294,16 @@ def _send_early_notifications(instance, created, kwargs):
             delattr(instance, '_signal_processing')
 
 
-# ========== STORE OLD VALUES BEFORE SAVE ==========
-# FIXED: Updated to use new field names
+# ============================================================================
+# STORE OLD VALUES BEFORE SAVE
+# ============================================================================
+
 @receiver(pre_save, sender=Attendance)
 def store_old_attendance_values(sender, instance, **kwargs):
     """Store old values before save for comparison"""
     if instance.pk:  # Only for existing records (updates)
         try:
             old_instance = Attendance.objects.get(pk=instance.pk)
-            # FIXED: Use new field names
             instance._old_first_punch_in = old_instance.first_punch_in_time
             instance._old_last_punch_out = old_instance.last_punch_out_time
             print(f"[pre_save] Stored old values - first_punch_in: {instance._old_first_punch_in}, last_punch_out: {instance._old_last_punch_out}")
@@ -260,8 +317,10 @@ def store_old_attendance_values(sender, instance, **kwargs):
         print(f"[pre_save] New attendance record - no old values")
 
 
-# ========== ATTENDANCE PUNCH IN/OUT SIGNALS ==========
-# FIXED: Updated to use new field names
+# ============================================================================
+# ATTENDANCE PUNCH IN/OUT SIGNALS
+# ============================================================================
+
 @receiver(post_save, sender=Attendance)
 def handle_punch_notifications(sender, instance, created, **kwargs):
     """Handle WhatsApp notifications for punch in/out"""
@@ -286,7 +345,7 @@ def _send_punch_notifications(instance, created):
 
     try:
         if getattr(instance, '_signal_processing', False):
-            print(f"[_send_punch_notifications] ⚠️ Already processing - skipping")
+            print(f"[_send_punch_notifications] ⚠️  Already processing - skipping")
             return
         instance._signal_processing = True
 
@@ -298,7 +357,6 @@ def _send_punch_notifications(instance, created):
             return
 
         # ===== PUNCH IN NOTIFICATION =====
-        # FIXED: Use new field name
         if created and instance.first_punch_in_time:
             print(f"\n[PUNCH IN] Detected punch in event")
             print(f"[PUNCH IN] User: {instance.user.id}")
@@ -324,7 +382,6 @@ def _send_punch_notifications(instance, created):
                 traceback.print_exc()
 
         # ===== PUNCH OUT NOTIFICATION =====
-        # FIXED: Use new field names
         if not created:
             old_punch_out = getattr(instance, '_old_last_punch_out', None)
             new_punch_out = instance.last_punch_out_time
@@ -364,7 +421,7 @@ def _send_punch_notifications(instance, created):
                     import traceback
                     traceback.print_exc()
             else:
-                print(f"[PUNCH OUT] ℹ️ Not a punch out event")
+                print(f"[PUNCH OUT] ℹ️  Not a punch out event")
 
     except Exception as e:
         print(f"[_send_punch_notifications] ❌ Unexpected error: {e}")

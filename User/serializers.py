@@ -247,3 +247,15 @@ class UserBriefSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             return request.build_absolute_uri(obj.photo.url) if request else obj.photo.url
         return None
+
+
+
+class UserBasicSerializer(serializers.ModelSerializer):
+    """
+    Basic user serializer for displaying user info in other apps (like HR)
+    Contains only essential fields: id, email, name
+    """
+    class Meta:
+        model = AppUser
+        fields = ['id', 'email', 'name']
+        read_only_fields = ['id', 'email', 'name']

@@ -1,4 +1,11 @@
 # whatsapp_service/utils.py
+"""
+WhatsApp Utilities - Fully Database Driven (NO HARDCODED VALUES)
+
+All admin numbers and message templates are loaded from the database.
+NO hardcoded phone numbers or message formats.
+"""
+
 import logging
 from typing import Optional, List
 
@@ -13,6 +20,15 @@ def get_admin_numbers_by_role(role: str, active_only: bool = True) -> List[str]:
     """
     Get admin numbers from database by role.
     Automatically excludes API sender numbers.
+    
+    ✅ Fully database-driven - NO hardcoded numbers
+    
+    Args:
+        role: Role name (hr_admin, manager, payroll_admin, global_cc)
+        active_only: Only return active numbers
+    
+    Returns:
+        List of phone numbers as strings
     """
     try:
         from .models import AdminNumber
@@ -25,6 +41,15 @@ def get_admin_numbers_by_role(role: str, active_only: bool = True) -> List[str]:
         query = query.filter(is_api_sender=False)
         
         numbers = [admin.phone_number for admin in query]
+        
+        if not numbers:
+            logger.warning(
+                f"⚠️  No {role} numbers found in database. "
+                f"Please add them in the admin panel at /api/whatsapp/admin/"
+            )
+        else:
+            logger.info(f"✅ Found {len(numbers)} {role} numbers from database")
+        
         return numbers
     except Exception as e:
         logger.error(f"Error loading admin numbers for role {role}: {e}")
@@ -32,22 +57,34 @@ def get_admin_numbers_by_role(role: str, active_only: bool = True) -> List[str]:
 
 
 def get_hr_admin_numbers() -> List[str]:
-    """Get HR admin numbers from database."""
+    """
+    Get HR admin numbers from database.
+    ✅ NO hardcoded numbers - all from database
+    """
     return get_admin_numbers_by_role('hr_admin')
 
 
 def get_manager_fallback_numbers() -> List[str]:
-    """Get manager numbers from database."""
+    """
+    Get manager numbers from database.
+    ✅ NO hardcoded numbers - all from database
+    """
     return get_admin_numbers_by_role('manager')
 
 
 def get_payroll_admin_numbers() -> List[str]:
-    """Get payroll admin numbers from database."""
+    """
+    Get payroll admin numbers from database.
+    ✅ NO hardcoded numbers - all from database
+    """
     return get_admin_numbers_by_role('payroll_admin')
 
 
 def get_global_cc_numbers() -> List[str]:
-    """Get global CC numbers from database."""
+    """
+    Get global CC numbers from database.
+    ✅ NO hardcoded numbers - all from database
+    """
     return get_admin_numbers_by_role('global_cc')
 
 
@@ -55,6 +92,11 @@ def get_all_notification_recipients() -> List[str]:
     """
     Get all unique notification recipients from database.
     Excludes API sender numbers.
+    
+    ✅ Fully database-driven - NO hardcoded numbers
+    
+    Returns:
+        List of unique phone numbers
     """
     try:
         from .models import AdminNumber
@@ -64,7 +106,17 @@ def get_all_notification_recipients() -> List[str]:
             is_api_sender=False  # Exclude API sender
         ).values_list('phone_number', flat=True)
         
-        return list(set(admins))  # Remove duplicates
+        unique_numbers = list(set(admins))  # Remove duplicates
+        
+        if not unique_numbers:
+            logger.error(
+                "❌ No admin numbers found in database! "
+                "Please add admin numbers in the admin panel at /api/whatsapp/admin/"
+            )
+        else:
+            logger.info(f"✅ Found {len(unique_numbers)} unique notification recipients")
+        
+        return unique_numbers
     except Exception as e:
         logger.error(f"Error loading all notification recipients: {e}")
         return []
@@ -75,7 +127,15 @@ def get_all_notification_recipients() -> List[str]:
 def send_whatsapp_notification(phone_number: str, message: str):
     """
     Send WhatsApp notification with error handling.
-    Returns provider result (dict) or None on failure.
+    
+    ✅ Uses database configuration - NO hardcoded API keys
+    
+    Args:
+        phone_number: Recipient phone number
+        message: Message text to send
+    
+    Returns:
+        dict: Provider result or None on failure
     """
     if not phone_number:
         logger.warning("send_whatsapp_notification called with empty phone_number")
@@ -103,6 +163,12 @@ def get_user_phone(user) -> Optional[str]:
     2. Employee.phone_number (from employee_management)
     3. Employee.emergency_contact_phone (backup)
     4. None
+    
+    Args:
+        user: Django user object
+    
+    Returns:
+        Normalized phone number or None
     """
     if not user:
         return None
@@ -165,6 +231,13 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
       1. If the employee has a linked user -> use get_user_phone(user)
       2. Employee.phone_number
       3. Employee.emergency_contact_phone
+    
+    Args:
+        exclude_none: Filter out None/empty values
+        exclude_duplicates: Remove duplicate numbers
+    
+    Returns:
+        List of employee phone numbers
     """
     numbers = []
     try:
@@ -224,6 +297,11 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
 def notify_hr_admin(message: str):
     """
     Notify HR admins using numbers from database.
+    
+    ✅ Fully database-driven - NO hardcoded numbers
+    
+    Args:
+        message: Message text to send
     """
     if not message:
         return
@@ -231,20 +309,101 @@ def notify_hr_admin(message: str):
     numbers = get_hr_admin_numbers()
     
     if not numbers:
-        logger.error("No HR admin numbers configured in database")
+        logger.error(
+            "❌ No HR admin numbers configured in database! "
+            "Please add them in the admin panel at /api/whatsapp/admin/"
+        )
         return
 
+    logger.info(f"Notifying {len(numbers)} HR admins")
     for num in numbers:
         send_whatsapp_notification(num, message)
 
 
-# ================== MESSAGE FORMATTERS ==================
+# ================== MESSAGE TEMPLATE HELPERS ==================
+
+def get_template(template_type: str, recipient_type: str = None):
+    """
+    Get message template from database.
+    
+    ✅ Fully database-driven - NO hardcoded templates
+    
+    Args:
+        template_type: Type of template (punch_in, leave_request, etc.)
+        recipient_type: Optional filter by recipient type
+    
+    Returns:
+        MessageTemplate object or None
+    """
+    try:
+        from .models import MessageTemplate
+        
+        query = MessageTemplate.objects.filter(
+            template_type=template_type,
+            is_active=True
+        )
+        
+        if recipient_type:
+            query = query.filter(recipient_type=recipient_type)
+        
+        template = query.first()
+        
+        if not template:
+            logger.warning(
+                f"⚠️  No active template found for {template_type}. "
+                f"Using fallback message. Please add template in admin panel."
+            )
+        
+        return template
+    except Exception as e:
+        logger.error(f"Error loading template {template_type}: {e}")
+        return None
+
+
+def render_template(template_type: str, **context):
+    """
+    Render a message template with context variables.
+    
+    ✅ Fully database-driven - NO hardcoded message formats
+    
+    Args:
+        template_type: Type of template to render
+        **context: Variables to substitute in template
+    
+    Returns:
+        Rendered message string
+    """
+    template = get_template(template_type)
+    
+    if not template:
+        # Fallback if no template found
+        logger.error(
+            f"❌ No template found for {template_type}! "
+            f"Please create template in admin panel at /api/whatsapp/admin/"
+        )
+        return f"Notification: {template_type}\n\n" + "\n".join(
+            f"{k}: {v}" for k, v in context.items()
+        )
+    
+    try:
+        return template.render(**context)
+    except Exception as e:
+        logger.error(f"Error rendering template {template_type}: {e}")
+        # Fallback to basic format
+        return f"Notification: {template_type}\n\n" + "\n".join(
+            f"{k}: {v}" for k, v in context.items()
+        )
+
+
+# ================== MESSAGE FORMATTERS (NOW USING DATABASE TEMPLATES) ==================
 
 def _user_name(user) -> str:
+    """Get user's display name"""
     return getattr(user, "name", None) or getattr(user, "username", "User")
 
 
 def _safe_date(dt) -> str:
+    """Safely format a date object"""
     try:
         if dt:
             return dt.strftime("%d %b %Y")
@@ -255,23 +414,37 @@ def _safe_date(dt) -> str:
 
 def format_punch_message(user, action, location="Not recorded", time=""):
     """
-    Format punch in/out message.
-    action: "PUNCH IN" or "PUNCH OUT"
+    Format punch in/out message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    
+    Args:
+        user: User object
+        action: "PUNCH IN" or "PUNCH OUT"
+        location: Location name
+        time: Time string
+    
+    Returns:
+        Formatted message string
     """
-    user_name = _user_name(user)
-
-    return f"""📍 Attendance Alert
-
-Employee: {user_name}
-Action: {action}
-Location: {location}
-Time: {time}
-
-Thank you!"""
+    template_type = 'punch_in' if 'IN' in action.upper() else 'punch_out'
+    
+    return render_template(
+        template_type,
+        employee_name=_user_name(user),
+        action=action,
+        location=location,
+        time=time,
+        date=_safe_date(None)  # Will be filled by caller if needed
+    )
 
 
 def format_leave_request_message(leave_request):
-    """Format leave request submission message (to employee + HR)."""
+    """
+    Format leave request submission message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    """
     user_name = _user_name(leave_request.user)
 
     if hasattr(leave_request, "get_leave_type_display"):
@@ -284,20 +457,23 @@ def format_leave_request_message(leave_request):
     days = getattr(leave_request, "total_days", None) or "Not specified"
     reason = getattr(leave_request, "reason", "") or "No reason provided"
 
-    return f"""📋 Leave Request Submitted
-
-Employee: {user_name}
-Type: {leave_type}
-From: {from_date}
-To: {to_date}
-Days: {days}
-Reason: {reason}
-
-Status: Pending Approval"""
+    return render_template(
+        'leave_request',
+        employee_name=user_name,
+        leave_type=leave_type,
+        from_date=from_date,
+        to_date=to_date,
+        days=str(days),
+        reason=reason
+    )
 
 
 def format_leave_approval_message(leave_request, approved_by):
-    """Format leave approval/rejection message (to employee)."""
+    """
+    Format leave approval/rejection message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    """
     user_name = _user_name(leave_request.user)
     approver_name = _user_name(approved_by)
 
@@ -316,41 +492,49 @@ def format_leave_approval_message(leave_request, approved_by):
     days = getattr(leave_request, "total_days", None) or "Not specified"
     reason = getattr(leave_request, "reason", "") or "No reason provided"
 
-    status_flag = "✅ APPROVED" if getattr(leave_request, "status", "") == "approved" else "❌ REJECTED"
+    # Use appropriate template based on status
+    template_type = 'leave_approval' if getattr(leave_request, "status", "") == "approved" else 'leave_rejection'
 
-    return f"""📋 Leave Request {status_flag}
-
-Employee: {user_name}
-Type: {leave_type}
-From: {from_date}
-To: {to_date}
-Days: {days}
-Reason: {reason}
-
-Status: {status_display}
-Approved/Updated by: {approver_name}"""
+    return render_template(
+        template_type,
+        employee_name=user_name,
+        leave_type=leave_type,
+        from_date=from_date,
+        to_date=to_date,
+        days=str(days),
+        reason=reason,
+        status=status_display,
+        approver_name=approver_name
+    )
 
 
 def format_late_request_message(late_request):
-    """Format late-coming request submission message."""
+    """
+    Format late-coming request submission message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    """
     user_name = _user_name(late_request.user)
     reason = getattr(late_request, "reason", "") or "No reason provided"
     late_by = getattr(late_request, "late_by_minutes", None)
     late_text = f"{late_by} minutes" if late_by is not None else "Not specified"
     date = _safe_date(getattr(late_request, "date", None))
 
-    return f"""⏰ Late Coming Request Submitted
-
-Employee: {user_name}
-Date: {date}
-Late By: {late_text}
-Reason: {reason}
-
-Status: Pending Approval"""
+    return render_template(
+        'late_request',
+        employee_name=user_name,
+        date=date,
+        late_by=late_text,
+        reason=reason
+    )
 
 
 def format_late_approval_message(late_request, approved_by):
-    """Format late-coming approval/rejection message."""
+    """
+    Format late-coming approval/rejection message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    """
     user_name = _user_name(late_request.user)
     approver_name = _user_name(approved_by)
     reason = getattr(late_request, "reason", "") or "No reason provided"
@@ -363,39 +547,47 @@ def format_late_approval_message(late_request, approved_by):
     else:
         status_display = getattr(late_request, "status", "")
 
-    status_flag = "✅ APPROVED" if getattr(late_request, "status", "") == "approved" else "❌ REJECTED"
+    # Use appropriate template based on status
+    template_type = 'late_approval' if getattr(late_request, "status", "") == "approved" else 'late_rejection'
 
-    return f"""⏰ Late Coming Request {status_flag}
-
-Employee: {user_name}
-Date: {date}
-Late By: {late_text}
-Reason: {reason}
-
-Status: {status_display}
-Approved/Updated by: {approver_name}"""
+    return render_template(
+        template_type,
+        employee_name=user_name,
+        date=date,
+        late_by=late_text,
+        reason=reason,
+        status=status_display,
+        approver_name=approver_name
+    )
 
 
 def format_early_request_message(early_request):
-    """Format early-going request submission message."""
+    """
+    Format early-going request submission message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    """
     user_name = _user_name(early_request.user)
     reason = getattr(early_request, "reason", "") or "No reason provided"
     early_by = getattr(early_request, "early_by_minutes", None)
     early_text = f"{early_by} minutes" if early_by is not None else "Not specified"
     date = _safe_date(getattr(early_request, "date", None))
 
-    return f"""⏳ Early Going Request Submitted
-
-Employee: {user_name}
-Date: {date}
-Early By: {early_text}
-Reason: {reason}
-
-Status: Pending Approval"""
+    return render_template(
+        'early_request',
+        employee_name=user_name,
+        date=date,
+        early_by=early_text,
+        reason=reason
+    )
 
 
 def format_early_approval_message(early_request, approved_by):
-    """Format early-going approval/rejection message."""
+    """
+    Format early-going approval/rejection message using database template.
+    
+    ✅ Uses database template - NO hardcoded format
+    """
     user_name = _user_name(early_request.user)
     approver_name = _user_name(approved_by)
     reason = getattr(early_request, "reason", "") or "No reason provided"
@@ -408,14 +600,15 @@ def format_early_approval_message(early_request, approved_by):
     else:
         status_display = getattr(early_request, "status", "")
 
-    status_flag = "✅ APPROVED" if getattr(early_request, "status", "") == "approved" else "❌ REJECTED"
+    # Use appropriate template based on status
+    template_type = 'early_approval' if getattr(early_request, "status", "") == "approved" else 'early_rejection'
 
-    return f"""⏳ Early Going Request {status_flag}
-
-Employee: {user_name}
-Date: {date}
-Early By: {early_text}
-Reason: {reason}
-
-Status: {status_display}
-Approved/Updated by: {approver_name}"""
+    return render_template(
+        template_type,
+        employee_name=user_name,
+        date=date,
+        early_by=early_text,
+        reason=reason,
+        status=status_display,
+        approver_name=approver_name
+    )

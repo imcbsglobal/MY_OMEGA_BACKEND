@@ -1608,3 +1608,221 @@ WARNING 2026-01-24 16:02:14,530 geofence [GEOFENCE] Excess: 79667.66m
 WARNING 2026-01-26 19:03:17,345 geofence [GEOFENCE] User myomega@gmail.com - Location: (11.6180017318762, 76.08151446438292)
 WARNING 2026-01-26 19:03:23,225 geofence [GEOFENCE] User myomega@gmail.com - Location: (11.6180017318762, 76.08151446438292)
 WARNING 2026-01-26 19:03:38,443 geofence [GEOFENCE] User myomega@gmail.com - Location: (11.6180017318762, 76.08151446438292)
+WARNING 2026-01-27 10:16:24,019 geofence [GEOFENCE] User myomega@gmail.com - Location: (11.618000406941642, 76.0815157406353)
+INFO 2026-01-27 16:25:51,482 views === LATE REQUEST CREATE START ===
+INFO 2026-01-27 16:25:51,485 views User: 1
+INFO 2026-01-27 16:25:51,486 views Request data: {'date': '2026-01-27', 'late_by_minutes': 20, 'reason': 'ndggfdrf'}
+INFO 2026-01-27 16:25:51,486 views Serializer validation...
+INFO 2026-01-27 16:25:51,489 views Serializer validation passed
+INFO 2026-01-27 16:25:51,489 views Performing create...
+INFO 2026-01-27 16:25:51,490 views Creating late request for user: 1
+INFO 2026-01-27 16:25:51,846 views Late request created successfully: 4
+INFO 2026-01-27 16:25:51,848 views Perform create completed
+INFO 2026-01-27 16:25:51,856 views Fetching created instance...
+INFO 2026-01-27 16:25:51,890 views Instance serialized successfully
+INFO 2026-01-27 16:25:51,896 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-28 09:50:05,567 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 09:50:05,569 views User: 1
+INFO 2026-01-28 09:50:05,570 views Request data: {'date': '2026-01-29', 'late_by_minutes': 20, 'reason': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}
+INFO 2026-01-28 09:50:05,572 views Serializer validation...
+INFO 2026-01-28 09:50:05,577 views Serializer validation passed
+INFO 2026-01-28 09:50:05,579 views Performing create...
+INFO 2026-01-28 09:50:05,582 views Creating late request for user: 1
+INFO 2026-01-28 09:50:06,427 views Late request created successfully: 5
+INFO 2026-01-28 09:50:06,429 views Perform create completed
+INFO 2026-01-28 09:50:06,430 views Fetching created instance...
+INFO 2026-01-28 09:50:06,491 views Instance serialized successfully
+INFO 2026-01-28 09:50:06,495 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-28 10:06:00,511 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 10:06:00,511 views User: 1
+INFO 2026-01-28 10:06:00,511 views Request data: {'date': '2026-01-29', 'late_by_minutes': 33, 'reason': 'ssssssssssssssssssssssssssssss'}
+INFO 2026-01-28 10:06:00,512 views Serializer validation...
+INFO 2026-01-28 10:06:00,513 views Serializer validation passed
+INFO 2026-01-28 10:06:00,513 views Performing create...
+INFO 2026-01-28 10:06:00,514 views Creating late request for user: 1
+INFO 2026-01-28 10:06:00,798 views Late request created successfully: 6
+INFO 2026-01-28 10:06:00,799 views Perform create completed
+INFO 2026-01-28 10:06:00,799 views Fetching created instance...
+INFO 2026-01-28 10:06:00,882 views Instance serialized successfully
+INFO 2026-01-28 10:06:00,883 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-28 10:23:40,026 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 10:23:40,026 views User: 1
+INFO 2026-01-28 10:23:40,027 views Request data: {'date': '2026-01-28', 'late_by_minutes': 22, 'reason': 'ddddddddddddddddddddddddddddddddddddddd'}
+INFO 2026-01-28 10:23:40,027 views Serializer validation...
+INFO 2026-01-28 10:23:40,028 views Serializer validation passed
+INFO 2026-01-28 10:23:40,028 views Performing create...
+INFO 2026-01-28 10:23:40,029 views Creating late request for user: 1
+INFO 2026-01-28 10:23:40,394 views Late request created successfully: 7
+INFO 2026-01-28 10:23:40,394 views Perform create completed
+INFO 2026-01-28 10:23:40,395 views Fetching created instance...
+INFO 2026-01-28 10:23:40,401 views Instance serialized successfully
+INFO 2026-01-28 10:23:40,401 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-28 10:27:35,074 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 10:27:35,075 views User: 1
+INFO 2026-01-28 10:27:35,075 views Request data: {'date': '2026-01-27', 'late_by_minutes': 33, 'reason': 'ffffffffffffffffffffffffffffffffffff'}
+INFO 2026-01-28 10:27:35,076 views Serializer validation...
+ERROR 2026-01-28 10:27:35,076 views === LATE REQUEST CREATE FAILED ===
+ERROR 2026-01-28 10:27:35,077 views Error: {'date': [ErrorDetail(string='Date cannot be in the past', code='invalid')]}
+ERROR 2026-01-28 10:27:35,323 views Traceback (most recent call last):
+  File "D:\omega full\MY_OMEGA_BACKEND\HR\views.py", line 1136, in create
+    serializer.is_valid(raise_exception=True)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Roaming\Python\Python313\site-packages\rest_framework\serializers.py", line 231, in is_valid
+    raise ValidationError(self.errors)
+rest_framework.exceptions.ValidationError: {'date': [ErrorDetail(string='Date cannot be in the past', code='invalid')]}
+
+INFO 2026-01-28 10:37:48,129 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 10:37:48,129 views User: 1
+INFO 2026-01-28 10:37:48,130 views Request data: {'date': '2026-01-29', 'late_by_minutes': 22, 'reason': 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'}
+INFO 2026-01-28 10:37:48,130 views Serializer validation...
+INFO 2026-01-28 10:37:48,132 views Serializer validation passed
+INFO 2026-01-28 10:37:48,133 views Performing create...
+INFO 2026-01-28 10:37:48,133 views Creating late request for user: 1
+INFO 2026-01-28 10:37:48,636 views Late request created successfully: 8
+INFO 2026-01-28 10:37:48,636 views Perform create completed
+INFO 2026-01-28 10:37:48,636 views Fetching created instance...
+INFO 2026-01-28 10:37:48,738 views Instance serialized successfully
+INFO 2026-01-28 10:37:48,739 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-28 10:40:30,384 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 10:40:30,384 views User: 1
+INFO 2026-01-28 10:40:30,385 views Request data: {'date': '2026-01-30', 'late_by_minutes': 22, 'reason': 'ccccccccccccccccccccccccccccccc'}
+INFO 2026-01-28 10:40:30,385 views Serializer validation...
+INFO 2026-01-28 10:40:30,386 views Serializer validation passed
+INFO 2026-01-28 10:40:30,386 views Performing create...
+INFO 2026-01-28 10:40:30,387 views Creating late request for user: 1
+INFO 2026-01-28 10:40:30,804 views Late request created successfully: 9
+INFO 2026-01-28 10:40:30,804 views Perform create completed
+INFO 2026-01-28 10:40:30,804 views Fetching created instance...
+INFO 2026-01-28 10:40:30,810 views Instance serialized successfully
+INFO 2026-01-28 10:40:30,810 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-28 10:41:45,867 views === LATE REQUEST CREATE START ===
+INFO 2026-01-28 10:41:45,868 views User: 1
+INFO 2026-01-28 10:41:45,868 views Request data: {'date': '2026-01-31', 'late_by_minutes': 33, 'reason': 'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv'}
+INFO 2026-01-28 10:41:45,869 views Serializer validation...
+INFO 2026-01-28 10:41:45,870 views Serializer validation passed
+INFO 2026-01-28 10:41:45,870 views Performing create...
+INFO 2026-01-28 10:41:45,870 views Creating late request for user: 1
+INFO 2026-01-28 10:41:46,412 views Late request created successfully: 10
+INFO 2026-01-28 10:41:46,413 views Perform create completed
+INFO 2026-01-28 10:41:46,413 views Fetching created instance...
+INFO 2026-01-28 10:41:46,418 views Instance serialized successfully
+INFO 2026-01-28 10:41:46,419 views === LATE REQUEST CREATE SUCCESS ===
+INFO 2026-01-29 10:43:30,924 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:43:30,925 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:43:30,925 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618001315096908ascdsvsdfsdfsd, Lon: 76.0815155902185', 'latitude': 11.618001315096908, 'longitude': 76.0815155902185, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 84, 'notes': 'asdsacsdedfefsd', 'is_active': True}
+ERROR 2026-01-29 10:43:31,549 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 10:48:24,300 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:48:24,300 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:48:24,301 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618001315096908ascdsvsdfsdfsd, Lon: 76.0815155902185', 'latitude': 11.618001315096908, 'longitude': 76.0815155902185, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 84, 'notes': 'asdsacsdedfefsd', 'is_active': True}
+ERROR 2026-01-29 10:48:24,444 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 10:48:25,679 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:48:25,681 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:48:25,682 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618001315096908ascdsvsdfsdfsd, Lon: 76.0815155902185', 'latitude': 11.618001315096908, 'longitude': 76.0815155902185, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 84, 'notes': 'asdsacsdedfefsd', 'is_active': True}
+ERROR 2026-01-29 10:48:25,737 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 10:49:23,402 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:49:23,403 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:49:23,406 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.61800106253861, Lon: 76.sss08151508048107', 'latitude': 11.61800106253861, 'longitude': 76.08151508048107, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 85, 'notes': 'sssss', 'is_active': True}
+ERROR 2026-01-29 10:49:23,553 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 10:50:18,131 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:50:18,132 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:50:18,133 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618001315096908, Lon: 76.0815155902185', 'latitude': 11.618001315096908, 'longitude': 76.0815155902185, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 84, 'notes': 'erffff', 'is_active': True}
+ERROR 2026-01-29 10:50:18,170 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 10:51:38,910 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:51:38,911 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:51:38,911 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618004690868757, Lon: 76.08151490150757', 'latitude': 11.618004690868757, 'longitude': 76.08151490150757, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 81, 'notes': 'buuh', 'is_active': True}
+ERROR 2026-01-29 10:51:38,946 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 10:55:41,906 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 10:55:41,908 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 10:55:41,910 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618004690868757, Lon: 76.08151490150757', 'latitude': 11.618004690868757, 'longitude': 76.08151490150757, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 81, 'notes': 'buuh', 'is_active': True}
+ERROR 2026-01-29 10:55:42,068 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 11:11:47,483 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 11:11:47,485 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 11:11:47,488 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcb', 'address': 'Lat: 11.618004690868757, Lon: 76.08151490150757', 'latitude': 11.618004690868757, 'longitude': 76.08151490150757, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 81, 'notes': 'buuh', 'is_active': True}
+ERROR 2026-01-29 11:11:47,678 views_office_config [OFFICE CONFIG] Errors: {'latitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')], 'longitude': [ErrorDetail(string='Ensure that there are no more than 10 digits in total.', code='max_digits')]}
+INFO 2026-01-29 11:12:22,451 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 11:12:22,453 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 11:12:22,454 views_office_config [OFFICE CONFIG] Request data: {'name': 'imc', 'address': 'Lat: 11.6180017, Lon: 76.0815147', 'latitude': 11.6180017, 'longitude': 76.0815147, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 79, 'notes': 'sdsdss', 'is_active': True}
+INFO 2026-01-29 11:12:22,674 views_office_config [OFFICE CONFIG] Name: imc
+INFO 2026-01-29 11:12:22,678 views_office_config [OFFICE CONFIG] Address: Lat: 11.6180017, Lon: 76.0815147
+INFO 2026-01-29 11:12:22,683 views_office_config [OFFICE CONFIG] Coordinates: (11.6180017, 76.0815147)
+INFO 2026-01-29 11:12:22,685 views_office_config [OFFICE CONFIG] Radius: 100m
+INFO 2026-01-29 11:12:22,688 views_office_config [OFFICE CONFIG] Detection method: gps
+INFO 2026-01-29 11:12:22,690 views_office_config [OFFICE CONFIG] GPS accuracy: 79.00m
+INFO 2026-01-29 11:12:22,698 views_office_config [OFFICE CONFIG] Is active: True
+INFO 2026-01-29 11:12:22,698 views_office_config [OFFICE CONFIG] ==========================================
+INFO 2026-01-29 11:13:29,991 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 11:13:29,994 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-29 11:13:30,010 geofence [GEOFENCE] Office: imc
+INFO 2026-01-29 11:13:30,014 geofence [GEOFENCE] User: (11.618002, 76.081515)
+INFO 2026-01-29 11:13:30,028 geofence [GEOFENCE] Office: (11.618002, 76.081515)
+INFO 2026-01-29 11:13:30,040 geofence [GEOFENCE] Distance: 0.01m | Allowed: 100.0m
+INFO 2026-01-29 11:13:30,046 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 11:13:30,621 geofence [GEOFENCE] Buffer remaining: 99.99m
+INFO 2026-01-29 11:13:46,264 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 11:13:46,267 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-29 11:13:46,267 geofence [GEOFENCE] Office: imc
+INFO 2026-01-29 11:13:46,268 geofence [GEOFENCE] User: (11.618002, 76.081515)
+INFO 2026-01-29 11:13:46,269 geofence [GEOFENCE] Office: (11.618002, 76.081515)
+INFO 2026-01-29 11:13:46,269 geofence [GEOFENCE] Distance: 0.01m | Allowed: 100.0m
+INFO 2026-01-29 11:13:46,270 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 11:13:46,308 geofence [GEOFENCE] Buffer remaining: 99.99m
+INFO 2026-01-29 11:25:54,047 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 11:25:54,048 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 11:25:54,049 views_office_config [OFFICE CONFIG] Request data: {'name': 'imc', 'address': 'Lat: 11.6180033, Lon: 76.0815138', 'latitude': 11.6180033, 'longitude': 76.0815138, 'geofence_radius_meters': 30, 'detection_method': 'gps', 'gps_accuracy_meters': 79, 'notes': 'qweddwdqd', 'is_active': True}
+INFO 2026-01-29 11:25:54,061 Serializers [OFFICE CONFIG] Will deactivate existing office: imc
+INFO 2026-01-29 11:25:54,518 views_office_config [OFFICE CONFIG] Name: imc
+INFO 2026-01-29 11:25:54,623 views_office_config [OFFICE CONFIG] Address: Lat: 11.6180033, Lon: 76.0815138
+INFO 2026-01-29 11:25:54,624 views_office_config [OFFICE CONFIG] Coordinates: (11.6180033, 76.0815138)
+INFO 2026-01-29 11:25:54,624 views_office_config [OFFICE CONFIG] Radius: 30m
+INFO 2026-01-29 11:25:54,625 views_office_config [OFFICE CONFIG] Detection method: gps
+INFO 2026-01-29 11:25:54,626 views_office_config [OFFICE CONFIG] GPS accuracy: 79.00m
+INFO 2026-01-29 11:25:54,627 views_office_config [OFFICE CONFIG] Is active: True
+INFO 2026-01-29 11:25:54,627 views_office_config [OFFICE CONFIG] ==========================================
+INFO 2026-01-29 11:28:47,404 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 11:28:47,405 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 11:28:47,406 views_office_config [OFFICE CONFIG] Request data: {'name': 'sysmac', 'address': 'Lat: 11.6180093, Lon: 76.0815126', 'latitude': 11.6180093, 'longitude': 76.0815126, 'geofence_radius_meters': 30, 'detection_method': 'gps', 'gps_accuracy_meters': 79, 'notes': 'iiiiii', 'is_active': True}
+INFO 2026-01-29 11:28:47,421 Serializers [OFFICE CONFIG] Will deactivate existing office: imc
+INFO 2026-01-29 11:28:47,493 views_office_config [OFFICE CONFIG] Name: sysmac
+INFO 2026-01-29 11:28:47,494 views_office_config [OFFICE CONFIG] Address: Lat: 11.6180093, Lon: 76.0815126
+INFO 2026-01-29 11:28:47,495 views_office_config [OFFICE CONFIG] Coordinates: (11.6180093, 76.0815126)
+INFO 2026-01-29 11:28:47,496 views_office_config [OFFICE CONFIG] Radius: 30m
+INFO 2026-01-29 11:28:47,499 views_office_config [OFFICE CONFIG] Detection method: gps
+INFO 2026-01-29 11:28:47,500 views_office_config [OFFICE CONFIG] GPS accuracy: 79.00m
+INFO 2026-01-29 11:28:47,502 views_office_config [OFFICE CONFIG] Is active: True
+INFO 2026-01-29 11:28:47,505 views_office_config [OFFICE CONFIG] ==========================================
+INFO 2026-01-29 11:35:15,618 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 11:35:15,621 geofence [GEOFENCE] Validating: Unknown user
+INFO 2026-01-29 11:35:15,623 geofence [GEOFENCE] Office: sysmac
+INFO 2026-01-29 11:35:15,625 geofence [GEOFENCE] User: (11.618002, 76.081513)
+INFO 2026-01-29 11:35:15,627 geofence [GEOFENCE] Office: (11.618009, 76.081513)
+INFO 2026-01-29 11:35:15,635 geofence [GEOFENCE] Distance: 0.85m | Allowed: 30.0m
+INFO 2026-01-29 11:35:15,668 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 11:35:15,788 geofence [GEOFENCE] Buffer remaining: 29.15m
+INFO 2026-01-29 12:06:06,057 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-01-29 12:06:06,058 views_office_config [OFFICE CONFIG] User: myomega@gmail.com
+INFO 2026-01-29 12:06:06,059 views_office_config [OFFICE CONFIG] Request data: {'name': 'imc', 'address': 'Lat: 11.6179967, Lon: 76.0815171', 'latitude': 11.6179967, 'longitude': 76.0815171, 'geofence_radius_meters': 100, 'detection_method': 'gps', 'gps_accuracy_meters': 98, 'notes': 'ascscsA', 'is_active': True}
+INFO 2026-01-29 12:06:06,076 Serializers [OFFICE CONFIG] Will deactivate existing office: sysmac
+INFO 2026-01-29 12:06:06,206 views_office_config [OFFICE CONFIG] Name: imc
+INFO 2026-01-29 12:06:06,207 views_office_config [OFFICE CONFIG] Address: Lat: 11.6179967, Lon: 76.0815171
+INFO 2026-01-29 12:06:06,207 views_office_config [OFFICE CONFIG] Coordinates: (11.6179967, 76.0815171)
+INFO 2026-01-29 12:06:06,208 views_office_config [OFFICE CONFIG] Radius: 100m
+INFO 2026-01-29 12:06:06,208 views_office_config [OFFICE CONFIG] Detection method: gps
+INFO 2026-01-29 12:06:06,209 views_office_config [OFFICE CONFIG] GPS accuracy: 98.00m
+INFO 2026-01-29 12:06:06,209 views_office_config [OFFICE CONFIG] Is active: True
+INFO 2026-01-29 12:06:06,209 views_office_config [OFFICE CONFIG] ==========================================
+INFO 2026-01-29 12:06:11,152 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 12:06:11,155 geofence [GEOFENCE] Validating: Unknown user
+INFO 2026-01-29 12:06:11,156 geofence [GEOFENCE] Office: imc
+INFO 2026-01-29 12:06:11,157 geofence [GEOFENCE] User: (11.618000, 76.081516)
+INFO 2026-01-29 12:06:11,158 geofence [GEOFENCE] Office: (11.617997, 76.081517)
+INFO 2026-01-29 12:06:11,158 geofence [GEOFENCE] Distance: 0.36m | Allowed: 100.0m
+INFO 2026-01-29 12:06:11,159 geofence [GEOFENCE] ============================================================
+INFO 2026-01-29 12:06:11,229 geofence [GEOFENCE] Buffer remaining: 99.64m
+INFO 2026-01-31 14:45:09,679 geofence [GEOFENCE] ============================================================
+INFO 2026-01-31 14:45:09,684 geofence [GEOFENCE] Validating: User myomega@gmail.com
+INFO 2026-01-31 14:45:09,687 geofence [GEOFENCE] Office: imc
+INFO 2026-01-31 14:45:09,688 geofence [GEOFENCE] User: (11.618002, 76.081514)
+INFO 2026-01-31 14:45:09,691 geofence [GEOFENCE] Office: (11.617997, 76.081517)
+INFO 2026-01-31 14:45:09,694 geofence [GEOFENCE] Distance: 0.73m | Allowed: 100.0m
+INFO 2026-01-31 14:45:09,695 geofence [GEOFENCE] ============================================================
+INFO 2026-01-31 14:45:10,693 geofence [GEOFENCE] Buffer remaining: 99.27m

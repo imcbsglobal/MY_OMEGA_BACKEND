@@ -478,3 +478,200 @@ class EmployeeLeaveBalanceSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+
+
+
+
+
+# HR/serializers_office.py - New file for office configuration serializers
+
+from rest_framework import serializers
+from .models import OfficeLocation
+from User.serializers import UserBasicSerializer
+
+
+class OfficeLocationSerializer(serializers.ModelSerializer):
+    """Serializer for viewing office location details"""
+    
+    configured_by_details = UserBasicSerializer(source='configured_by', read_only=True)
+    detection_method_display = serializers.CharField(source='get_detection_method_display', read_only=True)
+    coordinates = serializers.SerializerMethodField()
+    distance_info = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = OfficeLocation
+        fields = [
+            'id',
+            'name',
+            'address',
+            'latitude',
+            'longitude',
+            'coordinates',
+            'geofence_radius_meters',
+            'distance_info',
+            'is_active',
+            'detection_method',
+            'detection_method_display',
+            'gps_accuracy_meters',
+            'configured_by',
+            'configured_by_details',
+            'configured_at',
+            'updated_at',
+            'notes'
+        ]
+        read_only_fields = ['id', 'configured_at', 'updated_at']
+    
+    def get_coordinates(self, obj):
+        """Return coordinates as a formatted object"""
+        return {
+            'latitude': float(obj.latitude),
+            'longitude': float(obj.longitude),
+            'display': f"{obj.latitude}, {obj.longitude}"
+        }
+
+
+class OfficeLocationCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating office location"""
+    
+    # Make these fields explicitly optional with defaults
+    is_active = serializers.BooleanField(default=True, required=False)
+    detection_method = serializers.CharField(default='gps', required=False)
+    gps_accuracy_meters = serializers.DecimalField(
+        max_digits=6, 
+        decimal_places=2, 
+        required=False, 
+        allow_null=True
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+    class Meta:
+        model = OfficeLocation
+        fields = [
+            'name',
+            'address',
+            'latitude',
+            'longitude',
+            'geofence_radius_meters',
+            'detection_method',
+            'gps_accuracy_meters',
+            'notes',
+            'is_active'
+        ]
+    
+    def validate_latitude(self, value):
+        """
+        Validate and ROUND latitude to fit DecimalField(max_digits=10, decimal_places=7)
+        """
+        try:
+            from decimal import Decimal, ROUND_HALF_UP
+            
+            # Convert to Decimal and round to 7 decimal places
+            lat = Decimal(str(value)).quantize(
+                Decimal('0.0000001'),  # 7 decimal places
+                rounding=ROUND_HALF_UP
+            )
+            
+            # Validate range
+            if not -90 <= lat <= 90:
+                raise serializers.ValidationError(
+                    "Latitude must be between -90 and 90 degrees"
+                )
+            
+            return lat
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Invalid latitude value: {str(e)}")
+    
+    def validate_longitude(self, value):
+        """
+        Validate and ROUND longitude to fit DecimalField(max_digits=10, decimal_places=7)
+        """
+        try:
+            from decimal import Decimal, ROUND_HALF_UP
+            
+            # Convert to Decimal and round to 7 decimal places
+            lon = Decimal(str(value)).quantize(
+                Decimal('0.0000001'),  # 7 decimal places
+                rounding=ROUND_HALF_UP
+            )
+            
+            # Validate range
+            if not -180 <= lon <= 180:
+                raise serializers.ValidationError(
+                    "Longitude must be between -180 and 180 degrees"
+                )
+            
+            return lon
+            
+        except Exception as e:
+            raise serializers.ValidationError(f"Invalid longitude value: {str(e)}")
+    
+    def validate_geofence_radius_meters(self, value):
+        """Validate radius is reasonable"""
+        try:
+            radius = int(value)
+            if not 10 <= radius <= 500:
+                raise serializers.ValidationError(
+                    "Geofence radius must be between 10 and 500 meters. "
+                    "Recommended: 50-100m for standard offices."
+                )
+            return radius
+        except (TypeError, ValueError):
+            raise serializers.ValidationError("Invalid radius value")
+    
+    def validate(self, data):
+        """Additional cross-field validation"""
+        is_active = data.get('is_active', True)
+        
+        if is_active:
+            existing_active = OfficeLocation.objects.filter(is_active=True).first()
+            if existing_active:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"[OFFICE CONFIG] Will deactivate existing office: {existing_active.name}"
+                )
+        
+        return data
+
+
+class OfficeLocationTestSerializer(serializers.Serializer):
+    """Serializer for testing a location against geofence"""
+    
+    latitude = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=15,
+        help_text='Test latitude'
+    )
+    longitude = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=15,
+        help_text='Test longitude'
+    )
+    
+    def validate_latitude(self, value):
+        if not -90 <= float(value) <= 90:
+            raise serializers.ValidationError("Invalid latitude")
+        return value
+    
+    def validate_longitude(self, value):
+        if not -180 <= float(value) <= 180:
+            raise serializers.ValidationError("Invalid longitude")
+        return value
+
+
+class OfficeLocationSummarySerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing offices"""
+    
+    class Meta:
+        model = OfficeLocation
+        fields = [
+            'id',
+            'name',
+            'address',
+            'geofence_radius_meters',
+            'is_active',
+            'configured_at'
+        ]        

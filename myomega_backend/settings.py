@@ -62,6 +62,8 @@ INSTALLED_APPS = [
     "payroll",
     'whatsapp_service',
     'master',
+    'vehicle_management',
+
 ]
 
 MIDDLEWARE = [
@@ -236,17 +238,17 @@ REST_FRAMEWORK = {
 
 # SimpleJWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # ✅ Check this
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': False,
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
+    'SIGNING_KEY': SECRET_KEY,  # ✅ Must match your SECRET_KEY
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
-    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_TYPES': ('Bearer',),  # ✅ Must match frontend
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
@@ -317,13 +319,22 @@ CORS_ALLOW_HEADERS = [
 
 
 
-# DXING API Configuration
-DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
-DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
-DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
-# CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-DXING_DEFAULT_PRIORITY = 1
+# # DXING API Configuration
+# DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
+# DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
+# DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
+# # CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_CREDENTIALS = True
+# DXING_DEFAULT_PRIORITY = 1
+
+
+
+
+DXING_API_URL = os.getenv('DXING_API_URL', "https://app.dxing.in/api/send/whatsapp")
+DXING_SECRET = os.getenv('DXING_SECRET', "")  # Migrate to database!
+DXING_ACCOUNT = os.getenv('DXING_ACCOUNT', "")  # Migrate to database!
+DXING_DEFAULT_PRIORITY = int(os.getenv('DXING_DEFAULT_PRIORITY', '1'))
+
 # =========================
 # OFFICE GEOFENCE SETTINGS
 # =========================
