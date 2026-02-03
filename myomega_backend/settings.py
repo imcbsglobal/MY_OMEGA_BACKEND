@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'whatsapp_service',
     'master',
     'vehicle_management',
+    # 'target_management',
 
 ]
 

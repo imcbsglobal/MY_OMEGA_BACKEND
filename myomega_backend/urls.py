@@ -26,12 +26,13 @@ urlpatterns = [
     path('api/payroll/', include('payroll.urls')),
 
     # Others
-     path('api/whatsapp/admin/', include('whatsapp_service.admin_urls')),
+    path('api/whatsapp/admin/', include('whatsapp_service.admin_urls')),
     path('api/whatsapp/', include('whatsapp_service.urls')),
     path('api/certificate/', include('certificate_hub.urls')),
     path('api/master/', include('master.urls')),
     path('api/leaves/', include('master.urls')),
     path('api/vehicle-management/', include('vehicle_management.urls')),
+    # path('api/target-management/', include('target_management.urls')),
  
 
 ]
