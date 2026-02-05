@@ -63,7 +63,7 @@ INSTALLED_APPS = [
     'whatsapp_service',
     'master',
     'vehicle_management',
-    # 'target_management',
+    'target_management',
 
 ]
 
@@ -350,15 +350,15 @@ DXING_DEFAULT_PRIORITY = int(os.getenv('DXING_DEFAULT_PRIORITY', '1'))
 # Your Office Location: 10°55'15.8"N 75°55'33.8"E
 # NEW COORDINATES FOR TIRUR:
 
-OFFICE_LATITUDE = 10.8505000   # Tirur latitude (corrected)
-OFFICE_LONGITUDE = 76.2711000  # Tirur longitude (corrected)
+# OFFICE_LATITUDE = 10.8505000   # Tirur latitude (corrected)
+# OFFICE_LONGITUDE = 76.2711000  # Tirur longitude (corrected)
 
-# Geofence Radius (in meters)
-# Users must be within this distance to punch in/out
-OFFICE_GEOFENCE_RADIUS_METERS = 350  # 600 meters = wider coverage
+# # Geofence Radius (in meters)
+# # Users must be within this distance to punch in/out
+# OFFICE_GEOFENCE_RADIUS_METERS = 350  # 600 meters = wider coverage
 
-# Office address for display
-OFFICE_ADDRESS = "Tirur, Malappuram, Kerala, India"
+# # Office address for display
+# OFFICE_ADDRESS = "Tirur, Malappuram, Kerala, India"
  
 
 

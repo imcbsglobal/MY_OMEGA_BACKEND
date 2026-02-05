@@ -1836,3 +1836,20 @@ INFO 2026-01-31 17:05:29,059 geofence [GEOFENCE] Office: (9.931200, 76.267300)
 INFO 2026-01-31 17:05:29,060 geofence [GEOFENCE] Distance: 0.0m | Allowed: 100.0m
 INFO 2026-01-31 17:05:29,060 geofence [GEOFENCE] ============================================================
 INFO 2026-01-31 17:05:29,140 geofence [GEOFENCE] Buffer remaining: 100.00m
+ERROR 2026-02-04 16:28:54,488 geofence [GEOFENCE] Please configure office location in Django Admin.
+INFO 2026-02-04 16:28:54,506 geofence [GEOFENCE] User admin@gmail.com - Distance: 87811.32m | Allowed: 350.0m
+ERROR 2026-02-04 16:28:58,176 geofence [GEOFENCE] Please configure office location in Django Admin.
+INFO 2026-02-04 16:28:58,196 geofence [GEOFENCE] User admin@gmail.com - Distance: 87811.32m | Allowed: 350.0m
+ERROR 2026-02-04 16:29:52,369 geofence [GEOFENCE] Please configure office location in Django Admin.
+INFO 2026-02-04 16:29:52,400 geofence [GEOFENCE] User admin@gmail.com - Distance: 27.49m | Allowed: 50.0m
+INFO 2026-02-04 16:30:22,231 views_office_config [OFFICE CONFIG] ====== DETECT MY LOCATION REQUEST ======
+INFO 2026-02-04 16:30:22,231 views_office_config [OFFICE CONFIG] User: admin@gmail.com
+INFO 2026-02-04 16:30:22,232 views_office_config [OFFICE CONFIG] Request data: {'name': 'imcbs', 'address': 'Office Location', 'latitude': 11.6180047, 'longitude': 76.0815117, 'geofence_radius_meters': 50, 'detection_method': 'gps', 'gps_accuracy_meters': 82, 'notes': '', 'is_active': True}
+INFO 2026-02-04 16:30:22,273 views_office_config [OFFICE CONFIG] Name: imcbs
+INFO 2026-02-04 16:30:22,273 views_office_config [OFFICE CONFIG] Address: Office Location
+INFO 2026-02-04 16:30:22,274 views_office_config [OFFICE CONFIG] Coordinates: (11.6180047, 76.0815117)
+INFO 2026-02-04 16:30:22,274 views_office_config [OFFICE CONFIG] Radius: 50m
+INFO 2026-02-04 16:30:22,274 views_office_config [OFFICE CONFIG] Detection method: gps
+INFO 2026-02-04 16:30:22,275 views_office_config [OFFICE CONFIG] GPS accuracy: 82.00m
+INFO 2026-02-04 16:30:22,275 views_office_config [OFFICE CONFIG] Is active: True
+INFO 2026-02-04 16:30:22,275 views_office_config [OFFICE CONFIG] ==========================================

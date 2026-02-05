@@ -32,7 +32,7 @@ urlpatterns = [
     path('api/master/', include('master.urls')),
     path('api/leaves/', include('master.urls')),
     path('api/vehicle-management/', include('vehicle_management.urls')),
-    # path('api/target-management/', include('target_management.urls')),
+    path('api/target-management/', include('target_management.urls')),
  
 
 ]
