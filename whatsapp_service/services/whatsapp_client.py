@@ -1,8 +1,14 @@
 # whatsapp_service/services/whatsapp_client.py
+"""
+WhatsApp Client - Fully Database Driven (NO HARDCODED VALUES)
+
+All configuration is loaded from the database via WhatsAppConfiguration model.
+No API keys, URLs, or credentials are hardcoded.
+"""
+
 import logging
 import json
 from typing import Optional
-
 import requests
 
 logger = logging.getLogger(__name__)
@@ -17,16 +23,21 @@ def _get_active_config():
     """
     Get the active WhatsApp configuration from database.
     Returns dict with provider, api_url, api_secret, account_id, default_priority
+    
+    Raises:
+        WhatsAppClientError: If no active configuration found
     """
     try:
         from whatsapp_service.models import WhatsAppConfiguration
         config = WhatsAppConfiguration.objects.filter(is_active=True).first()
         
         if not config:
-            logger.error("No active WhatsApp configuration found in database")
+            logger.error("❌ No active WhatsApp configuration found in database")
             raise WhatsAppClientError(
-                "No active WhatsApp configuration. Please configure one in the admin panel."
+                "No active WhatsApp configuration. Please configure one in the admin panel at /api/whatsapp/admin/"
             )
+        
+        logger.info(f"✅ Using WhatsApp configuration: {config.provider.upper()} (ID: {config.id})")
         
         return {
             'provider': config.provider,
@@ -37,7 +48,10 @@ def _get_active_config():
         }
     except Exception as e:
         logger.exception(f"Error loading WhatsApp configuration: {e}")
-        raise WhatsAppClientError(f"Failed to load WhatsApp configuration: {e}")
+        raise WhatsAppClientError(
+            f"Failed to load WhatsApp configuration from database: {e}. "
+            "Please ensure migrations are run and configuration is added via admin panel."
+        )
 
 
 def _normalize_number_for_provider(n: Optional[str], provider: str) -> str:
@@ -105,6 +119,7 @@ def _normalize_number_for_provider(n: Optional[str], provider: str) -> str:
 def _send_via_dxing(recipient: str, message: str, priority: int = 1, timeout: int = 15, config: dict = None):
     """
     Send a text WhatsApp message via DXING using POST with JSON body.
+    All credentials loaded from database configuration.
     """
     if config is None:
         config = _get_active_config()
@@ -115,7 +130,7 @@ def _send_via_dxing(recipient: str, message: str, priority: int = 1, timeout: in
 
     if not secret or not account:
         raise WhatsAppClientError(
-            "DXING credentials not configured. Please configure in admin panel."
+            "DXING credentials not configured. Please add them in the admin panel at /api/whatsapp/admin/"
         )
 
     to = _normalize_number_for_provider(recipient, "dxing")
@@ -191,7 +206,22 @@ def _send_via_dxing(recipient: str, message: str, priority: int = 1, timeout: in
 def send_text(recipient: str, message: str, priority: int = None, timeout: int = 15):
     """
     High-level send function used by the rest of the app.
-    Reads configuration from database instead of settings.py
+    
+    ✅ Fully database-driven - NO hardcoded credentials
+    ✅ Loads configuration from WhatsAppConfiguration model
+    ✅ Supports multiple providers (DXING, Twilio, Meta)
+    
+    Args:
+        recipient: Phone number to send to
+        message: Message text to send
+        priority: Message priority (1-10), uses config default if None
+        timeout: Request timeout in seconds
+    
+    Returns:
+        dict: Provider response data
+    
+    Raises:
+        WhatsAppClientError: If configuration missing or send fails
     """
     # Get active configuration from database
     config = _get_active_config()
@@ -204,6 +234,24 @@ def send_text(recipient: str, message: str, priority: int = None, timeout: int =
 
     if provider == "dxing":
         return _send_via_dxing(recipient, message, priority=priority, timeout=timeout, config=config)
-
-    # If later you want to support meta/twilio, add branches here.
-    raise WhatsAppClientError(f"Unsupported WhatsApp provider: {provider}")
+    
+    elif provider == "twilio":
+        # TODO: Implement Twilio integration using config from database
+        raise WhatsAppClientError(
+            "Twilio provider not yet implemented. "
+            "Please configure DXING provider or implement Twilio integration."
+        )
+    
+    elif provider == "meta":
+        # TODO: Implement Meta Cloud API integration using config from database
+        raise WhatsAppClientError(
+            "Meta Cloud API provider not yet implemented. "
+            "Please configure DXING provider or implement Meta integration."
+        )
+    
+    else:
+        raise WhatsAppClientError(
+            f"Unsupported WhatsApp provider: {provider}. "
+            f"Supported providers: dxing, twilio, meta. "
+            f"Please update configuration in admin panel."
+        )

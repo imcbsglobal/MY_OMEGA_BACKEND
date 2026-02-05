@@ -1,4 +1,4 @@
-# HR/utils/geofence.py - STRICT GEOFENCE ENFORCEMENT
+# HR/utils/geofence.py - UPDATED VERSION with Database Configuration
 
 from django.conf import settings
 from .geolocation import haversine_distance
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def validate_office_geofence(user_lat, user_lon, user=None):
     """
     Validates if user is within office geofence radius.
-    STRICT ENFORCEMENT - NO BYPASS ALLOWED
+    Now uses OfficeLocation model from database instead of settings.py
     
     Args:
         user_lat (float): User's latitude
@@ -20,17 +20,74 @@ def validate_office_geofence(user_lat, user_lon, user=None):
     Returns:
         tuple: (allowed: bool, distance_in_meters: float)
     """
+    from HR.models import OfficeLocation
     
-    # ✅ STEP 1: Verify settings are configured
+    # Get active office configuration from database
+    office = OfficeLocation.get_active_office()
+    
+    if not office:
+        logger.error("[GEOFENCE] ❌ No active office location configured in database!")
+        logger.error("[GEOFENCE] Please configure office location in Django Admin.")
+        # Fallback to settings.py if available
+        return _validate_from_settings(user_lat, user_lon, user)
+    
+    # Validate and convert coordinates
+    try:
+        user_lat = float(user_lat)
+        user_lon = float(user_lon)
+        office_lat = float(office.latitude)
+        office_lon = float(office.longitude)
+        allowed_radius = float(office.geofence_radius_meters)
+    except (TypeError, ValueError) as e:
+        logger.error(f"[GEOFENCE] ❌ Invalid coordinates: {e}")
+        return False, 0
+    
+    # Validate coordinate ranges
+    if not (-90 <= user_lat <= 90) or not (-180 <= user_lon <= 180):
+        logger.error(f"[GEOFENCE] ❌ Invalid coordinates range")
+        return False, 0
+    
+    # Calculate actual distance from office
+    distance = haversine_distance(user_lat, user_lon, office_lat, office_lon)
+    distance = round(distance, 2)
+    
+    # Log validation attempt
+    user_info = f"User {user.email}" if user else "Unknown user"
+    logger.info(f"[GEOFENCE] {'='*60}")
+    logger.info(f"[GEOFENCE] Validating: {user_info}")
+    logger.info(f"[GEOFENCE] Office: {office.name}")
+    logger.info(f"[GEOFENCE] User: ({user_lat:.6f}, {user_lon:.6f})")
+    logger.info(f"[GEOFENCE] Office: ({office_lat:.6f}, {office_lon:.6f})")
+    logger.info(f"[GEOFENCE] Distance: {distance}m | Allowed: {allowed_radius}m")
+    logger.info(f"[GEOFENCE] {'='*60}")
+    
+    # STRICT VALIDATION
+    if distance > allowed_radius:
+        logger.warning(f"[GEOFENCE] ❌ REJECTED - {user_info}")
+        logger.warning(f"[GEOFENCE] Distance {distance}m EXCEEDS {allowed_radius}m")
+        logger.warning(f"[GEOFENCE] Excess: {distance - allowed_radius:.2f}m")
+        return False, distance
+    
+    # SUCCESS
+    logger.info(f"[GEOFENCE] ✅ ALLOWED - {user_info}")
+    logger.info(f"[GEOFENCE] Buffer remaining: {allowed_radius - distance:.2f}m")
+    return True, distance
+
+
+def _validate_from_settings(user_lat, user_lon, user=None):
+    """
+    Fallback validation using settings.py configuration
+    Used only if no OfficeLocation is configured in database
+    """
+    # Safety check
     if not all([
         hasattr(settings, 'OFFICE_LATITUDE'),
         hasattr(settings, 'OFFICE_LONGITUDE'),
         hasattr(settings, 'OFFICE_GEOFENCE_RADIUS_METERS'),
     ]):
-        logger.error("[GEOFENCE] ❌ Office location settings not configured!")
+        logger.error("[GEOFENCE] ❌ No office configuration found!")
         return False, 0
     
-    # ✅ STEP 2: Validate and convert coordinates
     try:
         user_lat = float(user_lat)
         user_lon = float(user_lon)
@@ -38,45 +95,95 @@ def validate_office_geofence(user_lat, user_lon, user=None):
         office_lon = float(settings.OFFICE_LONGITUDE)
         allowed_radius = float(settings.OFFICE_GEOFENCE_RADIUS_METERS)
     except (TypeError, ValueError) as e:
-        logger.error(f"[GEOFENCE] ❌ Invalid coordinates: {e}")
+        logger.error(f"[GEOFENCE] ❌ Invalid coordinates in settings: {e}")
         return False, 0
     
-    # ✅ STEP 3: Validate coordinate ranges
-    if not (-90 <= user_lat <= 90) or not (-180 <= user_lon <= 180):
-        logger.error(f"[GEOFENCE] ❌ Invalid coordinates range")
-        return False, 0
-    
-    # ✅ STEP 4: Calculate actual distance from office
     distance = haversine_distance(user_lat, user_lon, office_lat, office_lon)
     distance = round(distance, 2)
     
-    # ✅ STEP 5: Log validation attempt
     user_info = f"User {user.email}" if user else "Unknown user"
-    logger.info(f"[GEOFENCE] {'='*60}")
-    logger.info(f"[GEOFENCE] Validating: {user_info}")
-    logger.info(f"[GEOFENCE] User: ({user_lat:.6f}, {user_lon:.6f})")
-    logger.info(f"[GEOFENCE] Office: ({office_lat:.6f}, {office_lon:.6f})")
-    logger.info(f"[GEOFENCE] Distance: {distance}m | Allowed: {allowed_radius}m")
-    logger.info(f"[GEOFENCE] {'='*60}")
+    logger.warning(f"[GEOFENCE] ⚠️  Using fallback settings.py configuration")
+    logger.info(f"[GEOFENCE] {user_info} - Distance: {distance}m | Allowed: {allowed_radius}m")
     
-    # ✅ STEP 6: STRICT VALIDATION - NO EXCEPTIONS
     if distance > allowed_radius:
-        logger.warning(f"[GEOFENCE]  REJECTED - {user_info}")
-        logger.warning(f"[GEOFENCE] Distance {distance}m EXCEEDS {allowed_radius}m")
-        logger.warning(f"[GEOFENCE] Excess: {distance - allowed_radius:.2f}m")
+        logger.warning(f"[GEOFENCE] ❌ REJECTED - {user_info}")
         return False, distance
     
-    # ✅ SUCCESS
-    logger.info(f"[GEOFENCE]  ALLOWED - {user_info}")
-    logger.info(f"[GEOFENCE] Buffer remaining: {allowed_radius - distance:.2f}m")
+    logger.info(f"[GEOFENCE] ✅ ALLOWED - {user_info}")
     return True, distance
 
 
 def get_office_info():
-    """Returns office location information for frontend display"""
+    """
+    Returns office location information for frontend display.
+    Prioritizes database configuration over settings.py
+    """
+    from HR.models import OfficeLocation
+    
+    office = OfficeLocation.get_active_office()
+    
+    if office:
+        return {
+            'latitude': float(office.latitude),
+            'longitude': float(office.longitude),
+            'radius': float(office.geofence_radius_meters),
+            'address': office.address,
+            'name': office.name,
+            'source': 'database'
+        }
+    
+    # Fallback to settings.py
+    if all([
+        hasattr(settings, 'OFFICE_LATITUDE'),
+        hasattr(settings, 'OFFICE_LONGITUDE'),
+        hasattr(settings, 'OFFICE_GEOFENCE_RADIUS_METERS'),
+    ]):
+        return {
+            'latitude': float(settings.OFFICE_LATITUDE),
+            'longitude': float(settings.OFFICE_LONGITUDE),
+            'radius': float(settings.OFFICE_GEOFENCE_RADIUS_METERS),
+            'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location'),
+            'name': 'Office',
+            'source': 'settings'
+        }
+    
+    return None
+
+
+def test_geofence_validation(test_lat, test_lon):
+    """
+    Test function to validate coordinates against geofence.
+    Useful for debugging and testing.
+    
+    Args:
+        test_lat (float): Test latitude
+        test_lon (float): Test longitude
+    
+    Returns:
+        dict: Validation results with detailed information
+    """
+    from HR.models import OfficeLocation
+    
+    office = OfficeLocation.get_active_office()
+    
+    if not office:
+        return {
+            'success': False,
+            'error': 'No active office location configured',
+            'recommendation': 'Configure office location in Django Admin'
+        }
+    
+    allowed, distance = validate_office_geofence(test_lat, test_lon)
+    
     return {
-        'latitude': float(settings.OFFICE_LATITUDE),
-        'longitude': float(settings.OFFICE_LONGITUDE),
-        'radius': float(settings.OFFICE_GEOFENCE_RADIUS_METERS),
-        'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
+        'success': True,
+        'allowed': allowed,
+        'distance_meters': distance,
+        'office_name': office.name,
+        'office_coordinates': f"{office.latitude}, {office.longitude}",
+        'geofence_radius': office.geofence_radius_meters,
+        'excess_distance': max(0, distance - office.geofence_radius_meters),
+        'buffer_remaining': max(0, office.geofence_radius_meters - distance) if allowed else 0,
+        'test_coordinates': f"{test_lat}, {test_lon}",
+        'verdict': 'ALLOWED ✅' if allowed else 'REJECTED ❌'
     }

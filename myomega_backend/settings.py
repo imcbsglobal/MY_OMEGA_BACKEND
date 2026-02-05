@@ -62,6 +62,9 @@ INSTALLED_APPS = [
     "payroll",
     'whatsapp_service',
     'master',
+    'vehicle_management',
+    'target_management',
+
 ]
 
 MIDDLEWARE = [
@@ -236,17 +239,17 @@ REST_FRAMEWORK = {
 
 # SimpleJWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # ✅ Check this
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': False,
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
+    'SIGNING_KEY': SECRET_KEY,  # ✅ Must match your SECRET_KEY
     'VERIFYING_KEY': None,
     'AUDIENCE': None,
     'ISSUER': None,
-    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_TYPES': ('Bearer',),  # ✅ Must match frontend
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
@@ -317,48 +320,22 @@ CORS_ALLOW_HEADERS = [
 
 
 
+# # DXING API Configuration
+# DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
+# DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
+# DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
+# # CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_CREDENTIALS = True
+# DXING_DEFAULT_PRIORITY = 1
 
 
-# choose provider: "meta", "twilio", or "dxing"
-# ===========================
-# WHATSAPP / DXING SETTINGS
-# ===========================
 
-# Use DXING as the WhatsApp provider
-# WHATSAPP_PR
-# OVIDER = "dxing"
 
-# # DXING endpoint – this matches the URL format you shared
-# DXING_API_URL = os.getenv(
-#     "DXING_API_URL",
-#     "https://app.dxing.in/api/send/whatsapp",
-# )
+DXING_API_URL = os.getenv('DXING_API_URL', "https://app.dxing.in/api/send/whatsapp")
+DXING_SECRET = os.getenv('DXING_SECRET', "")  # Migrate to database!
+DXING_ACCOUNT = os.getenv('DXING_ACCOUNT', "")  # Migrate to database!
+DXING_DEFAULT_PRIORITY = int(os.getenv('DXING_DEFAULT_PRIORITY', '1'))
 
-# # REAL secret + account from your DXING URL
-# DXING_SECRET = os.getenv(
-#     "DXING_SECRET",
-#     "0a6484c76c715a540686e9d73410e33a9f0fd6fb",
-# )
-# DXING_ACCOUNT = os.getenv(
-#     "DXING_ACCOUNT",
-#     "1764157689577bcc914f9e55d5e4e4f82f9f00e7d46926e8f9a45a8",
-# )
-
-# DXING_DEFAULT_PRIORITY = int(os.getenv("DXING_DEFAULT_PRIORITY", "1"))
-
-# # Default sender / fallback number (FROM)
-# # Keep as full international WhatsApp number
-# WHATSAPP_PHONE_NUMBER = os.getenv("WHATSAPP_PHONE_NUMBER", "+918281561081")
-
-# WHATSAPP_PROVIDER = "dxing"
-
-# DXING API Configuration
-DXING_API_URL = "https://app.dxing.in/api/send/whatsapp"
-DXING_SECRET = "0a6484c76c715a540686e9d73410e33a9f0fd6fb"
-DXING_ACCOUNT = "1765261473577bcc914f9e55d5e4e4f82f9f00e7d46937c0a16fac8"
-# CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-DXING_DEFAULT_PRIORITY = 1
 # =========================
 # OFFICE GEOFENCE SETTINGS
 # =========================
@@ -373,21 +350,22 @@ DXING_DEFAULT_PRIORITY = 1
 # Your Office Location: 10°55'15.8"N 75°55'33.8"E
 # NEW COORDINATES FOR TIRUR:
 
-# OFFICE_LATITUDE = 10.918056   # Tirur latitude (corrected)
-# OFFICE_LONGITUDE = 75.921333  # Tirur longitude (corrected)
+# OFFICE_LATITUDE = 10.8505000   # Tirur latitude (corrected)
+# OFFICE_LONGITUDE = 76.2711000  # Tirur longitude (corrected)
 
 # # Geofence Radius (in meters)
 # # Users must be within this distance to punch in/out
-# OFFICE_GEOFENCE_RADIUS_METERS = 100  # 100 meters = strict enforcement 
+# OFFICE_GEOFENCE_RADIUS_METERS = 350  # 600 meters = wider coverage
 
 # # Office address for display
 # OFFICE_ADDRESS = "Tirur, Malappuram, Kerala, India"
+ 
 
 
-OFFICE_LATITUDE = 11.618074   # Your current location
-OFFICE_LONGITUDE = 76.081269  # Your current location
-OFFICE_GEOFENCE_RADIUS_METERS = 50  # 100 meters
-OFFICE_ADDRESS = "Office Location, Kerala, India"
+# OFFICE_LATITUDE = 11.618074   # Your current location
+# OFFICE_LONGITUDE = 76.081269  # Your current location
+# OFFICE_GEOFENCE_RADIUS_METERS = 50  # 100 meters
+# OFFICE_ADDRESS = "Office Location, Kerala, India"
 
 
 # OFFICE_LATITUDE = 11.614728

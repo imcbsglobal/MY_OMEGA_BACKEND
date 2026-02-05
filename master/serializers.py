@@ -33,3 +33,10 @@ class LeaveMasterSerializer(serializers.ModelSerializer):
             return obj.get_payment_status_display()
         except Exception:
             return obj.payment_status
+
+
+
+class LeaveMasterCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeaveMaster
+        fields = ['leave_name', 'leave_date', 'category', 'payment_status', 'is_active', 'description']

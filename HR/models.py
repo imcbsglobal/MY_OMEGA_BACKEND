@@ -125,11 +125,10 @@ class LeaveRequest(models.Model):
     )
     
     leave_master = models.ForeignKey(
-        'master.LeaveMaster',
+        'master.LeaveMaster',  # Changed from 'HR.LeaveMaster'
         on_delete=models.PROTECT,
-        related_name='hr_leave_requests',
-        db_column='leave_master_id',
-        to_field='id',
+        related_name='leave_requests',
+        help_text='Reference to leave type in master app'
     )
 
     leave_type = models.CharField(
@@ -517,3 +516,133 @@ class PunchRecord(models.Model):
     
     def __str__(self):
         return f"{self.attendance.user.name} - {self.get_punch_type_display()} - {self.punch_time}"
+
+
+
+
+
+
+
+
+# HR/models.py - Add this to your existing models.py file
+
+from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
+from User.models import AppUser
+
+
+class OfficeLocation(models.Model):
+    """
+    Office location configuration for geofence validation.
+    Should have only ONE active record at a time.
+    """
+    name = models.CharField(
+        max_length=200,
+        help_text='Office name (e.g., "Main Office", "Branch Office")'
+    )
+    address = models.TextField(
+        help_text='Complete office address'
+    )
+    
+    # GPS Coordinates
+    latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        help_text='Office latitude (e.g., 11.6112893)'
+    )
+    longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        help_text='Office longitude (e.g., 76.0840294)'
+    )
+    
+    # Geofence Configuration
+    geofence_radius_meters = models.IntegerField(
+        default=50,
+        validators=[MinValueValidator(10), MaxValueValidator(500)],
+        help_text='Allowed radius in meters (10-500m). Recommended: 50-100m'
+    )
+    
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Only one office location should be active at a time'
+    )
+    
+    # Detection Method
+    detection_method = models.CharField(
+        max_length=20,
+        choices=[
+            ('gps', 'GPS Detection'),
+            ('manual', 'Manual Entry'),
+            ('map', 'Map Selection')
+        ],
+        default='gps',
+        help_text='How this location was configured'
+    )
+    
+    # Accuracy Information
+    gps_accuracy_meters = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='GPS accuracy when location was detected'
+    )
+    
+    # Metadata
+    configured_by = models.ForeignKey(
+        AppUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='configured_offices',
+        help_text='Admin who configured this location'
+    )
+    configured_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Notes
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Additional notes about this location'
+    )
+    
+    class Meta:
+        db_table = 'hr_office_location'
+        verbose_name = 'Office Location'
+        verbose_name_plural = 'Office Locations'
+        ordering = ['-is_active', '-configured_at']
+    
+    def __str__(self):
+        status = "ACTIVE" if self.is_active else "Inactive"
+        return f"{self.name} ({status}) - {self.geofence_radius_meters}m radius"
+    
+    def save(self, *args, **kwargs):
+        """Ensure only one office location is active at a time"""
+        if self.is_active:
+            # Deactivate all other office locations
+            OfficeLocation.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_active_office(cls):
+        """Get the currently active office location"""
+        try:
+            return cls.objects.get(is_active=True)
+        except cls.DoesNotExist:
+            return None
+        except cls.MultipleObjectsReturned:
+            # If somehow multiple are active, return the most recent
+            return cls.objects.filter(is_active=True).order_by('-configured_at').first()
+    
+    def get_coordinates(self):
+        """Return coordinates as a tuple"""
+        return (float(self.latitude), float(self.longitude))
+    
+    def distance_info(self):
+        """Human-readable distance information"""
+        if self.geofence_radius_meters >= 1000:
+            return f"{self.geofence_radius_meters / 1000:.1f} km"
+        return f"{self.geofence_radius_meters} m"        

@@ -6,7 +6,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('HR', '0007_alter_earlyrequest_unique_together'),
-        ('master', '__latest__'),  # Make sure master app exists
+        ('master', '0005_alter_leavemaster_options_alter_leavemaster_table'),
     ]
 
     operations = [
