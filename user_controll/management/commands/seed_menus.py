@@ -327,20 +327,7 @@ class Command(BaseCommand):
                                 "icon": "📊",
                                 "order": 1,
                             },
-                            {
-                                "name": "Achievement Report",
-                                "key": "target_reports_achievement",
-                                "path": "/target/reports/achievement",
-                                "icon": "🏆",
-                                "order": 2,
-                            },
-                            {
-                                "name": "Summary Report",
-                                "key": "target_reports_summary",
-                                "path": "/target/reports/summary",
-                                "icon": "📈",
-                                "order": 3,
-                            },
+                            
                         ],
                     },
                 ],

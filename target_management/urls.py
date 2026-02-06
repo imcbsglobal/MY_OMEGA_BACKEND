@@ -1,4 +1,4 @@
-# target_management/urls.py
+# target_management/urls.py - COMPLETE VERSION WITH ALL ENDPOINTS
 from django.urls import path
 from . import views
 
@@ -31,4 +31,15 @@ urlpatterns = [
     path('reports/call-summary/', views.call_target_summary, name='call-target-summary'),
     path('reports/employee/<int:employee_id>/dashboard/', views.employee_performance_dashboard, name='employee-performance-dashboard'),
     path('reports/achievement-logs/', views.target_achievement_logs, name='target-achievement-logs'),
+    
+    # ==================== PERFORMANCE REPORTS (MISSING ENDPOINTS) ====================
+    # Detailed employee performance report
+    path('performance/employee/<int:employee_id>/detailed-report/', 
+         views.employee_performance_dashboard, 
+         name='employee-detailed-report'),
+    
+    # Comparative performance report
+    path('performance/comparative/', 
+         views.comparative_performance_report, 
+         name='comparative-performance-report'),
 ]

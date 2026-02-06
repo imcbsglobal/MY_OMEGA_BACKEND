@@ -7,6 +7,11 @@ from django.db.models import Q, Sum, Avg, Count
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
+from django.db.models import Q, Sum, Avg, Count, F, Case, When, DecimalField, IntegerField
+from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
+from datetime import datetime, timedelta
+from decimal import Decimal
 
 from .models import (
     Route, Product, RouteTargetPeriod, RouteTargetProductDetail,
@@ -19,7 +24,7 @@ from .serializers import (
     RouteTargetProductDetailSerializer,
     CallTargetPeriodSerializer, CallTargetPeriodDetailSerializer,
     CallDailyTargetSerializer,
-    TargetAchievementLogSerializer
+    TargetAchievementLogSerializer,
 )
 
 
@@ -584,3 +589,729 @@ def target_achievement_logs(request):
     
     serializer = TargetAchievementLogSerializer(queryset, many=True)
     return Response(serializer.data)
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def route_performance_summary(request):
+    """
+    Comprehensive Route Target Performance Summary
+    
+    Query Parameters:
+    - employee: Filter by employee ID
+    - route: Filter by route ID
+    - start_date: Filter targets starting from this date
+    - end_date: Filter targets ending before this date
+    - period: Quick filter (today, week, month, quarter, year)
+    """
+    
+    # Base queryset
+    queryset = RouteTargetPeriod.objects.filter(is_active=True).select_related(
+        'employee', 'route', 'assigned_by'
+    ).prefetch_related('product_details__product')
+    
+    # Apply filters
+    employee_id = request.query_params.get('employee')
+    if employee_id:
+        queryset = queryset.filter(employee_id=employee_id)
+    
+    route_id = request.query_params.get('route')
+    if route_id:
+        queryset = queryset.filter(route_id=route_id)
+    
+    # Date range filters
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    
+    # Quick period filter
+    period = request.query_params.get('period')
+    if period:
+        today = datetime.now().date()
+        if period == 'today':
+            queryset = queryset.filter(start_date__lte=today, end_date__gte=today)
+        elif period == 'week':
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            queryset = queryset.filter(
+                Q(start_date__range=[week_start, week_end]) |
+                Q(end_date__range=[week_start, week_end]) |
+                Q(start_date__lte=week_start, end_date__gte=week_end)
+            )
+        elif period == 'month':
+            month_start = today.replace(day=1)
+            next_month = month_start.replace(day=28) + timedelta(days=4)
+            month_end = next_month - timedelta(days=next_month.day)
+            queryset = queryset.filter(
+                Q(start_date__range=[month_start, month_end]) |
+                Q(end_date__range=[month_start, month_end]) |
+                Q(start_date__lte=month_start, end_date__gte=month_end)
+            )
+        elif period == 'quarter':
+            quarter = (today.month - 1) // 3
+            quarter_start = datetime(today.year, quarter * 3 + 1, 1).date()
+            quarter_end = (quarter_start + timedelta(days=92)).replace(day=1) - timedelta(days=1)
+            queryset = queryset.filter(
+                Q(start_date__range=[quarter_start, quarter_end]) |
+                Q(end_date__range=[quarter_start, quarter_end]) |
+                Q(start_date__lte=quarter_start, end_date__gte=quarter_end)
+            )
+        elif period == 'year':
+            year_start = datetime(today.year, 1, 1).date()
+            year_end = datetime(today.year, 12, 31).date()
+            queryset = queryset.filter(
+                Q(start_date__range=[year_start, year_end]) |
+                Q(end_date__range=[year_start, year_end]) |
+                Q(start_date__lte=year_start, end_date__gte=year_end)
+            )
+    else:
+        if start_date:
+            queryset = queryset.filter(start_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(end_date__lte=end_date)
+    
+    # Overall Summary
+    overall_summary = queryset.aggregate(
+        total_targets=Count('id'),
+        total_employees=Count('employee', distinct=True),
+        total_routes=Count('route', distinct=True),
+        total_target_boxes=Coalesce(Sum('target_boxes'), Decimal('0')),
+        total_target_amount=Coalesce(Sum('target_amount'), Decimal('0')),
+        total_achieved_boxes=Coalesce(Sum('achieved_boxes'), Decimal('0')),
+        total_achieved_amount=Coalesce(Sum('achieved_amount'), Decimal('0')),
+    )
+    
+    # Calculate overall percentages
+    if overall_summary['total_target_boxes'] > 0:
+        overall_summary['boxes_achievement_percentage'] = float(
+            (overall_summary['total_achieved_boxes'] / overall_summary['total_target_boxes']) * 100
+        )
+    else:
+        overall_summary['boxes_achievement_percentage'] = 0.0
+    
+    if overall_summary['total_target_amount'] > 0:
+        overall_summary['amount_achievement_percentage'] = float(
+            (overall_summary['total_achieved_amount'] / overall_summary['total_target_amount']) * 100
+        )
+    else:
+        overall_summary['amount_achievement_percentage'] = 0.0
+    
+    # Performance by Employee
+    employee_performance = queryset.values(
+        'employee__id',
+        'employee__employee_id',
+        'employee__first_name',
+        'employee__last_name',
+        'employee__designation'
+    ).annotate(
+        total_targets=Count('id'),
+        target_boxes=Coalesce(Sum('target_boxes'), Decimal('0')),
+        target_amount=Coalesce(Sum('target_amount'), Decimal('0')),
+        achieved_boxes=Coalesce(Sum('achieved_boxes'), Decimal('0')),
+        achieved_amount=Coalesce(Sum('achieved_amount'), Decimal('0')),
+    ).order_by('-achieved_amount')
+    
+    # Calculate percentages for each employee
+    for emp in employee_performance:
+        emp['employee_name'] = f"{emp['employee__first_name']} {emp['employee__last_name']}"
+        emp['boxes_achievement_percentage'] = float(
+            (emp['achieved_boxes'] / emp['target_boxes'] * 100) if emp['target_boxes'] > 0 else 0
+        )
+        emp['amount_achievement_percentage'] = float(
+            (emp['achieved_amount'] / emp['target_amount'] * 100) if emp['target_amount'] > 0 else 0
+        )
+    
+    # Performance by Route
+    route_performance = queryset.values(
+        'route__id',
+        'route__origin',
+        'route__destination',
+        'route__route_code'
+    ).annotate(
+        total_targets=Count('id'),
+        target_boxes=Coalesce(Sum('target_boxes'), Decimal('0')),
+        target_amount=Coalesce(Sum('target_amount'), Decimal('0')),
+        achieved_boxes=Coalesce(Sum('achieved_boxes'), Decimal('0')),
+        achieved_amount=Coalesce(Sum('achieved_amount'), Decimal('0')),
+    ).order_by('-achieved_amount')
+    
+    # Calculate percentages for each route
+    for route in route_performance:
+        route['route_name'] = f"{route['route__origin']} → {route['route__destination']}"
+        route['boxes_achievement_percentage'] = float(
+            (route['achieved_boxes'] / route['target_boxes'] * 100) if route['target_boxes'] > 0 else 0
+        )
+        route['amount_achievement_percentage'] = float(
+            (route['achieved_amount'] / route['target_amount'] * 100) if route['target_amount'] > 0 else 0
+        )
+    
+    # Product-wise Performance
+    product_performance = RouteTargetProductDetail.objects.filter(
+        route_target_period__in=queryset
+    ).values(
+        'product__id',
+        'product__product_name',
+        'product__product_code',
+        'product__unit'
+    ).annotate(
+        target_quantity=Coalesce(Sum('target_quantity'), Decimal('0')),
+        achieved_quantity=Coalesce(Sum('achieved_quantity'), Decimal('0')),
+    ).order_by('-achieved_quantity')
+    
+    # Calculate percentages for each product
+    for product in product_performance:
+        product['achievement_percentage'] = float(
+            (product['achieved_quantity'] / product['target_quantity'] * 100) 
+            if product['target_quantity'] > 0 else 0
+        )
+    
+    # Achievement Status Distribution
+    achievement_distribution = {
+        'excellent': queryset.filter(
+            achieved_amount__gte=F('target_amount') * 0.9
+        ).count(),  # 90%+
+        'good': queryset.filter(
+            achieved_amount__gte=F('target_amount') * 0.75,
+            achieved_amount__lt=F('target_amount') * 0.9
+        ).count(),  # 75-89%
+        'average': queryset.filter(
+            achieved_amount__gte=F('target_amount') * 0.5,
+            achieved_amount__lt=F('target_amount') * 0.75
+        ).count(),  # 50-74%
+        'poor': queryset.filter(
+            achieved_amount__lt=F('target_amount') * 0.5
+        ).count(),  # <50%
+    }
+    
+    # Recent Targets
+    recent_targets = queryset.order_by('-created_at')[:10]
+    recent_targets_data = RouteTargetPeriodSerializer(recent_targets, many=True).data
+    
+    return Response({
+        'summary': {
+            'overall': overall_summary,
+            'achievement_distribution': achievement_distribution,
+        },
+        'performance': {
+            'by_employee': list(employee_performance),
+            'by_route': list(route_performance),
+            'by_product': list(product_performance),
+        },
+        'recent_targets': recent_targets_data,
+        'filters_applied': {
+            'employee_id': employee_id,
+            'route_id': route_id,
+            'start_date': start_date,
+            'end_date': end_date,
+            'period': period,
+        }
+    })
+
+
+# ==================== CALL TARGET PERFORMANCE SUMMARY ====================
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def call_performance_summary(request):
+    """
+    Comprehensive Call Target Performance Summary
+    
+    Query Parameters:
+    - employee: Filter by employee ID
+    - start_date: Filter targets starting from this date
+    - end_date: Filter targets ending before this date
+    - period: Quick filter (today, week, month, quarter, year)
+    """
+    
+    # Base queryset
+    queryset = CallTargetPeriod.objects.filter(is_active=True).select_related(
+        'employee', 'assigned_by'
+    ).prefetch_related('daily_targets')
+    
+    # Apply filters
+    employee_id = request.query_params.get('employee')
+    if employee_id:
+        queryset = queryset.filter(employee_id=employee_id)
+    
+    # Date range filters
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    
+    # Quick period filter
+    period = request.query_params.get('period')
+    if period:
+        today = datetime.now().date()
+        if period == 'today':
+            queryset = queryset.filter(start_date__lte=today, end_date__gte=today)
+        elif period == 'week':
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            queryset = queryset.filter(
+                Q(start_date__range=[week_start, week_end]) |
+                Q(end_date__range=[week_start, week_end]) |
+                Q(start_date__lte=week_start, end_date__gte=week_end)
+            )
+        elif period == 'month':
+            month_start = today.replace(day=1)
+            next_month = month_start.replace(day=28) + timedelta(days=4)
+            month_end = next_month - timedelta(days=next_month.day)
+            queryset = queryset.filter(
+                Q(start_date__range=[month_start, month_end]) |
+                Q(end_date__range=[month_start, month_end]) |
+                Q(start_date__lte=month_start, end_date__gte=month_end)
+            )
+    else:
+        if start_date:
+            queryset = queryset.filter(start_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(end_date__lte=end_date)
+    
+    # Get all daily targets for the filtered periods
+    daily_targets_queryset = CallDailyTarget.objects.filter(
+        call_target_period__in=queryset
+    )
+    
+    # Overall Summary
+    overall_summary = daily_targets_queryset.aggregate(
+        total_periods=Count('call_target_period', distinct=True),
+        total_employees=Count('call_target_period__employee', distinct=True),
+        total_days=Count('id'),
+        total_target_calls=Coalesce(Sum('target_calls'), 0),
+        total_achieved_calls=Coalesce(Sum('achieved_calls'), 0),
+        total_productive_calls=Coalesce(Sum('productive_calls'), 0),
+        total_orders=Coalesce(Sum('order_received'), 0),
+        total_order_amount=Coalesce(Sum('order_amount'), Decimal('0')),
+        avg_daily_calls=Coalesce(Avg('achieved_calls'), 0),
+    )
+    
+    # Calculate overall percentages
+    if overall_summary['total_target_calls'] > 0:
+        overall_summary['call_achievement_percentage'] = float(
+            (overall_summary['total_achieved_calls'] / overall_summary['total_target_calls']) * 100
+        )
+    else:
+        overall_summary['call_achievement_percentage'] = 0.0
+    
+    if overall_summary['total_achieved_calls'] > 0:
+        overall_summary['productivity_percentage'] = float(
+            (overall_summary['total_productive_calls'] / overall_summary['total_achieved_calls']) * 100
+        )
+        overall_summary['conversion_rate'] = float(
+            (overall_summary['total_orders'] / overall_summary['total_achieved_calls']) * 100
+        )
+    else:
+        overall_summary['productivity_percentage'] = 0.0
+        overall_summary['conversion_rate'] = 0.0
+    
+    # Average order value
+    if overall_summary['total_orders'] > 0:
+        overall_summary['avg_order_value'] = float(
+            overall_summary['total_order_amount'] / overall_summary['total_orders']
+        )
+    else:
+        overall_summary['avg_order_value'] = 0.0
+    
+    # Performance by Employee
+    employee_performance = daily_targets_queryset.values(
+        'call_target_period__employee__id',
+        'call_target_period__employee__employee_id',
+        'call_target_period__employee__first_name',
+        'call_target_period__employee__last_name',
+        'call_target_period__employee__designation'
+    ).annotate(
+        total_days=Count('id'),
+        target_calls=Coalesce(Sum('target_calls'), 0),
+        achieved_calls=Coalesce(Sum('achieved_calls'), 0),
+        productive_calls=Coalesce(Sum('productive_calls'), 0),
+        total_orders=Coalesce(Sum('order_received'), 0),
+        total_order_amount=Coalesce(Sum('order_amount'), Decimal('0')),
+        avg_daily_calls=Coalesce(Avg('achieved_calls'), 0),
+    ).order_by('-achieved_calls')
+    
+    # Calculate percentages for each employee
+    for emp in employee_performance:
+        emp['employee_name'] = f"{emp['call_target_period__employee__first_name']} {emp['call_target_period__employee__last_name']}"
+        emp['achievement_percentage'] = float(
+            (emp['achieved_calls'] / emp['target_calls'] * 100) if emp['target_calls'] > 0 else 0
+        )
+        emp['productivity_percentage'] = float(
+            (emp['productive_calls'] / emp['achieved_calls'] * 100) if emp['achieved_calls'] > 0 else 0
+        )
+        emp['conversion_rate'] = float(
+            (emp['total_orders'] / emp['achieved_calls'] * 100) if emp['achieved_calls'] > 0 else 0
+        )
+        emp['avg_order_value'] = float(
+            emp['total_order_amount'] / emp['total_orders'] if emp['total_orders'] > 0 else 0
+        )
+    
+    # Daily Trend Analysis (last 30 days or filtered period)
+    if period == 'today':
+        trend_days = 1
+    elif period == 'week':
+        trend_days = 7
+    elif period == 'month':
+        trend_days = 30
+    else:
+        trend_days = 30
+    
+    trend_start = datetime.now().date() - timedelta(days=trend_days)
+    
+    daily_trend = CallDailyTarget.objects.filter(
+        call_target_period__in=queryset,
+        target_date__gte=trend_start
+    ).values('target_date').annotate(
+        target_calls=Coalesce(Sum('target_calls'), 0),
+        achieved_calls=Coalesce(Sum('achieved_calls'), 0),
+        productive_calls=Coalesce(Sum('productive_calls'), 0),
+        orders=Coalesce(Sum('order_received'), 0),
+        order_amount=Coalesce(Sum('order_amount'), Decimal('0')),
+    ).order_by('target_date')
+    
+    # Calculate trend percentages
+    for day in daily_trend:
+        day['achievement_percentage'] = float(
+            (day['achieved_calls'] / day['target_calls'] * 100) if day['target_calls'] > 0 else 0
+        )
+        day['productivity_percentage'] = float(
+            (day['productive_calls'] / day['achieved_calls'] * 100) if day['achieved_calls'] > 0 else 0
+        )
+    
+    # Achievement Status Distribution
+    achievement_distribution = {
+        'excellent': daily_targets_queryset.filter(
+            achieved_calls__gte=F('target_calls') * 0.9
+        ).count(),  # 90%+
+        'good': daily_targets_queryset.filter(
+            achieved_calls__gte=F('target_calls') * 0.75,
+            achieved_calls__lt=F('target_calls') * 0.9
+        ).count(),  # 75-89%
+        'average': daily_targets_queryset.filter(
+            achieved_calls__gte=F('target_calls') * 0.5,
+            achieved_calls__lt=F('target_calls') * 0.75
+        ).count(),  # 50-74%
+        'poor': daily_targets_queryset.filter(
+            achieved_calls__lt=F('target_calls') * 0.5
+        ).count(),  # <50%
+    }
+    
+    # Top Performers (by achievement percentage)
+    top_days = daily_targets_queryset.annotate(
+        achievement_pct=Case(
+            When(target_calls__gt=0, then=F('achieved_calls') * 100.0 / F('target_calls')),
+            default=0.0,
+            output_field=DecimalField()
+        )
+    ).filter(achievement_pct__gte=90).select_related(
+        'call_target_period__employee'
+    ).order_by('-achievement_pct')[:10]
+    
+    top_performers = CallDailyTargetSerializer(top_days, many=True).data
+    
+    # Recent Activity
+    recent_activity = daily_targets_queryset.order_by('-target_date')[:10]
+    recent_activity_data = CallDailyTargetSerializer(recent_activity, many=True).data
+    
+    return Response({
+        'summary': {
+            'overall': overall_summary,
+            'achievement_distribution': achievement_distribution,
+        },
+        'performance': {
+            'by_employee': list(employee_performance),
+            'daily_trend': list(daily_trend),
+        },
+        'top_performers': top_performers,
+        'recent_activity': recent_activity_data,
+        'filters_applied': {
+            'employee_id': employee_id,
+            'start_date': start_date,
+            'end_date': end_date,
+            'period': period,
+        }
+    })
+
+
+# ==================== DETAILED EMPLOYEE REPORTS ====================
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def employee_detailed_report(request, employee_id):
+    """
+    Comprehensive detailed report for a specific employee
+    Includes both Route Targets and Call Targets
+    """
+    from employee_management.models import Employee
+    
+    employee = get_object_or_404(Employee, pk=employee_id)
+    
+    # Get date range from query params
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    
+    # Route Targets
+    route_targets_queryset = RouteTargetPeriod.objects.filter(
+        employee=employee,
+        is_active=True
+    ).select_related('route', 'assigned_by').prefetch_related('product_details__product')
+    
+    if start_date:
+        route_targets_queryset = route_targets_queryset.filter(start_date__gte=start_date)
+    if end_date:
+        route_targets_queryset = route_targets_queryset.filter(end_date__lte=end_date)
+    
+    # Call Targets
+    call_targets_queryset = CallTargetPeriod.objects.filter(
+        employee=employee,
+        is_active=True
+    ).prefetch_related('daily_targets')
+    
+    if start_date:
+        call_targets_queryset = call_targets_queryset.filter(start_date__gte=start_date)
+    if end_date:
+        call_targets_queryset = call_targets_queryset.filter(end_date__lte=end_date)
+    
+    # Route Summary
+    route_summary = route_targets_queryset.aggregate(
+        total_targets=Count('id'),
+        total_routes=Count('route', distinct=True),
+        target_boxes=Coalesce(Sum('target_boxes'), Decimal('0')),
+        target_amount=Coalesce(Sum('target_amount'), Decimal('0')),
+        achieved_boxes=Coalesce(Sum('achieved_boxes'), Decimal('0')),
+        achieved_amount=Coalesce(Sum('achieved_amount'), Decimal('0')),
+    )
+    
+    # Calculate route percentages
+    if route_summary['target_boxes'] > 0:
+        route_summary['boxes_achievement_percentage'] = float(
+            (route_summary['achieved_boxes'] / route_summary['target_boxes']) * 100
+        )
+    else:
+        route_summary['boxes_achievement_percentage'] = 0.0
+    
+    if route_summary['target_amount'] > 0:
+        route_summary['amount_achievement_percentage'] = float(
+            (route_summary['achieved_amount'] / route_summary['target_amount']) * 100
+        )
+    else:
+        route_summary['amount_achievement_percentage'] = 0.0
+    
+    # Call Summary
+    daily_calls = CallDailyTarget.objects.filter(
+        call_target_period__in=call_targets_queryset
+    )
+    
+    call_summary = daily_calls.aggregate(
+        total_periods=Count('call_target_period', distinct=True),
+        total_days=Count('id'),
+        target_calls=Coalesce(Sum('target_calls'), 0),
+        achieved_calls=Coalesce(Sum('achieved_calls'), 0),
+        productive_calls=Coalesce(Sum('productive_calls'), 0),
+        total_orders=Coalesce(Sum('order_received'), 0),
+        total_order_amount=Coalesce(Sum('order_amount'), Decimal('0')),
+    )
+    
+    # Calculate call percentages
+    if call_summary['target_calls'] > 0:
+        call_summary['achievement_percentage'] = float(
+            (call_summary['achieved_calls'] / call_summary['target_calls']) * 100
+        )
+    else:
+        call_summary['achievement_percentage'] = 0.0
+    
+    if call_summary['achieved_calls'] > 0:
+        call_summary['productivity_percentage'] = float(
+            (call_summary['productive_calls'] / call_summary['achieved_calls']) * 100
+        )
+        call_summary['conversion_rate'] = float(
+            (call_summary['total_orders'] / call_summary['achieved_calls']) * 100
+        )
+    else:
+        call_summary['productivity_percentage'] = 0.0
+        call_summary['conversion_rate'] = 0.0
+    
+    # Detailed Route Targets
+    route_targets = RouteTargetPeriodSerializer(
+        route_targets_queryset.order_by('-start_date'), many=True
+    ).data
+    
+    # Detailed Call Targets
+    call_targets = CallTargetPeriodSerializer(
+        call_targets_queryset.order_by('-start_date'), many=True
+    ).data
+    
+    # Performance by Route
+    route_performance = route_targets_queryset.values(
+        'route__id',
+        'route__origin',
+        'route__destination',
+        'route__route_code'
+    ).annotate(
+        target_boxes=Coalesce(Sum('target_boxes'), Decimal('0')),
+        target_amount=Coalesce(Sum('target_amount'), Decimal('0')),
+        achieved_boxes=Coalesce(Sum('achieved_boxes'), Decimal('0')),
+        achieved_amount=Coalesce(Sum('achieved_amount'), Decimal('0')),
+    ).order_by('-achieved_amount')
+    
+    for route in route_performance:
+        route['route_name'] = f"{route['route__origin']} → {route['route__destination']}"
+        route['boxes_achievement_percentage'] = float(
+            (route['achieved_boxes'] / route['target_boxes'] * 100) if route['target_boxes'] > 0 else 0
+        )
+        route['amount_achievement_percentage'] = float(
+            (route['achieved_amount'] / route['target_amount'] * 100) if route['target_amount'] > 0 else 0
+        )
+    
+    return Response({
+        'employee': {
+            'id': employee.id,
+            'employee_id': employee.employee_id,
+            'name': employee.get_full_name(),
+            'designation': employee.designation,
+            'department': employee.department,
+            'email': employee.email,
+            'phone': employee.phone,
+        },
+        'summary': {
+            'route_targets': route_summary,
+            'call_targets': call_summary,
+        },
+        'detailed_data': {
+            'route_targets': route_targets,
+            'call_targets': call_targets,
+            'route_performance': list(route_performance),
+        },
+        'filters_applied': {
+            'start_date': start_date,
+            'end_date': end_date,
+        }
+    })
+
+
+# ==================== COMPARISON REPORTS ====================
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def comparative_performance_report(request):
+    """
+    Compare performance across multiple employees
+    
+    Query Parameters:
+    - employees: Comma-separated list of employee IDs
+    - start_date: Start date for comparison
+    - end_date: End date for comparison
+    - metric: route_targets, call_targets, or both (default: both)
+    """
+    
+    employee_ids = request.query_params.get('employees', '').split(',')
+    employee_ids = [eid.strip() for eid in employee_ids if eid.strip()]
+    
+    if not employee_ids:
+        return Response({
+            'error': 'Please provide at least one employee ID'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    metric = request.query_params.get('metric', 'both')
+    
+    comparison_data = []
+    
+    from employee_management.models import Employee
+    
+    for emp_id in employee_ids:
+        try:
+            employee = Employee.objects.get(pk=emp_id)
+            emp_data = {
+                'employee_id': employee.id,
+                'employee_code': employee.employee_id,
+                'name': employee.get_full_name(),
+                'designation': employee.designation,
+            }
+            
+            # Route Targets
+            if metric in ['route_targets', 'both']:
+                route_queryset = RouteTargetPeriod.objects.filter(
+                    employee=employee,
+                    is_active=True
+                )
+                if start_date:
+                    route_queryset = route_queryset.filter(start_date__gte=start_date)
+                if end_date:
+                    route_queryset = route_queryset.filter(end_date__lte=end_date)
+                
+                route_data = route_queryset.aggregate(
+                    target_boxes=Coalesce(Sum('target_boxes'), Decimal('0')),
+                    target_amount=Coalesce(Sum('target_amount'), Decimal('0')),
+                    achieved_boxes=Coalesce(Sum('achieved_boxes'), Decimal('0')),
+                    achieved_amount=Coalesce(Sum('achieved_amount'), Decimal('0')),
+                )
+                
+                route_data['boxes_achievement_percentage'] = float(
+                    (route_data['achieved_boxes'] / route_data['target_boxes'] * 100) 
+                    if route_data['target_boxes'] > 0 else 0
+                )
+                route_data['amount_achievement_percentage'] = float(
+                    (route_data['achieved_amount'] / route_data['target_amount'] * 100) 
+                    if route_data['target_amount'] > 0 else 0
+                )
+                
+                emp_data['route_performance'] = route_data
+            
+            # Call Targets
+            if metric in ['call_targets', 'both']:
+                call_queryset = CallTargetPeriod.objects.filter(
+                    employee=employee,
+                    is_active=True
+                )
+                if start_date:
+                    call_queryset = call_queryset.filter(start_date__gte=start_date)
+                if end_date:
+                    call_queryset = call_queryset.filter(end_date__lte=end_date)
+                
+                call_daily = CallDailyTarget.objects.filter(
+                    call_target_period__in=call_queryset
+                )
+                
+                call_data = call_daily.aggregate(
+                    target_calls=Coalesce(Sum('target_calls'), 0),
+                    achieved_calls=Coalesce(Sum('achieved_calls'), 0),
+                    productive_calls=Coalesce(Sum('productive_calls'), 0),
+                    total_orders=Coalesce(Sum('order_received'), 0),
+                    total_order_amount=Coalesce(Sum('order_amount'), Decimal('0')),
+                )
+                
+                call_data['achievement_percentage'] = float(
+                    (call_data['achieved_calls'] / call_data['target_calls'] * 100) 
+                    if call_data['target_calls'] > 0 else 0
+                )
+                call_data['productivity_percentage'] = float(
+                    (call_data['productive_calls'] / call_data['achieved_calls'] * 100) 
+                    if call_data['achieved_calls'] > 0 else 0
+                )
+                
+                emp_data['call_performance'] = call_data
+            
+            comparison_data.append(emp_data)
+            
+        except Employee.DoesNotExist:
+            continue
+    
+    return Response({
+        'comparison': comparison_data,
+        'filters_applied': {
+            'employee_ids': employee_ids,
+            'start_date': start_date,
+            'end_date': end_date,
+            'metric': metric,
+        }
+    })
+
+
+
+
+
+
+
+
