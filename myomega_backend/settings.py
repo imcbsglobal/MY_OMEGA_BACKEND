@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'master',
     'vehicle_management',
     'target_management',
+    'delivery_management',
 
 ]
 
