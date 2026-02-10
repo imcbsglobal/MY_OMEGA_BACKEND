@@ -12,8 +12,8 @@ class EmployeeBriefSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     employee_id = serializers.CharField()
     full_name = serializers.CharField()
-    designation = serializers.CharField(allow_blank=True)
-    phone_number = serializers.CharField(allow_blank=True)
+    designation = serializers.CharField(allow_blank=True, required=False)
+    phone_number = serializers.CharField(allow_blank=True, required=False)
 
 
 class VehicleBriefSerializer(serializers.Serializer):
@@ -21,8 +21,13 @@ class VehicleBriefSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     registration_number = serializers.CharField()
     vehicle_type = serializers.CharField()
-    model = serializers.CharField(allow_blank=True)
-    capacity = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
+    # Make model optional and use SerializerMethodField to safely access it
+    model = serializers.SerializerMethodField()
+    capacity = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True, required=False)
+    
+    def get_model(self, obj):
+        """Safely get model field if it exists"""
+        return getattr(obj, 'model', None) or getattr(obj, 'vehicle_model', '')
 
 
 class RouteBriefSerializer(serializers.Serializer):
@@ -37,7 +42,7 @@ class ProductBriefSerializer(serializers.Serializer):
     """Brief product info"""
     id = serializers.IntegerField()
     product_name = serializers.CharField()
-    product_code = serializers.CharField(allow_blank=True)
+    product_code = serializers.CharField(allow_blank=True, required=False)
     unit = serializers.CharField()
 
 
@@ -246,8 +251,6 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
             'start_notes',
             'end_notes',
             'remarks',
-            'products',
-            'stops',
             'duration_minutes',
             'distance_traveled',
             'fuel_consumed',
@@ -256,6 +259,8 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
             'created_by_name',
             'completed_by',
             'completed_by_name',
+            'products',
+            'stops',
             'created_at',
             'updated_at'
         ]
@@ -328,6 +333,27 @@ class DeliveryCreateSerializer(serializers.ModelSerializer):
             )
         
         return delivery
+
+
+class DeliveryUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating delivery - only editable fields"""
+    
+    class Meta:
+        model = Delivery
+        fields = [
+            'scheduled_date',
+            'scheduled_time',
+            'total_loaded_boxes',
+            'remarks',
+        ]
+    
+    def validate(self, data):
+        # Prevent updates to non-scheduled deliveries
+        if self.instance and self.instance.status != 'scheduled':
+            raise serializers.ValidationError(
+                "Can only update scheduled deliveries. Use start/complete endpoints for other statuses."
+            )
+        return data
 
 
 class DeliveryStartSerializer(serializers.Serializer):

@@ -458,3 +458,111 @@ class TargetAchievementLogSerializer(serializers.ModelSerializer):
         if obj.recorded_by:
             return getattr(obj.recorded_by, 'name', obj.recorded_by.email)
         return None
+
+# ==================== EMPLOYEE SPECIFIC SERIALIZERS ====================
+
+class EmployeeRouteTargetSerializer(serializers.ModelSerializer):
+    """Simplified serializer for employee's own route targets"""
+    route_name = serializers.SerializerMethodField()
+    route_origin = serializers.CharField(source='route.origin', read_only=True)
+    route_destination = serializers.CharField(source='route.destination', read_only=True)
+    route_code = serializers.CharField(source='route.route_code', read_only=True)
+    period_display = serializers.ReadOnlyField()
+    duration_days = serializers.ReadOnlyField()
+    achievement_percentage_boxes = serializers.ReadOnlyField()
+    achievement_percentage_amount = serializers.ReadOnlyField()
+    product_details = RouteTargetProductDetailSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = RouteTargetPeriod
+        fields = [
+            'id', 'start_date', 'end_date', 'period_display', 'duration_days',
+            'route', 'route_name', 'route_origin', 'route_destination', 'route_code',
+            'target_boxes', 'target_amount',
+            'achieved_boxes', 'achieved_amount',
+            'achievement_percentage_boxes', 'achievement_percentage_amount',
+            'notes', 'is_active', 'product_details'
+        ]
+    
+    def get_route_name(self, obj):
+        return obj.route.route_name if obj.route else None
+
+
+class EmployeeCallTargetSerializer(serializers.ModelSerializer):
+    """Simplified serializer for employee's own call targets"""
+    period_display = serializers.ReadOnlyField()
+    duration_days = serializers.ReadOnlyField()
+    total_target_calls = serializers.ReadOnlyField()
+    total_achieved_calls = serializers.ReadOnlyField()
+    achievement_percentage = serializers.ReadOnlyField()
+    daily_targets = CallDailyTargetSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = CallTargetPeriod
+        fields = [
+            'id', 'start_date', 'end_date', 'period_display', 'duration_days',
+            'total_target_calls', 'total_achieved_calls', 'achievement_percentage',
+            'notes', 'is_active', 'daily_targets'
+        ]
+
+
+class UpdateRouteAchievementSerializer(serializers.Serializer):
+    """Serializer for updating route target achievements"""
+    achieved_boxes = serializers.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        required=False,
+        min_value=0
+    )
+    achieved_amount = serializers.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        required=False,
+        min_value=0
+    )
+    product_achievements = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        help_text="List of {product_id, achieved_quantity}"
+    )
+    notes = serializers.CharField(required=False, allow_blank=True)
+    
+    def validate_product_achievements(self, value):
+        """Validate product achievements structure"""
+        for item in value:
+            if 'product_id' not in item:
+                raise serializers.ValidationError("Each product achievement must have 'product_id'")
+            if 'achieved_quantity' not in item:
+                raise serializers.ValidationError("Each product achievement must have 'achieved_quantity'")
+            try:
+                float(item['achieved_quantity'])
+            except (ValueError, TypeError):
+                raise serializers.ValidationError("achieved_quantity must be a valid number")
+        return value
+
+
+class UpdateCallDailyAchievementSerializer(serializers.Serializer):
+    """Serializer for updating daily call achievements"""
+    achieved_calls = serializers.IntegerField(required=False, min_value=0)
+    productive_calls = serializers.IntegerField(required=False, min_value=0)
+    order_received = serializers.IntegerField(required=False, min_value=0)
+    order_amount = serializers.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        required=False,
+        min_value=0
+    )
+    remarks = serializers.CharField(required=False, allow_blank=True)
+    
+    def validate(self, data):
+        """Validate that productive calls <= achieved calls"""
+        achieved = data.get('achieved_calls')
+        productive = data.get('productive_calls')
+        
+        if achieved is not None and productive is not None:
+            if productive > achieved:
+                raise serializers.ValidationError({
+                    'productive_calls': 'Productive calls cannot exceed total achieved calls'
+                })
+        
+        return data

@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/leaves/', include('master.urls')),
     path('api/vehicle-management/', include('vehicle_management.urls')),
     path('api/target-management/', include('target_management.urls')),
+    path('api/delivery-management/', include('delivery_management.urls')),
  
 
 ]
