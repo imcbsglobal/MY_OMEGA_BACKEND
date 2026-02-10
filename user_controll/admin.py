@@ -11,7 +11,7 @@ class MenuItemAdmin(admin.ModelAdmin):
     list_editable = ["order", "is_active"]
     ordering = ["parent__id", "order", "name"]
 
-    fieldsets = (
+    fieldsets = (    
         ("Basic Information", {
             "fields": ("name", "key", "path", "icon")
         }),

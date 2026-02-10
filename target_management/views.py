@@ -398,6 +398,73 @@ class CallDailyTargetUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = CallDailyTargetSerializer
 
 
+# New: list/create endpoint for call daily targets (frontend expects /call-daily-targets/)
+class CallDailyTargetListCreateView(generics.ListCreateAPIView):
+    """
+    GET: List call daily targets
+    POST: Create a call daily target (if allowed)
+    """
+    queryset = CallDailyTarget.objects.select_related(
+        'call_target_period__employee'
+    ).all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CallDailyTargetSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by employee via query param or authenticated user
+        employee_id = self.request.query_params.get('employee', None)
+        if employee_id:
+            queryset = queryset.filter(call_target_period__employee_id=employee_id)
+        elif hasattr(self.request, 'user') and self.request.user and self.request.user.is_authenticated:
+            emp = getattr(self.request.user, 'employee_profile', None)
+            if emp:
+                queryset = queryset.filter(call_target_period__employee=emp)
+
+        # Filter by date
+        target_date = self.request.query_params.get('target_date', None)
+        if target_date:
+            queryset = queryset.filter(target_date=target_date)
+
+        return queryset.order_by('-target_date')
+
+
+# New: endpoints for "my" targets used by frontend
+class MyCallTargetsView(generics.ListAPIView):
+    """List call target periods for the authenticated user's employee record"""
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CallTargetPeriodSerializer
+
+    def get_queryset(self):
+        user = getattr(self.request, 'user', None)
+        if not user or not user.is_authenticated:
+            return CallTargetPeriod.objects.none()
+
+        emp = getattr(user, 'employee_profile', None)
+        if not emp:
+            return CallTargetPeriod.objects.none()
+
+        return CallTargetPeriod.objects.filter(employee=emp, is_active=True).order_by('-start_date')
+
+
+class MyRouteTargetsView(generics.ListAPIView):
+    """List route target periods for the authenticated user's employee record"""
+    permission_classes = [permissions.AllowAny]
+    serializer_class = RouteTargetPeriodSerializer
+
+    def get_queryset(self):
+        user = getattr(self.request, 'user', None)
+        if not user or not user.is_authenticated:
+            return RouteTargetPeriod.objects.none()
+
+        emp = getattr(user, 'employee_profile', None)
+        if not emp:
+            return RouteTargetPeriod.objects.none()
+
+        return RouteTargetPeriod.objects.filter(employee=emp, is_active=True).order_by('-start_date')
+
+
 # ==================== REPORTS & ANALYTICS ====================
 
 @api_view(['GET'])
