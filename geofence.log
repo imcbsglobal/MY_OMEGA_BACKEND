@@ -1853,3 +1853,59 @@ INFO 2026-02-04 16:30:22,274 views_office_config [OFFICE CONFIG] Detection metho
 INFO 2026-02-04 16:30:22,275 views_office_config [OFFICE CONFIG] GPS accuracy: 82.00m
 INFO 2026-02-04 16:30:22,275 views_office_config [OFFICE CONFIG] Is active: True
 INFO 2026-02-04 16:30:22,275 views_office_config [OFFICE CONFIG] ==========================================
+INFO 2026-02-10 12:09:33,808 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 12:09:33,809 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-02-10 12:09:33,810 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 12:09:33,811 geofence [GEOFENCE] User: (11.618005, 76.081513)
+INFO 2026-02-10 12:09:33,811 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 12:09:33,812 geofence [GEOFENCE] Distance: 0.14m | Allowed: 50.0m
+INFO 2026-02-10 12:09:33,812 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 12:09:34,110 geofence [GEOFENCE] Buffer remaining: 49.86m
+INFO 2026-02-10 12:33:01,818 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 12:33:01,818 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-02-10 12:33:01,819 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 12:33:01,820 geofence [GEOFENCE] User: (11.618004, 76.081511)
+INFO 2026-02-10 12:33:01,821 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 12:33:01,821 geofence [GEOFENCE] Distance: 0.09m | Allowed: 50.0m
+INFO 2026-02-10 12:33:01,824 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 12:33:01,846 geofence [GEOFENCE] Buffer remaining: 49.91m
+INFO 2026-02-10 15:35:52,642 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 15:35:52,643 geofence [GEOFENCE] Validating: User lissa@gmail.com
+INFO 2026-02-10 15:35:52,644 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 15:35:52,644 geofence [GEOFENCE] User: (11.618000, 76.081515)
+INFO 2026-02-10 15:35:52,645 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 15:35:52,645 geofence [GEOFENCE] Distance: 0.59m | Allowed: 50.0m
+INFO 2026-02-10 15:35:52,646 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 15:35:52,698 geofence [GEOFENCE] Buffer remaining: 49.41m
+INFO 2026-02-10 15:44:10,043 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 15:44:10,045 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-02-10 15:44:10,048 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 15:44:10,051 geofence [GEOFENCE] User: (11.618005, 76.081512)
+INFO 2026-02-10 15:44:10,052 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 15:44:10,056 geofence [GEOFENCE] Distance: 0.06m | Allowed: 50.0m
+INFO 2026-02-10 15:44:10,058 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 15:44:10,428 geofence [GEOFENCE] Buffer remaining: 49.94m
+INFO 2026-02-10 18:51:47,633 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 18:51:47,635 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-02-10 18:51:47,638 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 18:51:47,639 geofence [GEOFENCE] User: (11.618003, 76.081512)
+INFO 2026-02-10 18:51:47,640 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 18:51:47,640 geofence [GEOFENCE] Distance: 0.23m | Allowed: 50.0m
+INFO 2026-02-10 18:51:47,640 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 18:51:47,707 geofence [GEOFENCE] Buffer remaining: 49.77m
+INFO 2026-02-10 18:51:51,385 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 18:51:51,385 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-02-10 18:51:51,385 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 18:51:51,386 geofence [GEOFENCE] User: (11.618003, 76.081512)
+INFO 2026-02-10 18:51:51,386 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 18:51:51,386 geofence [GEOFENCE] Distance: 0.23m | Allowed: 50.0m
+INFO 2026-02-10 18:51:51,386 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 18:51:51,399 geofence [GEOFENCE] Buffer remaining: 49.77m
+INFO 2026-02-10 18:51:54,084 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 18:51:54,085 geofence [GEOFENCE] Validating: User admin@gmail.com
+INFO 2026-02-10 18:51:54,085 geofence [GEOFENCE] Office: imcbs
+INFO 2026-02-10 18:51:54,085 geofence [GEOFENCE] User: (11.618003, 76.081512)
+INFO 2026-02-10 18:51:54,086 geofence [GEOFENCE] Office: (11.618005, 76.081512)
+INFO 2026-02-10 18:51:54,086 geofence [GEOFENCE] Distance: 0.23m | Allowed: 50.0m
+INFO 2026-02-10 18:51:54,086 geofence [GEOFENCE] ============================================================
+INFO 2026-02-10 18:51:54,102 geofence [GEOFENCE] Buffer remaining: 49.77m
