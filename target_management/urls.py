@@ -24,7 +24,12 @@ urlpatterns = [
     path('call-targets/bulk-create/', views.bulk_create_call_targets, name='call-target-bulk-create'),
     
     # ==================== CALL DAILY TARGETS ====================
-    path('call-daily-targets/<int:pk>/', views.CallDailyTargetUpdateView.as_view(), name='call-daily-target-update'),
+     path('call-daily-targets/', views.CallDailyTargetListCreateView.as_view(), name='call-daily-target-list-create'),
+     path('call-daily-targets/<int:pk>/', views.CallDailyTargetUpdateView.as_view(), name='call-daily-target-update'),
+
+     # User-specific endpoints
+     path('my-call-targets/', views.MyCallTargetsView.as_view(), name='my-call-targets'),
+     path('my-route-targets/', views.MyRouteTargetsView.as_view(), name='my-route-targets'),
     
     # ==================== REPORTS & ANALYTICS ====================
     path('reports/route-summary/', views.route_target_summary, name='route-target-summary'),
