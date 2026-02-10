@@ -304,6 +304,19 @@ def login_view(request):
                 print(f"Warning: Could not load menus: {e}")
                 allowed_menus = []
         
+        # Get Employee profile if exists
+        employee_data = None
+        try:
+            if hasattr(user, 'employee_profile') and user.employee_profile:
+                emp = user.employee_profile
+                employee_data = {
+                    'employee_id': emp.id,
+                    'employee_code': emp.employee_id,
+                    'full_name': emp.full_name or user.name,
+                }
+        except Exception as e:
+            print(f"Warning: Could not load employee profile: {e}")
+        
         # Build response
         return Response({
             'access': str(refresh.access_token),
@@ -318,9 +331,10 @@ def login_view(request):
                 'photo': photo_url,
                 'is_staff': user.is_staff,
                 'is_superuser': user.is_superuser,
-                'is_django_superuser': is_django_superuser,  # Add this flag
-                'is_app_admin': is_app_admin,  # Add this flag
+                'is_django_superuser': is_django_superuser,
+                'is_app_admin': is_app_admin,
             },
+            'employee': employee_data,
             'user_level': user.user_level,
             'allowed_menus': allowed_menus,
             'is_django_superuser': is_django_superuser,
