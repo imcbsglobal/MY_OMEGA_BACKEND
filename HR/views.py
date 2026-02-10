@@ -34,6 +34,7 @@ from User.models import AppUser
 
 
 class AttendanceViewSet(viewsets.ModelViewSet):
+    pagination_class = None
     """Clean AttendanceViewSet with punch in/out endpoints."""
     queryset = Attendance.objects.all().select_related('user', 'verified_by')
     serializer_class = AttendanceSerializer

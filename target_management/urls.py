@@ -42,4 +42,30 @@ urlpatterns = [
     path('performance/comparative/', 
          views.comparative_performance_report, 
          name='comparative-performance-report'),
+    
+    # ==================== EMPLOYEE SELF-SERVICE ENDPOINTS ====================
+    # Employee's own targets view
+    path('employee/my-targets/', 
+         views.employee_my_targets, 
+         name='employee-my-targets'),
+    
+    # Today's targets for quick daily view
+    path('employee/today-targets/', 
+         views.employee_today_targets, 
+         name='employee-today-targets'),
+    
+    # Update route target achievement
+    path('employee/route-targets/<int:target_id>/update-achievement/', 
+         views.update_route_achievement, 
+         name='employee-update-route-achievement'),
+    
+    # Update daily call achievement
+    path('employee/call-daily-targets/<int:daily_target_id>/update-achievement/', 
+         views.update_call_daily_achievement, 
+         name='employee-update-call-achievement'),
+    
+    # Employee achievement history
+    path('employee/achievement-history/', 
+         views.employee_achievement_history, 
+         name='employee-achievement-history'),
 ]

@@ -7,6 +7,7 @@ from django.db.models import Q, Sum, Avg, Count
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
+from django.utils import timezone
 from django.db.models import Q, Sum, Avg, Count, F, Case, When, DecimalField, IntegerField
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
@@ -1315,3 +1316,390 @@ def comparative_performance_report(request):
 
 
 
+
+
+# ==================== EMPLOYEE VIEWS - MY TARGETS ====================
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])  # Change to IsAuthenticated in production
+def employee_my_targets(request):
+    """
+    Get current employee's assigned targets (both route and call targets)
+    
+    Query Parameters:
+    - status: active, completed, upcoming, all (default: active)
+    - type: route, call, both (default: both)
+    """
+    # In production, get employee from authenticated user
+    # For now, require employee_id as a parameter
+    employee_id = request.query_params.get('employee_id')
+    
+    if not employee_id:
+        return Response({
+            'error': 'employee_id parameter is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    from employee_management.models import Employee
+    
+    try:
+        employee = Employee.objects.get(pk=employee_id)
+    except Employee.DoesNotExist:
+        return Response({
+            'error': 'Employee not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    target_status = request.query_params.get('status', 'active')
+    target_type = request.query_params.get('type', 'both')
+    
+    from datetime import date
+    today = date.today()
+    
+    response_data = {
+        'employee': {
+            'id': employee.id,
+            'employee_id': employee.employee_id,
+            'name': employee.get_full_name(),
+            'designation': employee.designation,
+            'department': employee.department,
+        }
+    }
+    
+    # Route Targets
+    if target_type in ['route', 'both']:
+        route_queryset = RouteTargetPeriod.objects.filter(
+            employee=employee
+        ).select_related('route', 'assigned_by').prefetch_related('product_details__product')
+        
+        # Filter by status
+        if target_status == 'active':
+            route_queryset = route_queryset.filter(
+                is_active=True,
+                start_date__lte=today,
+                end_date__gte=today
+            )
+        elif target_status == 'completed':
+            route_queryset = route_queryset.filter(end_date__lt=today)
+        elif target_status == 'upcoming':
+            route_queryset = route_queryset.filter(start_date__gt=today)
+        elif target_status == 'all':
+            pass  # No additional filter
+        
+        from .serializers import EmployeeRouteTargetSerializer
+        route_targets = EmployeeRouteTargetSerializer(
+            route_queryset.order_by('-start_date'), many=True
+        ).data
+        
+        response_data['route_targets'] = route_targets
+    
+    # Call Targets
+    if target_type in ['call', 'both']:
+        call_queryset = CallTargetPeriod.objects.filter(
+            employee=employee
+        ).select_related('assigned_by').prefetch_related('daily_targets')
+        
+        # Filter by status
+        if target_status == 'active':
+            call_queryset = call_queryset.filter(
+                is_active=True,
+                start_date__lte=today,
+                end_date__gte=today
+            )
+        elif target_status == 'completed':
+            call_queryset = call_queryset.filter(end_date__lt=today)
+        elif target_status == 'upcoming':
+            call_queryset = call_queryset.filter(start_date__gt=today)
+        elif target_status == 'all':
+            pass
+        
+        from .serializers import EmployeeCallTargetSerializer
+        call_targets = EmployeeCallTargetSerializer(
+            call_queryset.order_by('-start_date'), many=True
+        ).data
+        
+        response_data['call_targets'] = call_targets
+    
+    return Response(response_data)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])  # Change to IsAuthenticated in production
+def update_route_achievement(request, target_id):
+    """
+    Update route target achievement
+    
+    POST Body:
+    {
+        "achieved_boxes": 100.50,
+        "achieved_amount": 50000.00,
+        "product_achievements": [
+            {"product_id": 1, "achieved_quantity": 50},
+            {"product_id": 2, "achieved_quantity": 30}
+        ],
+        "notes": "Updated achievement for today"
+    }
+    """
+    from .serializers import UpdateRouteAchievementSerializer, EmployeeRouteTargetSerializer
+    
+    try:
+        route_target = RouteTargetPeriod.objects.select_related(
+            'route', 'employee'
+        ).prefetch_related('product_details__product').get(pk=target_id)
+    except RouteTargetPeriod.DoesNotExist:
+        return Response({
+            'error': 'Route target not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # In production, verify that the employee owns this target
+    # if route_target.employee != request.user.employee:
+    #     return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = UpdateRouteAchievementSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    data = serializer.validated_data
+    
+    # Update main achievement fields
+    if 'achieved_boxes' in data:
+        route_target.achieved_boxes = data['achieved_boxes']
+    if 'achieved_amount' in data:
+        route_target.achieved_amount = data['achieved_amount']
+    if 'notes' in data:
+        route_target.notes = data['notes']
+    
+    route_target.save()
+    
+    # Update product-wise achievements
+    if 'product_achievements' in data:
+        for prod_achievement in data['product_achievements']:
+            product_id = prod_achievement['product_id']
+            achieved_qty = prod_achievement['achieved_quantity']
+            
+            # Update or create product detail
+            RouteTargetProductDetail.objects.update_or_create(
+                route_target_period=route_target,
+                product_id=product_id,
+                defaults={'achieved_quantity': achieved_qty}
+            )
+    
+    # Create achievement log
+    TargetAchievementLog.objects.create(
+        log_type='route',
+        employee=route_target.employee,
+        route_target=route_target,
+        achievement_date=timezone.now().date(),
+        achievement_value=data.get('achieved_amount', route_target.achieved_amount),
+        remarks=data.get('notes', ''),
+        recorded_by=request.user if request.user.is_authenticated else None
+    )
+    
+    # Return updated target
+    updated_target = EmployeeRouteTargetSerializer(route_target).data
+    
+    return Response({
+        'message': 'Route achievement updated successfully',
+        'target': updated_target
+    })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])  # Change to IsAuthenticated in production
+def update_call_daily_achievement(request, daily_target_id):
+    """
+    Update daily call target achievement
+    
+    POST Body:
+    {
+        "achieved_calls": 15,
+        "productive_calls": 12,
+        "order_received": 5,
+        "order_amount": 25000.00,
+        "remarks": "Good day, most clients were responsive"
+    }
+    """
+    from .serializers import UpdateCallDailyAchievementSerializer
+    
+    try:
+        daily_target = CallDailyTarget.objects.select_related(
+            'call_target_period__employee'
+        ).get(pk=daily_target_id)
+    except CallDailyTarget.DoesNotExist:
+        return Response({
+            'error': 'Call daily target not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # In production, verify that the employee owns this target
+    # if daily_target.call_target_period.employee != request.user.employee:
+    #     return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = UpdateCallDailyAchievementSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    data = serializer.validated_data
+    
+    # Update fields
+    if 'achieved_calls' in data:
+        daily_target.achieved_calls = data['achieved_calls']
+    if 'productive_calls' in data:
+        daily_target.productive_calls = data['productive_calls']
+    if 'order_received' in data:
+        daily_target.order_received = data['order_received']
+    if 'order_amount' in data:
+        daily_target.order_amount = data['order_amount']
+    if 'remarks' in data:
+        daily_target.remarks = data['remarks']
+    
+    daily_target.save()
+    
+    # Create achievement log
+    TargetAchievementLog.objects.create(
+        log_type='call',
+        employee=daily_target.call_target_period.employee,
+        call_daily_target=daily_target,
+        achievement_date=daily_target.target_date,
+        achievement_value=data.get('achieved_calls', daily_target.achieved_calls),
+        remarks=data.get('remarks', ''),
+        recorded_by=request.user if request.user.is_authenticated else None
+    )
+    
+    # Return updated daily target
+    from .serializers import CallDailyTargetSerializer
+    updated_daily_target = CallDailyTargetSerializer(daily_target).data
+    
+    return Response({
+        'message': 'Daily call achievement updated successfully',
+        'daily_target': updated_daily_target
+    })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def employee_today_targets(request):
+    """
+    Get today's targets for an employee (quick view for daily operations)
+    
+    Query Parameters:
+    - employee_id: Required employee ID
+    
+    Returns:
+    - Today's call targets
+    - Active route targets
+    - Quick summary
+    """
+    employee_id = request.query_params.get('employee_id')
+    
+    if not employee_id:
+        return Response({
+            'error': 'employee_id parameter is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    from employee_management.models import Employee
+    from datetime import date
+    
+    try:
+        employee = Employee.objects.get(pk=employee_id)
+    except Employee.DoesNotExist:
+        return Response({
+            'error': 'Employee not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    today = date.today()
+    
+    # Get today's call target
+    from .serializers import CallDailyTargetSerializer
+    today_call_target = CallDailyTarget.objects.filter(
+        call_target_period__employee=employee,
+        call_target_period__is_active=True,
+        target_date=today
+    ).select_related('call_target_period').first()
+    
+    # Get active route targets
+    from .serializers import EmployeeRouteTargetSerializer
+    active_route_targets = RouteTargetPeriod.objects.filter(
+        employee=employee,
+        is_active=True,
+        start_date__lte=today,
+        end_date__gte=today
+    ).select_related('route').prefetch_related('product_details__product')
+    
+    response_data = {
+        'employee': {
+            'id': employee.id,
+            'employee_id': employee.employee_id,
+            'name': employee.get_full_name(),
+            'designation': employee.designation,
+        },
+        'date': str(today),
+        'day_name': today.strftime('%A'),
+        'today_call_target': CallDailyTargetSerializer(today_call_target).data if today_call_target else None,
+        'active_route_targets': EmployeeRouteTargetSerializer(active_route_targets, many=True).data,
+        'summary': {
+            'total_calls_target': today_call_target.target_calls if today_call_target else 0,
+            'calls_achieved': today_call_target.achieved_calls if today_call_target else 0,
+            'active_route_targets_count': active_route_targets.count(),
+        }
+    }
+    
+    return Response(response_data)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def employee_achievement_history(request):
+    """
+    Get employee's achievement history/logs
+    
+    Query Parameters:
+    - employee_id: Required
+    - log_type: route, call, or both (default: both)
+    - start_date: Filter from date
+    - end_date: Filter to date
+    - limit: Number of records (default: 50)
+    """
+    employee_id = request.query_params.get('employee_id')
+    
+    if not employee_id:
+        return Response({
+            'error': 'employee_id parameter is required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    from employee_management.models import Employee
+    
+    try:
+        employee = Employee.objects.get(pk=employee_id)
+    except Employee.DoesNotExist:
+        return Response({
+            'error': 'Employee not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    log_type = request.query_params.get('log_type', 'both')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    limit = int(request.query_params.get('limit', 50))
+    
+    queryset = TargetAchievementLog.objects.filter(
+        employee=employee
+    ).select_related('recorded_by', 'route_target', 'call_daily_target')
+    
+    if log_type != 'both':
+        queryset = queryset.filter(log_type=log_type)
+    
+    if start_date:
+        queryset = queryset.filter(achievement_date__gte=start_date)
+    if end_date:
+        queryset = queryset.filter(achievement_date__lte=end_date)
+    
+    queryset = queryset.order_by('-achievement_date', '-created_at')[:limit]
+    
+    serializer = TargetAchievementLogSerializer(queryset, many=True)
+    
+    return Response({
+        'employee': {
+            'id': employee.id,
+            'employee_id': employee.employee_id,
+            'name': employee.get_full_name(),
+        },
+        'total_logs': queryset.count(),
+        'logs': serializer.data
+    })
