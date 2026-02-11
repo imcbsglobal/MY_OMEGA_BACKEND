@@ -210,13 +210,6 @@ class Command(BaseCommand):
                                 "icon": "👁️",
                                 "order": 1,
                             },
-                            {
-                                "name": "Update Progress",
-                                "key": "target_employee_report",
-                                "path": "/target/update-report",
-                                "icon": "📝",
-                                "order": 2,
-                            },
                         ],
                     },
                     # Existing: Route Targets
@@ -516,7 +509,6 @@ class Command(BaseCommand):
             self.stdout.write("-" * 110)
             self.stdout.write("   1. Manager Dashboard - /target/dashboard")
             self.stdout.write("   2. My Targets > View My Targets - /target/my-targets")
-            self.stdout.write("   3. My Targets > Update Progress - /target/update-report")
             self.stdout.write("=" * 110)
                 
         except MenuItem.DoesNotExist:
@@ -532,5 +524,4 @@ class Command(BaseCommand):
         self.stdout.write("\n📌 NOTE: New employee pages added:")
         self.stdout.write("   - Manager Dashboard: Quick overview for managers")
         self.stdout.write("   - View My Targets: Employees can see their assigned targets")
-        self.stdout.write("   - Update Progress: Employees can report daily progress")
         self.stdout.write("\n" + "=" * 110 + "\n")
