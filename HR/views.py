@@ -91,14 +91,28 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         lat = serializer.validated_data.get('latitude')
         lon = serializer.validated_data.get('longitude')
 
+        # Get office info from database
+        from HR.models import OfficeLocation
+        from HR.utils.geofence import get_office_info
+        
+        office_info = get_office_info()
+        if not office_info:
+            return Response({
+                'error': 'Office location not configured',
+                'detail': 'No office location has been set up. Please contact your administrator.',
+                'message': 'Office configuration is missing'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         print("=" * 80)
         print(f"🔵 PUNCH IN ATTEMPT")
         print(f"User: {user.email}")
         print(f"Received Latitude: {lat}")
         print(f"Received Longitude: {lon}")
-        print(f"Office Latitude: {settings.OFFICE_LATITUDE}")
-        print(f"Office Longitude: {settings.OFFICE_LONGITUDE}")
-        print(f"Allowed Radius: {settings.OFFICE_GEOFENCE_RADIUS_METERS}m")
+        print(f"Office: {office_info['name']}")
+        print(f"Office Latitude: {office_info['latitude']}")
+        print(f"Office Longitude: {office_info['longitude']}")
+        print(f"Allowed Radius: {office_info['radius']}m")
+        print(f"Source: {office_info['source']}")
         print("=" * 80)
 
         # ✅ VALIDATE GEOFENCE
@@ -108,12 +122,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         print("=" * 80)
         
         if not allowed:
-            office_info = {
-                'latitude': settings.OFFICE_LATITUDE,
-                'longitude': settings.OFFICE_LONGITUDE,
-                'radius': settings.OFFICE_GEOFENCE_RADIUS_METERS,
-                'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
-            }
             excess_distance = distance - office_info['radius']
             
             print(f"❌ PUNCH IN REJECTED!")
@@ -218,15 +226,29 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         lat = serializer.validated_data.get('latitude')
         lon = serializer.validated_data.get('longitude')
         
+        # Get office info from database
+        from HR.models import OfficeLocation
+        from HR.utils.geofence import get_office_info
+        
+        office_info = get_office_info()
+        if not office_info:
+            return Response({
+                'error': 'Office location not configured',
+                'detail': 'No office location has been set up. Please contact your administrator.',
+                'message': 'Office configuration is missing'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
         # 🔴 CRITICAL: Print received coordinates for debugging
         print("=" * 80)
         print(f"🔍 PUNCH OUT ATTEMPT")
         print(f"User: {user.email}")
         print(f"Received Latitude: {lat}")
         print(f"Received Longitude: {lon}")
-        print(f"Office Latitude: {settings.OFFICE_LATITUDE}")
-        print(f"Office Longitude: {settings.OFFICE_LONGITUDE}")
-        print(f"Allowed Radius: {settings.OFFICE_GEOFENCE_RADIUS_METERS}m")
+        print(f"Office: {office_info['name']}")
+        print(f"Office Latitude: {office_info['latitude']}")
+        print(f"Office Longitude: {office_info['longitude']}")
+        print(f"Allowed Radius: {office_info['radius']}m")
+        print(f"Source: {office_info['source']}")
         print("=" * 80)
         
         # If lat/lon are provided, validate geofence. Otherwise, skip.
@@ -236,12 +258,6 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             print("=" * 80)
 
             if not allowed:
-                office_info = {
-                    'latitude': settings.OFFICE_LATITUDE,
-                    'longitude': settings.OFFICE_LONGITUDE,
-                    'radius': settings.OFFICE_GEOFENCE_RADIUS_METERS,
-                    'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
-                }
                 excess_distance = distance - office_info['radius']
                 
                 print(f"❌ PUNCH OUT REJECTED!")
@@ -2035,14 +2051,28 @@ def get_office_geofence_info(request):
     """
     Get office geofence configuration for display purposes only
     Frontend should NOT use this for validation - validation happens server-side
+    
+    NOTE: This function is DEPRECATED - use /api/hr/geofence-info/ instead
+    (handled by views_office_config.get_office_geofence_info)
     """
-    from django.conf import settings
+    from HR.utils.geofence import get_office_info
+    
+    office_info = get_office_info()
+    
+    if not office_info:
+        return Response({
+            'error': 'Office location not configured',
+            'detail': 'No office location has been set up. Please contact your administrator.',
+            'message': 'Office configuration is missing'
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     
     return Response({
-        'office_latitude': settings.OFFICE_LATITUDE,
-        'office_longitude': settings.OFFICE_LONGITUDE,
-        'radius_meters': settings.OFFICE_GEOFENCE_RADIUS_METERS,
-        'office_address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location'),
+        'office_latitude': office_info['latitude'],
+        'office_longitude': office_info['longitude'],
+        'radius_meters': office_info['radius'],
+        'office_address': office_info['address'],
+        'office_name': office_info['name'],
+        'source': office_info['source'],
         'message': 'You must be within the office radius to punch in/out'
     })
 

@@ -1,10 +1,32 @@
-# HR/utils/geofence.py - UPDATED VERSION with Database Configuration
+# HR/utils/geofence.py - FIXED VERSION with proper imports
 
 from django.conf import settings
-from .geolocation import haversine_distance
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Returns distance in meters between two GPS coordinates.
+    """
+    import math
+    
+    R = 6371000  # Earth radius in meters
+
+    phi1 = math.radians(float(lat1))
+    phi2 = math.radians(float(lat2))
+    d_phi = math.radians(float(lat2) - float(lat1))
+    d_lambda = math.radians(float(lon2) - float(lon1))
+
+    a = (
+        math.sin(d_phi / 2) ** 2 +
+        math.cos(phi1) * math.cos(phi2) *
+        math.sin(d_lambda / 2) ** 2
+    )
+
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 
 def validate_office_geofence(user_lat, user_lon, user=None):
@@ -109,7 +131,7 @@ def _validate_from_settings(user_lat, user_lon, user=None):
     distance = round(distance, 2)
     
     user_info = f"User {user.email}" if user else "Unknown user"
-    logger.warning(f"[GEOFENCE] ⚠️  Using fallback settings.py configuration")
+    logger.warning(f"[GEOFENCE] ⚠️ Using fallback settings.py configuration")
     logger.info(f"[GEOFENCE] {user_info} - Distance: {distance}m | Allowed: {allowed_radius}m")
     
     if distance > allowed_radius:
