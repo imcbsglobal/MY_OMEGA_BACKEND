@@ -229,48 +229,50 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         print(f"Allowed Radius: {settings.OFFICE_GEOFENCE_RADIUS_METERS}m")
         print("=" * 80)
         
-        # ✅ VALIDATE GEOFENCE - NO BYPASS
-        allowed, distance = validate_office_geofence(lat, lon, user=user)
-        
-        # 🔴 Print validation result
-        print(f" Geofence Result: allowed={allowed}, distance={distance}m")
-        print("=" * 80)
-        
-        if not allowed:
-            office_info = {
-                'latitude': settings.OFFICE_LATITUDE,
-                'longitude': settings.OFFICE_LONGITUDE,
-                'radius': settings.OFFICE_GEOFENCE_RADIUS_METERS,
-                'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
-            }
-            excess_distance = distance - office_info['radius']
-            
-            # 🔴 Log rejection
-            print(f"❌ PUNCH OUT REJECTED!")
-            print(f"Distance: {distance}m")
-            print(f"Excess: {excess_distance}m")
+        # If lat/lon are provided, validate geofence. Otherwise, skip.
+        if lat is not None and lon is not None:
+            allowed, distance = validate_office_geofence(lat, lon, user=user)
+            print(f"Geofence Result: allowed={allowed}, distance={distance}m")
             print("=" * 80)
-            
-            return Response({
-                'error': 'Punch out denied: You are outside the office premises',
-                'detail': f'You are {distance:.0f}m away from office. You need to be within {office_info["radius"]:.0f}m.',
-                'distance_meters': distance,
-                'allowed_radius': office_info['radius'],
-                'excess_distance': round(excess_distance, 2),
-                'office_location': {
-                    'latitude': office_info['latitude'],
-                    'longitude': office_info['longitude'],
-                    'address': office_info['address']
-                },
-                'user_location': {
-                    'latitude': lat,
-                    'longitude': lon
-                }
-            }, status=status.HTTP_403_FORBIDDEN)
 
-        # ✅ Geofence passed - proceed with punch out
-        print(f"✅ PUNCH OUT ALLOWED - Distance: {distance}m")
-        print("=" * 80)
+            if not allowed:
+                office_info = {
+                    'latitude': settings.OFFICE_LATITUDE,
+                    'longitude': settings.OFFICE_LONGITUDE,
+                    'radius': settings.OFFICE_GEOFENCE_RADIUS_METERS,
+                    'address': getattr(settings, 'OFFICE_ADDRESS', 'Office Location')
+                }
+                excess_distance = distance - office_info['radius']
+                
+                print(f"❌ PUNCH OUT REJECTED!")
+                print(f"Distance: {distance}m")
+                print(f"Excess: {excess_distance}m")
+                print("=" * 80)
+                
+                return Response({
+                    'error': 'Punch out denied: You are outside the office premises',
+                    'detail': f'You are {distance:.0f}m away from office. You need to be within {office_info["radius"]:.0f}m.',
+                    'distance_meters': distance,
+                    'allowed_radius': office_info['radius'],
+                    'excess_distance': round(excess_distance, 2),
+                    'office_location': {
+                        'latitude': office_info['latitude'],
+                        'longitude': office_info['longitude'],
+                        'address': office_info['address']
+                    },
+                    'user_location': {
+                        'latitude': lat,
+                        'longitude': lon
+                    }
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            print(f"✅ PUNCH OUT ALLOWED - Distance: {distance}m")
+            print("=" * 80)
+        else:
+            # Geofence validation skipped
+            distance = None
+            print(f"⚠️ PUNCH OUT - Geofence validation skipped (no coordinates provided)")
+            print("=" * 80)
 
         punch_record = PunchRecord.objects.create(
             attendance=attendance,

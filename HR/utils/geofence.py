@@ -33,14 +33,21 @@ def validate_office_geofence(user_lat, user_lon, user=None):
     
     # Validate and convert coordinates
     try:
-        user_lat = float(user_lat)
-        user_lon = float(user_lon)
+        user_lat = float(user_lat) if user_lat is not None else None
+        user_lon = float(user_lon) if user_lon is not None else None
         office_lat = float(office.latitude)
         office_lon = float(office.longitude)
         allowed_radius = float(office.geofence_radius_meters)
     except (TypeError, ValueError) as e:
         logger.error(f"[GEOFENCE] ❌ Invalid coordinates: {e}")
         return False, 0
+    
+    # Handle case where user coordinates are not provided
+    if user_lat is None or user_lon is None:
+        logger.warning("[GEOFENCE] ⚠️ User coordinates not provided. Skipping distance check.")
+        # Depending on policy, you might want to allow or deny this.
+        # Allowing it for now, but you could return False, 0 to deny.
+        return True, 0
     
     # Validate coordinate ranges
     if not (-90 <= user_lat <= 90) or not (-180 <= user_lon <= 180):
