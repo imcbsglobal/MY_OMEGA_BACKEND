@@ -289,7 +289,7 @@ class CallTargetPeriod(models.Model):
         on_delete=models.CASCADE,
         related_name='call_targets'
     )
-    start_date = models.DateField(
+    start_date = models.DateField( 
         help_text='Start date of the target period'
     )
     end_date = models.DateField(

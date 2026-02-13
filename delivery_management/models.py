@@ -141,6 +141,13 @@ class Delivery(models.Model):
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text='Amount collected from customers'
     )
+    total_pending_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Total pending/balance amount'
+    )
 
     # Status
     status = models.CharField(
@@ -233,6 +240,10 @@ class Delivery(models.Model):
         # Auto-calculate balance boxes
         if self.total_loaded_boxes and self.total_delivered_boxes:
             self.total_balance_boxes = self.total_loaded_boxes - self.total_delivered_boxes
+        
+        # Auto-calculate pending amount
+        if self.total_amount and self.collected_amount:
+            self.total_pending_amount = max(Decimal('0.00'), self.total_amount - self.collected_amount)
         
         super().save(*args, **kwargs)
 
@@ -446,7 +457,14 @@ class DeliveryStop(models.Model):
         decimal_places=2,
         default=0,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Actually delivered boxes'
+        help_text='Actually delivered boxes at this stop'
+    )
+    balance_boxes = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Balance boxes remaining after this stop'
     )
     planned_amount = models.DecimalField(
         max_digits=12,
@@ -460,7 +478,14 @@ class DeliveryStop(models.Model):
         decimal_places=2,
         default=0,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Amount collected at this stop'
+        help_text='Cash collected at this stop'
+    )
+    pending_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Pending/Balance amount at this stop'
     )
 
     # Timing
@@ -539,6 +564,18 @@ class DeliveryStop(models.Model):
 
     def __str__(self):
         return f"{self.delivery.delivery_number} - Stop {self.stop_sequence} - {self.customer_name}"
+
+    def save(self, *args, **kwargs):
+        """Auto-calculate balance boxes and pending amount"""
+        # Calculate balance boxes if delivered quantity is provided
+        if self.delivered_boxes is not None and self.planned_boxes:
+            self.balance_boxes = max(Decimal('0.00'), self.planned_boxes - self.delivered_boxes)
+        
+        # Calculate pending amount if collected amount is provided
+        if self.collected_amount is not None and self.planned_amount:
+            self.pending_amount = max(Decimal('0.00'), self.planned_amount - self.collected_amount)
+        
+        super().save(*args, **kwargs)
 
     @property
     def stop_duration(self):

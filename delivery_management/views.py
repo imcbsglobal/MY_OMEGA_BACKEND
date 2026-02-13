@@ -20,6 +20,7 @@ from .serializers import (
     DeliveryProductUpdateSerializer,
     DeliveryStopSerializer,
     DeliveryStopCreateSerializer,
+    DeliveryStopUpdateSerializer,
     DeliveryStartSerializer,
     DeliveryCompleteSerializer,
     DeliveryUpdateProductsSerializer,
@@ -215,12 +216,9 @@ def cancel_delivery(request, pk):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Cancel the delivery
-    delivery.status = 'cancelled'
-    delivery.end_notes = request.data.get('notes', '')
-    delivery.save()
+    reason = request.data.get('reason', '')
+    delivery.cancel_delivery(reason)
     
-    # Return updated delivery
     serializer = DeliveryDetailSerializer(delivery)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -228,7 +226,7 @@ def cancel_delivery(request, pk):
 # ==================== DELIVERY PRODUCTS ====================
 
 class DeliveryProductListAPIView(generics.ListAPIView):
-    """List all products for a specific delivery"""
+    """List all products for a delivery"""
     serializer_class = DeliveryProductSerializer
     permission_classes = [IsAuthenticated]
     
@@ -249,43 +247,39 @@ class DeliveryProductUpdateAPIView(generics.UpdateAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def update_delivery_products_bulk(request, pk):
-    """Bulk update delivery products (mainly delivered quantities)"""
+    """Bulk update delivery products"""
     delivery = get_object_or_404(Delivery, pk=pk)
     
     # Validate input
-    serializer = DeliveryUpdateProductsSerializer(data=request.data)
+    serializer = DeliveryUpdateProductsSerializer(
+        data=request.data,
+        context={'delivery': delivery}
+    )
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    products_data = serializer.validated_data['products']
-    updated_products = []
-    
-    # Update each product
+    # Update products
+    products_data = serializer.validated_data.get('products', [])
     for product_data in products_data:
         try:
             delivery_product = DeliveryProduct.objects.get(
-                id=product_data['id'],
-                delivery=delivery
+                id=product_data['id']
             )
-            delivery_product.delivered_quantity = Decimal(str(product_data['delivered_quantity']))
+            if 'delivered_quantity' in product_data:
+                delivery_product.delivered_quantity = product_data['delivered_quantity']
+            if 'loaded_quantity' in product_data:
+                delivery_product.loaded_quantity = product_data['loaded_quantity']
+            if 'unit_price' in product_data:
+                delivery_product.unit_price = product_data['unit_price']
             delivery_product.save()
-            updated_products.append(delivery_product)
-            
         except DeliveryProduct.DoesNotExist:
             return Response(
-                {'error': f'Product with id {product_data["id"]} not found in this delivery'},
+                {'error': f'Product {product_data["id"]} not found'},
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    # Recalculate delivery totals
-    total_delivered = sum(p.delivered_quantity for p in updated_products)
-    total_balance = sum(p.balance_quantity for p in updated_products)
-    
-    delivery.total_delivered_boxes = total_delivered
-    delivery.total_balance_boxes = total_balance
-    delivery.save()
-    
     # Return updated products
+    updated_products = DeliveryProduct.objects.filter(delivery=delivery)
     response_serializer = DeliveryProductSerializer(updated_products, many=True)
     return Response(response_serializer.data, status=status.HTTP_200_OK)
 
@@ -295,7 +289,7 @@ def update_delivery_products_bulk(request, pk):
 class DeliveryStopListAPIView(generics.ListCreateAPIView):
     """
     GET: List all stops for a delivery
-    POST: Create a new stop for a delivery
+    POST: Create a new stop (only allowed when delivery is in_progress)
     """
     permission_classes = [IsAuthenticated]
     
@@ -308,85 +302,92 @@ class DeliveryStopListAPIView(generics.ListCreateAPIView):
         delivery_id = self.kwargs.get('delivery_id')
         return DeliveryStop.objects.filter(
             delivery_id=delivery_id
-        ).order_by('stop_sequence')
+        ).select_related('delivery').order_by('stop_sequence')
     
     def perform_create(self, serializer):
         delivery_id = self.kwargs.get('delivery_id')
         delivery = get_object_or_404(Delivery, pk=delivery_id)
         
-        # Auto-assign sequence number if not provided or if it conflicts
-        stop_sequence = serializer.validated_data.get('stop_sequence')
+        # ✅ NEW: Check if delivery is in progress
+        if delivery.status != 'in_progress':
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({
+                'error': 'Stops can only be added when delivery is in progress. Please start the delivery first.'
+            })
         
-        if not stop_sequence or DeliveryStop.objects.filter(
-            delivery=delivery, 
-            stop_sequence=stop_sequence
-        ).exists():
-            # Get the next available sequence number
-            from django.db.models import Max
-            max_sequence = DeliveryStop.objects.filter(
-                delivery=delivery
-            ).aggregate(Max('stop_sequence'))['stop_sequence__max']
-            
-            stop_sequence = (max_sequence or 0) + 1
-            serializer.validated_data['stop_sequence'] = stop_sequence
+        # Auto-assign sequence number
+        max_sequence = DeliveryStop.objects.filter(
+            delivery=delivery
+        ).aggregate(max_seq=Count('stop_sequence'))['max_seq'] or 0
         
-        serializer.save(delivery=delivery)
+        serializer.save(
+            delivery=delivery,
+            stop_sequence=max_sequence + 1
+        )
 
 
 class DeliveryStopDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET: Get stop details
-    PUT/PATCH: Update stop
-    DELETE: Delete stop
+    PUT/PATCH: Update stop (only allowed when delivery is in_progress or scheduled)
+    DELETE: Delete stop (only allowed when delivery is in_progress or scheduled)
     """
     queryset = DeliveryStop.objects.all()
-    serializer_class = DeliveryStopSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return DeliveryStopUpdateSerializer
+        return DeliveryStopSerializer
+    
+    def perform_update(self, serializer):
+        stop = self.get_object()
+        
+        # ✅ NEW: Check if delivery allows stop editing
+        if stop.delivery.status not in ['scheduled', 'in_progress']:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({
+                'error': 'Stops can only be edited when delivery is scheduled or in progress.'
+            })
+        
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        # ✅ NEW: Check if delivery allows stop deletion
+        if instance.delivery.status not in ['scheduled', 'in_progress']:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({
+                'error': 'Stops can only be deleted when delivery is scheduled or in progress.'
+            })
+        
+        instance.delete()
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def complete_delivery_stop(request, pk):
-    """Complete a delivery stop - FIXED VERSION"""
+    """Mark a delivery stop as completed"""
     stop = get_object_or_404(DeliveryStop, pk=pk)
     
-    # Update stop details
-    stop.delivered_boxes = request.data.get('delivered_boxes', 0)
-    stop.collected_amount = request.data.get('collected_amount', 0)
+    # Check delivery is in progress
+    if stop.delivery.status != 'in_progress':
+        return Response(
+            {'error': 'Can only complete stops for in-progress deliveries'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
-    # Parse datetime fields properly - THIS IS THE FIX
-    actual_arrival = request.data.get('actual_arrival')
-    if actual_arrival:
-        if isinstance(actual_arrival, str):
-            stop.actual_arrival = parse_datetime(actual_arrival)
-        else:
-            stop.actual_arrival = actual_arrival
-    else:
-        stop.actual_arrival = timezone.now()
+    # Validate input
+    serializer = DeliveryStopUpdateSerializer(
+        stop,
+        data=request.data,
+        partial=True
+    )
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    departure_time = request.data.get('departure_time')
-    if departure_time:
-        if isinstance(departure_time, str):
-            stop.departure_time = parse_datetime(departure_time)
-        else:
-            stop.departure_time = departure_time
-    else:
-        stop.departure_time = timezone.now()
+    # Update stop
+    serializer.save()
     
-    stop.status = request.data.get('status', 'delivered')
-    stop.notes = request.data.get('notes', '')
-    stop.failure_reason = request.data.get('failure_reason', '')
-    
-    # Handle location
-    if 'latitude' in request.data:
-        stop.latitude = request.data['latitude']
-    if 'longitude' in request.data:
-        stop.longitude = request.data['longitude']
-    
-    stop.save()
-    
-    # Return updated stop
-    serializer = DeliveryStopSerializer(stop)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -395,20 +396,23 @@ def complete_delivery_stop(request, pk):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def delivery_statistics(request):
-    """Get overall delivery statistics"""
-    
-    # Get date range from query params
+    """Get delivery statistics for a date range"""
     start_date = request.query_params.get('start_date')
     end_date = request.query_params.get('end_date')
     
-    queryset = Delivery.objects.all()
+    # Default to current month if no dates provided
+    if not start_date or not end_date:
+        today = timezone.now().date()
+        start_date = today.replace(day=1)
+        end_date = today
     
-    if start_date:
-        queryset = queryset.filter(scheduled_date__gte=start_date)
-    if end_date:
-        queryset = queryset.filter(scheduled_date__lte=end_date)
+    # Build queryset
+    queryset = Delivery.objects.filter(
+        scheduled_date__gte=start_date,
+        scheduled_date__lte=end_date
+    )
     
-    # Calculate statistics (excluding delivery_efficiency which is a property)
+    # Calculate statistics
     stats = queryset.aggregate(
         total_deliveries=Count('id'),
         scheduled_deliveries=Count('id', filter=Q(status='scheduled')),
@@ -487,6 +491,40 @@ def employee_deliveries(request, employee_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def my_assigned_deliveries(request):
+    """Get deliveries assigned to the current logged-in employee"""
+    # Get employee associated with current user
+    # Assuming employee has a user field or you have a way to map user to employee
+    from employee_management.models import Employee
+    
+    try:
+        employee = Employee.objects.get(user=request.user)
+    except Employee.DoesNotExist:
+        return Response(
+            {'error': 'No employee profile found for this user'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Filter deliveries for this employee
+    status_param = request.query_params.get('status', None)
+    queryset = Delivery.objects.filter(employee=employee).select_related(
+        'employee', 'vehicle', 'route'
+    ).prefetch_related('products', 'stops')
+    
+    if status_param:
+        queryset = queryset.filter(status=status_param)
+    else:
+        # Default: show only scheduled and in_progress deliveries
+        queryset = queryset.filter(status__in=['scheduled', 'in_progress'])
+    
+    queryset = queryset.order_by('-scheduled_date', '-scheduled_time')
+    
+    serializer = DeliveryListSerializer(queryset, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def vehicle_deliveries(request, vehicle_id):
     """Get deliveries for a specific vehicle"""
     deliveries = Delivery.objects.filter(
@@ -511,3 +549,88 @@ def route_deliveries(request, route_id):
     
     serializer = DeliveryListSerializer(deliveries, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_next_stop(request, pk):
+    """Get the next pending stop for a delivery"""
+    delivery = get_object_or_404(Delivery, pk=pk)
+    
+    # Check delivery is in progress
+    if delivery.status != 'in_progress':
+        return Response(
+            {'error': 'Delivery is not in progress'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find next pending stop
+    next_stop = delivery.stops.filter(
+        status='pending'
+    ).order_by('stop_sequence').first()
+    
+    if not next_stop:
+        return Response(
+            {'message': 'No pending stops remaining'},
+            status=status.HTTP_200_OK
+        )
+    
+    serializer = DeliveryStopSerializer(next_stop)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def delivery_summary(request, pk):
+    """Get comprehensive delivery summary for admin/reporting"""
+    delivery = get_object_or_404(Delivery.objects.select_related(
+        'employee', 'vehicle', 'route'
+    ).prefetch_related('products', 'stops'), pk=pk)
+    
+    # Calculate stop-wise summary
+    stops_summary = []
+    for stop in delivery.stops.all().order_by('stop_sequence'):
+        stops_summary.append({
+            'stop_sequence': stop.stop_sequence,
+            'customer_name': stop.customer_name,
+            'planned_boxes': float(stop.planned_boxes),
+            'delivered_boxes': float(stop.delivered_boxes),
+            'balance_boxes': float(stop.balance_boxes),
+            'planned_amount': float(stop.planned_amount),
+            'collected_amount': float(stop.collected_amount),
+            'pending_amount': float(stop.pending_amount),
+            'status': stop.status,
+        })
+    
+    # Product-wise summary
+    products_summary = []
+    for product in delivery.products.all():
+        products_summary.append({
+            'product_name': product.product.product_name,
+            'loaded_quantity': float(product.loaded_quantity),
+            'delivered_quantity': float(product.delivered_quantity),
+            'balance_quantity': float(product.balance_quantity),
+            'unit_price': float(product.unit_price) if product.unit_price else 0,
+            'total_amount': float(product.total_amount),
+        })
+    
+    summary = {
+        'delivery_number': delivery.delivery_number,
+        'employee_name': delivery.employee.get_full_name(),
+        'vehicle_number': delivery.vehicle.registration_number,
+        'route_name': delivery.route.route_name,
+        'scheduled_date': delivery.scheduled_date,
+        'status': delivery.status,
+        'totals': {
+            'total_loaded_boxes': float(delivery.total_loaded_boxes),
+            'total_delivered_boxes': float(delivery.total_delivered_boxes),
+            'total_balance_boxes': float(delivery.total_balance_boxes),
+            'total_amount': float(delivery.total_amount),
+            'collected_amount': float(delivery.collected_amount),
+            'total_pending_amount': float(delivery.total_pending_amount),
+        },
+        'stops': stops_summary,
+        'products': products_summary,
+    }
+    
+    return Response(summary, status=status.HTTP_200_OK)

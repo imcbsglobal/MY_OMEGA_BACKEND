@@ -131,8 +131,10 @@ class DeliveryStopSerializer(serializers.ModelSerializer):
             'customer_phone',
             'planned_boxes',
             'delivered_boxes',
+            'balance_boxes',
             'planned_amount',
             'collected_amount',
+            'pending_amount',
             'estimated_arrival',
             'actual_arrival',
             'departure_time',
@@ -148,6 +150,7 @@ class DeliveryStopSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+        read_only_fields = ['balance_boxes', 'pending_amount']
 
 
 class DeliveryStopCreateSerializer(serializers.ModelSerializer):
@@ -164,6 +167,35 @@ class DeliveryStopCreateSerializer(serializers.ModelSerializer):
             'estimated_arrival',
             'notes'
         ]
+
+
+class DeliveryStopUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating delivery stop by employee"""
+    class Meta:
+        model = DeliveryStop
+        fields = [
+            'delivered_boxes',
+            'collected_amount',
+            'status',
+            'notes',
+            'failure_reason',
+            'signature_image',
+            'proof_image',
+            'latitude',
+            'longitude'
+        ]
+    
+    def validate(self, data):
+        """Validate delivered boxes don't exceed planned boxes"""
+        delivered_boxes = data.get('delivered_boxes', self.instance.delivered_boxes if self.instance else 0)
+        planned_boxes = self.instance.planned_boxes if self.instance else 0
+        
+        if delivered_boxes and planned_boxes and delivered_boxes > planned_boxes:
+            # Allow it but set status to partial if more delivered than planned
+            if data.get('status') != 'delivered':
+                data['status'] = 'partial'
+        
+        return data
 
 
 # ===================== MAIN DELIVERY SERIALIZERS =====================
@@ -198,6 +230,7 @@ class DeliveryListSerializer(serializers.ModelSerializer):
             'total_balance_boxes',
             'total_amount',
             'collected_amount',
+            'total_pending_amount',
             'duration_minutes',
             'distance_traveled',
             'delivery_efficiency',
@@ -247,6 +280,7 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
             'total_balance_boxes',
             'total_amount',
             'collected_amount',
+            'total_pending_amount',
             'status',
             'start_notes',
             'end_notes',
@@ -268,7 +302,7 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
 
 class DeliveryCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating new delivery"""
-    products = DeliveryProductCreateSerializer(many=True, required=True)
+    products = DeliveryProductCreateSerializer(many=True, required=False)
     stops = DeliveryStopCreateSerializer(many=True, required=False)
 
     class Meta:
@@ -284,11 +318,6 @@ class DeliveryCreateSerializer(serializers.ModelSerializer):
             'stops'
         ]
 
-    def validate_products(self, value):
-        if not value:
-            raise serializers.ValidationError("At least one product is required")
-        return value
-
     def validate(self, data):
         # Validate scheduled date is not in the past
         from django.utils import timezone
@@ -301,13 +330,13 @@ class DeliveryCreateSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        products_data = validated_data.pop('products')
+        products_data = validated_data.pop('products', [])
         stops_data = validated_data.pop('stops', [])
         
         # Create delivery
         delivery = Delivery.objects.create(**validated_data)
         
-        # Create products
+        # Create products if provided
         total_loaded = Decimal('0.00')
         total_amount = Decimal('0.00')
         
@@ -320,10 +349,11 @@ class DeliveryCreateSerializer(serializers.ModelSerializer):
             if product.unit_price:
                 total_amount += product.loaded_quantity * product.unit_price
         
-        # Update delivery totals
-        delivery.total_loaded_boxes = total_loaded
-        delivery.total_amount = total_amount
-        delivery.save()
+        # Update delivery totals only if products were provided
+        if products_data:
+            delivery.total_loaded_boxes = total_loaded
+            delivery.total_amount = total_amount
+            delivery.save()
         
         # Create stops if provided
         for stop_data in stops_data:

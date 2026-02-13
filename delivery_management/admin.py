@@ -50,6 +50,9 @@ class DeliveryAdmin(admin.ModelAdmin):
         'status',
         'total_loaded_boxes',
         'total_delivered_boxes',
+        'total_balance_boxes',
+        'collected_amount',
+        'total_pending_amount',
         'delivery_efficiency_display',
         'created_at'
     ]
@@ -120,7 +123,8 @@ class DeliveryAdmin(admin.ModelAdmin):
                 'total_delivered_boxes',
                 'total_balance_boxes',
                 'total_amount',
-                'collected_amount'
+                'collected_amount',
+                'total_pending_amount'
             )
         }),
         ('Calculated Metrics', {
@@ -227,7 +231,9 @@ class DeliveryStopAdmin(admin.ModelAdmin):
         'status',
         'planned_boxes',
         'delivered_boxes',
+        'balance_boxes',
         'collected_amount',
+        'pending_amount',
         'actual_arrival',
         'stop_duration_display'
     ]
@@ -246,6 +252,8 @@ class DeliveryStopAdmin(admin.ModelAdmin):
     ]
     
     readonly_fields = [
+        'balance_boxes',
+        'pending_amount',
         'stop_duration',
         'is_completed',
         'created_at',
@@ -273,7 +281,9 @@ class DeliveryStopAdmin(admin.ModelAdmin):
         ('Actual Details', {
             'fields': (
                 'delivered_boxes',
+                'balance_boxes',
                 'collected_amount',
+                'pending_amount',
                 'actual_arrival',
                 'departure_time',
                 'stop_duration'

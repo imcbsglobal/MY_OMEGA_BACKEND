@@ -4,7 +4,7 @@ from user_controll.models import MenuItem
 
 
 class Command(BaseCommand):
-    help = 'Seed menu items with Target Management section'
+    help = 'Seed menu items with Delivery Management section'
 
     def handle(self, *args, **options):
         # Clear old menu items to avoid conflicts
@@ -179,7 +179,7 @@ class Command(BaseCommand):
                 ],
             },
 
-            # ------------------ TARGET MANAGEMENT (UPDATED) ------------------
+            # ------------------ TARGET MANAGEMENT ------------------
             {
                 "name": "Target Management",
                 "key": "target_management",
@@ -195,24 +195,24 @@ class Command(BaseCommand):
                         "icon": "📊",
                         "order": 1,
                     },
-                    # NEW: Employee Self-Service Section
+                    # NEW: My Targets (For regular employees)
                     {
                         "name": "My Targets",
-                        "key": "target_employee",
+                        "key": "target_my_targets",
                         "path": "#",
-                        "icon": "👤",
+                        "icon": "🎯",
                         "order": 2,
                         "children": [
                             {
                                 "name": "View My Targets",
-                                "key": "target_employee_view",
+                                "key": "target_view_my_targets",
                                 "path": "/target/my-targets",
                                 "icon": "👁️",
                                 "order": 1,
                             },
                         ],
                     },
-                    # Existing: Route Targets
+                    # Route Targets
                     {
                         "name": "Route Targets",
                         "key": "target_route",
@@ -243,7 +243,7 @@ class Command(BaseCommand):
                             },
                         ],
                     },
-                    # Existing: Call Targets
+                    # Call Targets
                     {
                         "name": "Call Targets",
                         "key": "target_call",
@@ -267,8 +267,8 @@ class Command(BaseCommand):
                             },
                             {
                                 "name": "Daily Activity",
-                                "key": "target_call_daily",
-                                "path": "/target/call/daily",
+                                "key": "target_call_daily_activity",
+                                "path": "/target/call/daily-activity",
                                 "icon": "📅",
                                 "order": 3,
                             },
@@ -276,12 +276,12 @@ class Command(BaseCommand):
                                 "name": "Call Performance",
                                 "key": "target_call_performance",
                                 "path": "/target/call/performance",
-                                "icon": "📈",
+                                "icon": "📊",
                                 "order": 4,
                             },
                         ],
                     },
-                    # Existing: Master Data
+                    # Master Data
                     {
                         "name": "Master Data",
                         "key": "target_master",
@@ -305,22 +305,35 @@ class Command(BaseCommand):
                             },
                         ],
                     },
-                    # Existing: Reports (keeping for backward compatibility)
+                    # Reports (if needed)
                     {
                         "name": "Reports",
                         "key": "target_reports",
                         "path": "#",
-                        "icon": "📊",
+                        "icon": "📈",
                         "order": 6,
                         "children": [
                             {
-                                "name": "Dashboard",
-                                "key": "target_reports_dashboard",
-                                "path": "/target/reports/dashboard",
+                                "name": "Route Performance",
+                                "key": "target_report_route",
+                                "path": "/target/route/performance",
                                 "icon": "📊",
                                 "order": 1,
                             },
-                            
+                            {
+                                "name": "Call Performance",
+                                "key": "target_report_call",
+                                "path": "/target/call/performance",
+                                "icon": "📊",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Employee Dashboard",
+                                "key": "target_employee_dashboard",
+                                "path": "/target/employee-dashboard",
+                                "icon": "👤",
+                                "order": 3,
+                            },
                         ],
                     },
                 ],
@@ -329,7 +342,7 @@ class Command(BaseCommand):
             # ------------------ VEHICLE MANAGEMENT ------------------
             {
                 "name": "Vehicle Management",
-                "key": "vehicle_management",
+                "key": "vehicle",
                 "path": "#",
                 "icon": "🚗",
                 "order": 5,
@@ -358,13 +371,59 @@ class Command(BaseCommand):
                 ],
             },
 
+            # ------------------ DELIVERY MANAGEMENT ------------------
+            {
+                "name": "Delivery Management",
+                "key": "delivery_management",
+                "path": "#",
+                "icon": "🚚",
+                "order": 6,
+                "children": [
+                    {
+                        "name": "List Deliveries",
+                        "key": "delivery_list",
+                        "path": "/delivery-management/deliveries",
+                        "icon": "📋",
+                        "order": 1,
+                    },
+                    {
+                        "name": "Create Delivery",
+                        "key": "delivery_create",
+                        "path": "/delivery-management/deliveries/new",
+                        "icon": "➕",
+                        "order": 2,
+                    },
+                    {
+                        "name": "Today's Deliveries",
+                        "key": "delivery_today",
+                        "path": "/delivery-management/deliveries/today",
+                        "icon": "📅",
+                        "order": 3,
+                    },
+                    {
+                        "name": "Upcoming Deliveries",
+                        "key": "delivery_upcoming",
+                        "path": "/delivery-management/deliveries/upcoming",
+                        "icon": "🔜",
+                        "order": 4,
+                    },
+                    {
+                        "name": "Statistics",
+                        "key": "delivery_statistics",
+                        "path": "/delivery-management/deliveries/statistics",
+                        "icon": "📊",
+                        "order": 5,
+                    },
+                ],
+            },
+
             # ------------------ MASTER DATA ------------------
             {
                 "name": "Master Data",
                 "key": "master",
                 "path": "#",
                 "icon": "⚙️",
-                "order": 6,
+                "order": 7,
                 "children": [
                     {
                         "name": "Job Titles",
@@ -487,41 +546,48 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"   - Updated: {updated_count} existing items"))
         self.stdout.write("=" * 110 + "\n")
         
-        # Verify Target Management structure
-        self.stdout.write("\n🔍 VERIFYING TARGET MANAGEMENT STRUCTURE:")
+        # Verify Delivery Management structure
+        self.stdout.write("\n🔍 VERIFYING DELIVERY MANAGEMENT STRUCTURE:")
         self.stdout.write("-" * 110)
         
         try:
-            target_mgmt = MenuItem.objects.get(key='target_management')
-            children = target_mgmt.children.filter(is_active=True).order_by('order')
-            self.stdout.write(self.style.SUCCESS(f"\n✅ Target Management found with {children.count()} children:"))
+            delivery_mgmt = MenuItem.objects.get(key='delivery_management')
+            children = delivery_mgmt.children.filter(is_active=True).order_by('order')
+            self.stdout.write(self.style.SUCCESS(f"\n✅ Delivery Management found with {children.count()} children:"))
             for i, child in enumerate(children, 1):
                 self.stdout.write(f"   {i}. {child.name} ({child.key}) - {child.path}")
                 if child.children.exists():
                     for j, subchild in enumerate(child.children.filter(is_active=True).order_by('order'), 1):
                         self.stdout.write(f"      {i}.{j}. {subchild.name} ({subchild.key}) - {subchild.path}")
             
-            self.stdout.write(self.style.SUCCESS("\n✅ Target Management menu structure verified!"))
+            self.stdout.write(self.style.SUCCESS("\n✅ Delivery Management menu structure verified!"))
             
             # Highlight new additions
             self.stdout.write("\n" + "=" * 110)
-            self.stdout.write(self.style.SUCCESS("🆕 NEW MENU ITEMS ADDED:"))
+            self.stdout.write(self.style.SUCCESS("🆕 DELIVERY MANAGEMENT MENU ITEMS ADDED:"))
             self.stdout.write("-" * 110)
-            self.stdout.write("   1. Manager Dashboard - /target/dashboard")
-            self.stdout.write("   2. My Targets > View My Targets - /target/my-targets")
+            self.stdout.write("   1. List Deliveries - /delivery-management/deliveries")
+            self.stdout.write("   2. Create Delivery - /delivery-management/deliveries/new")
+            self.stdout.write("   3. Today's Deliveries - /delivery-management/deliveries/today")
+            self.stdout.write("   4. Upcoming Deliveries - /delivery-management/deliveries/upcoming")
+            self.stdout.write("   5. Statistics - /delivery-management/deliveries/statistics")
             self.stdout.write("=" * 110)
                 
         except MenuItem.DoesNotExist:
-            self.stdout.write(self.style.ERROR("❌ Target Management menu not found!"))
+            self.stdout.write(self.style.ERROR("❌ Delivery Management menu not found!"))
         
         self.stdout.write("\n" + "=" * 110)
         self.stdout.write("\n💡 Next steps:")
         self.stdout.write("   1. Run: python manage.py seed_menus")
-        self.stdout.write("   2. Logout from application")
-        self.stdout.write("   3. Clear browser cache: localStorage.clear() + sessionStorage.clear()")
-        self.stdout.write("   4. Login again")
-        self.stdout.write("   5. Check Target Management menu in sidebar!")
-        self.stdout.write("\n📌 NOTE: New employee pages added:")
-        self.stdout.write("   - Manager Dashboard: Quick overview for managers")
-        self.stdout.write("   - View My Targets: Employees can see their assigned targets")
+        self.stdout.write("   2. Assign menu permissions in User Control Panel")
+        self.stdout.write("   3. Logout from application")
+        self.stdout.write("   4. Clear browser cache: localStorage.clear() + sessionStorage.clear()")
+        self.stdout.write("   5. Login again")
+        self.stdout.write("   6. Check Delivery Management menu in sidebar!")
+        self.stdout.write("\n📌 NOTE: Delivery Management features:")
+        self.stdout.write("   - List Deliveries: View all deliveries with filtering")
+        self.stdout.write("   - Create Delivery: Add new delivery with products and stops")
+        self.stdout.write("   - Today's Deliveries: Quick view of today's scheduled deliveries")
+        self.stdout.write("   - Upcoming Deliveries: See future scheduled deliveries")
+        self.stdout.write("   - Statistics: Overview of delivery performance and metrics")
         self.stdout.write("\n" + "=" * 110 + "\n")

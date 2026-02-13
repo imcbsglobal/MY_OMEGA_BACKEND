@@ -103,4 +103,19 @@ urlpatterns = [
     path('deliveries/route/<int:route_id>/', 
          views.route_deliveries, 
          name='route-deliveries'),
+    
+    # Employee's Assigned Deliveries (for logged-in employee)
+    path('deliveries/my-assigned/', 
+         views.my_assigned_deliveries, 
+         name='my-assigned-deliveries'),
+    
+    # Get Next Pending Stop
+    path('deliveries/<int:pk>/next-stop/', 
+         views.get_next_stop, 
+         name='delivery-next-stop'),
+    
+    # Delivery Summary (for admin reporting)
+    path('deliveries/<int:pk>/summary/', 
+         views.delivery_summary, 
+         name='delivery-summary'),
 ]

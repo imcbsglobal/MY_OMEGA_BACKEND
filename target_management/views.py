@@ -446,7 +446,9 @@ class MyCallTargetsView(generics.ListAPIView):
         if not emp:
             return CallTargetPeriod.objects.none()
 
-        return CallTargetPeriod.objects.filter(employee=emp, is_active=True).order_by('-start_date')
+        return CallTargetPeriod.objects.filter(
+            employee=emp, is_active=True
+        ).prefetch_related('daily_targets').order_by('-start_date')
 
 
 class MyRouteTargetsView(generics.ListAPIView):
@@ -463,7 +465,9 @@ class MyRouteTargetsView(generics.ListAPIView):
         if not emp:
             return RouteTargetPeriod.objects.none()
 
-        return RouteTargetPeriod.objects.filter(employee=emp, is_active=True).order_by('-start_date')
+        return RouteTargetPeriod.objects.filter(
+            employee=emp, is_active=True
+        ).select_related('route').prefetch_related('product_details__product').order_by('-start_date')
 
 
 # ==================== REPORTS & ANALYTICS ====================

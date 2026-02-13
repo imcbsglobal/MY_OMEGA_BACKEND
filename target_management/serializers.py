@@ -339,7 +339,12 @@ class CallDailyTargetSerializer(serializers.ModelSerializer):
             'achievement_percentage', 'productivity_percentage',
             'remarks', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        # call_target_period is read-only: when used nested inside
+        # CallTargetPeriodSerializer the parent assigns it via
+        #   CallDailyTarget.objects.create(call_target_period=call_target, ...)
+        # Leaving it writable makes DRF require it in every nested item sent
+        # from the frontend (which doesn't know the ID yet) → 400 Bad Request.
+        read_only_fields = ['call_target_period', 'created_at', 'updated_at']
 
 
 # ==================== CALL TARGET PERIOD SERIALIZERS ====================
