@@ -12,6 +12,11 @@ urlpatterns = [
          views.DeliveryListCreateAPIView.as_view(), 
          name='delivery-list-create'),
     
+    # My Assigned Deliveries (MUST come before <int:pk> pattern)
+    path('deliveries/my-assigned/', 
+         views.my_assigned_deliveries, 
+         name='my-assigned-deliveries'),
+    
     # Delivery Detail, Update, Delete
     path('deliveries/<int:pk>/', 
          views.DeliveryDetailAPIView.as_view(), 

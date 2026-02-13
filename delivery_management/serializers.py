@@ -247,6 +247,11 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
     products = DeliveryProductSerializer(many=True, read_only=True)
     stops = DeliveryStopSerializer(many=True, read_only=True)
     
+    # Add convenience fields for compatibility
+    employee_name = serializers.CharField(source='employee.get_full_name', read_only=True)
+    vehicle_number = serializers.CharField(source='vehicle.registration_number', read_only=True)
+    route_name = serializers.CharField(source='route.route_name', read_only=True)
+    
     # Calculated fields
     duration_minutes = serializers.IntegerField(read_only=True)
     distance_traveled = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -263,10 +268,13 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
             'delivery_number',
             'employee',
             'employee_details',
+            'employee_name',
             'vehicle',
             'vehicle_details',
+            'vehicle_number',
             'route',
             'route_details',
+            'route_name',
             'scheduled_date',
             'scheduled_time',
             'start_datetime',
@@ -296,7 +304,13 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
             'products',
             'stops',
             'created_at',
-            'updated_at'
+            'updated_at',
+            'start_location',
+            'start_latitude',
+            'start_longitude',
+            'completion_location',
+            'completion_latitude',
+            'completion_longitude'
         ]
 
 
@@ -405,6 +419,27 @@ class DeliveryStartSerializer(serializers.Serializer):
         allow_blank=True,
         max_length=2000
     )
+    # Location fields for delivery start
+    start_location = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Human-readable start location description"
+    )
+    start_latitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+        help_text="GPS latitude for delivery start location"
+    )
+    start_longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+        help_text="GPS longitude for delivery start location"
+    )
 
     def validate_odometer_reading(self, value):
         if value is not None and value < 0:
@@ -414,6 +449,16 @@ class DeliveryStartSerializer(serializers.Serializer):
     def validate_fuel_level(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Fuel level cannot be negative")
+        return value
+
+    def validate_start_latitude(self, value):
+        if value is not None and (value < -90 or value > 90):
+            raise serializers.ValidationError("Latitude should be between -90 and 90")
+        return value
+
+    def validate_start_longitude(self, value):
+        if value is not None and (value < -180 or value > 180):
+            raise serializers.ValidationError("Longitude should be between -180 and 180")
         return value
 
 
@@ -438,8 +483,29 @@ class DeliveryCompleteSerializer(serializers.Serializer):
     )
     products = serializers.ListField(
         child=serializers.DictField(),
-        required=True,
+        required=False,  # Make it optional and auto-generate if not provided
         help_text="List of products with delivered quantities"
+    )
+    # Completion location fields
+    completion_location = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Human-readable completion location description"
+    )
+    completion_latitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+        help_text="GPS latitude for delivery completion location"
+    )
+    completion_longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        required=False,
+        allow_null=True,
+        help_text="GPS longitude for delivery completion location"
     )
 
     def validate_odometer_reading(self, value):
@@ -452,9 +518,20 @@ class DeliveryCompleteSerializer(serializers.Serializer):
             raise serializers.ValidationError("Fuel level cannot be negative")
         return value
 
+    def validate_completion_latitude(self, value):
+        if value is not None and (value < -90 or value > 90):
+            raise serializers.ValidationError("Latitude should be between -90 and 90")
+        return value
+
+    def validate_completion_longitude(self, value):
+        if value is not None and (value < -180 or value > 180):
+            raise serializers.ValidationError("Longitude should be between -180 and 180")
+        return value
+
     def validate_products(self, value):
+        # Allow empty products list - we'll use existing data
         if not value:
-            raise serializers.ValidationError("Product delivery data is required")
+            return value
         
         for item in value:
             if 'product_id' not in item:

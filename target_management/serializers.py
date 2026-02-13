@@ -386,25 +386,60 @@ class CallTargetPeriodSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         daily_targets_data = validated_data.pop('daily_targets', [])
+        
+        # Debug logging
+        print(f"\n=== CREATING CALL TARGET ===")
+        print(f"Employee: {validated_data.get('employee')}")
+        print(f"Date range: {validated_data.get('start_date')} to {validated_data.get('end_date')}")
+        print(f"Received {len(daily_targets_data)} daily targets")
+        
+        # Log first few daily targets
+        for i, dt in enumerate(daily_targets_data[:3]):
+            print(f"Daily target {i+1}: date={dt.get('target_date')}, calls={dt.get('target_calls')} (type: {type(dt.get('target_calls'))})")
+        
         call_target = CallTargetPeriod.objects.create(**validated_data)
         
-        # If daily targets not provided, auto-generate them
-        if not daily_targets_data:
+        # Create daily targets - ALWAYS create from provided data
+        if daily_targets_data:
+            print(f"Creating {len(daily_targets_data)} daily targets from provided data...")
+            created_count = 0
+            for daily_target_data in daily_targets_data:
+                target_calls = daily_target_data.get('target_calls', 0)
+                print(f"Creating daily target for {daily_target_data.get('target_date')} with {target_calls} calls")
+                
+                daily_target = CallDailyTarget.objects.create(
+                    call_target_period=call_target,
+                    target_date=daily_target_data.get('target_date'),
+                    target_calls=int(target_calls) if target_calls else 0,
+                    achieved_calls=int(daily_target_data.get('achieved_calls', 0)),
+                    productive_calls=int(daily_target_data.get('productive_calls', 0)),
+                    order_received=int(daily_target_data.get('order_received', 0)),
+                    order_amount=float(daily_target_data.get('order_amount', 0)),
+                    remarks=daily_target_data.get('remarks', '')
+                )
+                created_count += 1
+                print(f"✅ Created daily target ID {daily_target.id} with {daily_target.target_calls} calls")
+            
+            print(f"Successfully created {created_count} daily targets")
+        else:
+            print("⚠️ No daily targets provided, auto-generating with default values")
             current_date = call_target.start_date
             while current_date <= call_target.end_date:
-                CallDailyTarget.objects.create(
+                day_of_week = current_date.weekday()  # Monday=0, Sunday=6
+                default_calls = 20 if day_of_week in [5, 6] else 30  # Lower on weekends
+                
+                daily_target = CallDailyTarget.objects.create(
                     call_target_period=call_target,
                     target_date=current_date,
-                    target_calls=0  # Default, can be updated later
+                    target_calls=default_calls
                 )
+                print(f"Auto-created daily target for {current_date} with {default_calls} calls")
                 current_date += timedelta(days=1)
-        else:
-            # Create provided daily targets
-            for daily_target_data in daily_targets_data:
-                CallDailyTarget.objects.create(
-                    call_target_period=call_target,
-                    **daily_target_data
-                )
+        
+        # Verify the creation
+        total_targets = call_target.total_target_calls
+        print(f"✅ Call target created! Total target calls: {total_targets}")
+        print(f"=== END CREATION ===")
         
         return call_target
     

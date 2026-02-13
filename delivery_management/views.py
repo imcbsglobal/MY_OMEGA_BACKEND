@@ -111,32 +111,48 @@ class DeliveryDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def start_delivery(request, pk):
-    """Start a delivery"""
+    """Start a delivery or update location for in-progress delivery"""
     delivery = get_object_or_404(Delivery, pk=pk)
-    
-    # Check if delivery can be started
-    if delivery.status != 'scheduled':
-        return Response(
-            {'error': f'Cannot start delivery with status: {delivery.status}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
     
     # Validate input data
     serializer = DeliveryStartSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    # Start the delivery - FIXED: Added user parameter
-    delivery.start_delivery(
-        user=request.user,  # ✅ Added this line
-        odometer_reading=serializer.validated_data.get('odometer_reading'),
-        fuel_level=serializer.validated_data.get('fuel_level'),
-        notes=serializer.validated_data.get('notes', '')
-    )
+    # Handle based on current status
+    if delivery.status == 'scheduled':
+        # Start the delivery
+        delivery.start_delivery(
+            user=request.user,
+            odometer_reading=serializer.validated_data.get('odometer_reading'),
+            fuel_level=serializer.validated_data.get('fuel_level'),
+            notes=serializer.validated_data.get('notes', ''),
+            start_location=serializer.validated_data.get('start_location', ''),
+            start_latitude=serializer.validated_data.get('start_latitude'),
+            start_longitude=serializer.validated_data.get('start_longitude')
+        )
+        message = "Delivery started successfully"
+    elif delivery.status == 'in_progress':
+        # Update location for in-progress delivery
+        delivery.start_location = serializer.validated_data.get('start_location', delivery.start_location)
+        delivery.start_latitude = serializer.validated_data.get('start_latitude', delivery.start_latitude)
+        delivery.start_longitude = serializer.validated_data.get('start_longitude', delivery.start_longitude)
+        if serializer.validated_data.get('notes'):
+            delivery.start_notes = serializer.validated_data.get('notes')
+        delivery.save()
+        message = "Location updated successfully"
+    else:
+        return Response(
+            {'error': f'Cannot start delivery with status: {delivery.status}. Only scheduled or in_progress deliveries can be started.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     # Return updated delivery
     response_serializer = DeliveryDetailSerializer(delivery)
-    return Response(response_serializer.data, status=status.HTTP_200_OK)
+    return Response({
+        'message': message,
+        **response_serializer.data
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

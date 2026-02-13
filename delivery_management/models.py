@@ -170,6 +170,46 @@ class Delivery(models.Model):
         help_text='General remarks'
     )
 
+    # Location Information
+    start_location = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text='Human-readable start location description'
+    )
+    start_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text='GPS Latitude for delivery start location'
+    )
+    start_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text='GPS Longitude for delivery start location'
+    )
+    completion_location = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text='Human-readable completion location description'
+    )
+    completion_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text='GPS Latitude for delivery completion location'
+    )
+    completion_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text='GPS Longitude for delivery completion location'
+    )
+
     # Audit Fields
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -284,7 +324,8 @@ class Delivery(models.Model):
         """Check if delivery can be completed"""
         return self.status == 'in_progress'
 
-    def start_delivery(self, user, odometer_reading=None, fuel_level=None, notes=''):
+    def start_delivery(self, user, odometer_reading=None, fuel_level=None, notes='', 
+                      start_location='', start_latitude=None, start_longitude=None):
         """Start the delivery"""
         if not self.can_start():
             raise ValueError('Delivery cannot be started in current status')
@@ -294,10 +335,14 @@ class Delivery(models.Model):
         self.odometer_start = odometer_reading
         self.fuel_start = fuel_level
         self.start_notes = notes
+        self.start_location = start_location
+        self.start_latitude = start_latitude
+        self.start_longitude = start_longitude
         self.save()
 
     def complete_delivery(self, user, odometer_reading=None, fuel_level=None, 
-                         delivered_boxes=0, balance_boxes=0, collected_amount=0, notes=''):
+                         delivered_boxes=0, balance_boxes=0, collected_amount=0, notes='',
+                         completion_location='', completion_latitude=None, completion_longitude=None):
         """Complete the delivery"""
         if not self.can_complete():
             raise ValueError('Delivery cannot be completed in current status')
@@ -310,6 +355,9 @@ class Delivery(models.Model):
         self.total_balance_boxes = balance_boxes
         self.collected_amount = collected_amount
         self.end_notes = notes
+        self.completion_location = completion_location
+        self.completion_latitude = completion_latitude
+        self.completion_longitude = completion_longitude
         self.completed_by = user
         self.save()
 
