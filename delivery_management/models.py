@@ -278,11 +278,12 @@ class Delivery(models.Model):
             self.delivery_number = f'DEL-{date_str}-{new_seq:04d}'
         
         # Auto-calculate balance boxes
-        if self.total_loaded_boxes and self.total_delivered_boxes:
-            self.total_balance_boxes = self.total_loaded_boxes - self.total_delivered_boxes
+        # Use `is not None` so that zero values (0 delivered) still trigger recalculation
+        if self.total_loaded_boxes is not None and self.total_delivered_boxes is not None:
+            self.total_balance_boxes = max(Decimal('0.00'), self.total_loaded_boxes - self.total_delivered_boxes)
         
         # Auto-calculate pending amount
-        if self.total_amount and self.collected_amount:
+        if self.total_amount is not None and self.collected_amount is not None:
             self.total_pending_amount = max(Decimal('0.00'), self.total_amount - self.collected_amount)
         
         super().save(*args, **kwargs)

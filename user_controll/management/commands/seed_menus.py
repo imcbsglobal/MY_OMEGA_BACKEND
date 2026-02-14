@@ -4,7 +4,7 @@ from user_controll.models import MenuItem
 
 
 class Command(BaseCommand):
-    help = 'Seed menu items with Delivery Management section'
+    help = 'Seed menu items matching the Navbar sidebar structure'
 
     def handle(self, *args, **options):
         # Clear old menu items to avoid conflicts
@@ -23,60 +23,118 @@ class Command(BaseCommand):
                 "order": 1,
                 "children": [
                     {
-                        "name": "CV Management",
-                        "key": "hr_cv_management",
-                        "path": "/cv-management",
-                        "icon": "📋",
-                        "order": 1,
-                    },
-                    {
-                        "name": "Interview Management",
-                        "key": "hr_interview",
-                        "path": "/interview-management",
-                        "icon": "👤",
-                        "order": 2,
-                    },
-                    {
-                        "name": "Offer Letter",
-                        "key": "hr_offer_letter",
-                        "path": "/offer-letter",
-                        "icon": "📄",
-                        "order": 3,
-                    },
-                    {
-                        "name": "Employee Management",
-                        "key": "hr_employee",
-                        "path": "/employee-management",
-                        "icon": "👥",
-                        "order": 4,
-                    },
-                    {
-                        "name": "Attendance",
-                        "key": "hr_attendance_main",
+                        "name": "Recruitment",
+                        "key": "hr_recruitment",
                         "path": "#",
-                        "icon": "📊",
-                        "order": 5,
+                        "icon": "👤",
+                        "order": 1,
                         "children": [
                             {
-                                "name": "Attendance Management",
-                                "key": "hr_attendance",
-                                "path": "/attendance-management",
-                                "icon": "📊",
+                                "name": "CV Management",
+                                "key": "hr_cv_management",
+                                "path": "/cv-management",
+                                "icon": "📋",
                                 "order": 1,
                             },
                             {
-                                "name": "Punch In/Out",
-                                "key": "hr_punchinpunchout",
-                                "path": "/punch-in-out",
-                                "icon": "⏰",
+                                "name": "Interview Management",
+                                "key": "hr_interview",
+                                "path": "/interview-management",
+                                "icon": "👤",
                                 "order": 2,
                             },
                             {
-                                "name": "Attendance Summary",
-                                "key": "hr_attendance_summary",
-                                "path": "/attendance-summary",
-                                "icon": "📈",
+                                "name": "Offer Letter",
+                                "key": "hr_offer_letter",
+                                "path": "/offer-letter",
+                                "icon": "📄",
                                 "order": 3,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "Attendance Management",
+                        "key": "hr_attendance",
+                        "path": "/attendance-management",
+                        "icon": "📊",
+                        "order": 2,
+                    },
+                    {
+                        "name": "Punch In/Punch Out",
+                        "key": "hr_punchinpunchout",
+                        "path": "/punch-in-out",
+                        "icon": "⏰",
+                        "order": 3,
+                    },
+                    {
+                        "name": "HR Master",
+                        "key": "hr_master",
+                        "path": "#",
+                        "icon": "⚙️",
+                        "order": 4,
+                        "children": [
+                            {
+                                "name": "Employee Management",
+                                "key": "hr_employee",
+                                "path": "/employee-management",
+                                "icon": "👥",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Job Titles",
+                                "key": "hr_master_job_titles",
+                                "path": "/master/job-titles",
+                                "icon": "💼",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Leave Types",
+                                "key": "hr_master_leave_types",
+                                "path": "/master/leave-types",
+                                "icon": "🗓️",
+                                "order": 3,
+                            },
+                            {
+                                "name": "Salary Certificate",
+                                "key": "hr_salary",
+                                "path": "/salary-certificate",
+                                "icon": "💰",
+                                "order": 4,
+                            },
+                            {
+                                "name": "Experience Certificate",
+                                "key": "hr_experience",
+                                "path": "/experience-certificate",
+                                "icon": "🎓",
+                                "order": 5,
+                            },
+                            {
+                                "name": "Deductions",
+                                "key": "hr_master_deductions",
+                                "path": "/master/deductions",
+                                "icon": "💸",
+                                "order": 6,
+                            },
+                            {
+                                "name": "Allowences",
+                                "key": "hr_master_allowances",
+                                "path": "/master/allowences",
+                                "icon": "💵",
+                                "order": 7,
+                            },
+                            {
+                                "name": "WhatsApp Admin",
+                                "key": "hr_master_whatsapp",
+                                "path": "/master/whatsapp-admin",
+                                "icon": "📱",
+                                "order": 8,
+                            },
+                            {
+                                "name": "Office Setup",
+                                "key": "hr_master_office_setup",
+                                "path": "/hr/master/office-setup",
+                                "icon": "🏢",
+                                "order": 9,
                             },
                         ],
                     },
@@ -85,254 +143,81 @@ class Command(BaseCommand):
                         "key": "hr_leave_main",
                         "path": "#",
                         "icon": "🗓️",
-                        "order": 6,
-                        "children": [
-                            {
-                                "name": "Leave Management",
-                                "key": "hr_leave_management",
-                                "path": "/leave-management",
-                                "icon": "🗓️",
-                                "order": 1,
-                            },
-                            {
-                                "name": "Request Leave",
-                                "key": "hr_request_leave",
-                                "path": "/leave-management/add",
-                                "icon": "➕",
-                                "order": 2,
-                            },
-                        ],
-                    },
-                    {
-                        "name": "Certificates",
-                        "key": "hr_certificates",
-                        "path": "#",
-                        "icon": "🎓",
-                        "order": 7,
-                        "children": [
-                            {
-                                "name": "Experience Certificate",
-                                "key": "hr_experience",
-                                "path": "/experience-certificate",
-                                "icon": "🎓",
-                                "order": 1,
-                            },
-                            {
-                                "name": "Salary Certificate",
-                                "key": "hr_salary",
-                                "path": "/salary-certificate",
-                                "icon": "💰",
-                                "order": 2,
-                            },
-                        ],
-                    },
-                ],
-            },
-
-            # ------------------ USER MANAGEMENT ------------------
-            {
-                "name": "User Management",
-                "key": "user_management",
-                "path": "#",
-                "icon": "🧑",
-                "order": 2,
-                "children": [
-                    {
-                        "name": "User Control Panel",
-                        "key": "user_control",
-                        "path": "/user-control",
-                        "icon": "🔐",
-                        "order": 1,
-                    },
-                    {
-                        "name": "Add User",
-                        "key": "user_add",
-                        "path": "/add-user",
-                        "icon": "➕",
-                        "order": 2,
-                    },
-                ],
-            },
-
-            # ------------------ PAYROLL ------------------
-            {
-                "name": "Payroll",
-                "key": "payroll",
-                "path": "#",
-                "icon": "💰",
-                "order": 3,
-                "children": [
-                    {
-                        "name": "Payroll Processing",
-                        "key": "payroll_processing",
-                        "path": "/payroll",
-                        "icon": "📋",
-                        "order": 1,
-                    },
-                    {
-                        "name": "Payslip",
-                        "key": "payroll_payslip",
-                        "path": "/payslip",
-                        "icon": "📄",
-                        "order": 2,
-                    },
-                ],
-            },
-
-            # ------------------ TARGET MANAGEMENT ------------------
-            {
-                "name": "Target Management",
-                "key": "target_management",
-                "path": "#",
-                "icon": "🎯",
-                "order": 4,
-                "children": [
-                    # NEW: Manager Dashboard (First item for managers)
-                    {
-                        "name": "Manager Dashboard",
-                        "key": "target_dashboard",
-                        "path": "/target/dashboard",
-                        "icon": "📊",
-                        "order": 1,
-                    },
-                    # NEW: My Targets (For regular employees)
-                    {
-                        "name": "My Targets",
-                        "key": "target_my_targets",
-                        "path": "#",
-                        "icon": "🎯",
-                        "order": 2,
-                        "children": [
-                            {
-                                "name": "View My Targets",
-                                "key": "target_view_my_targets",
-                                "path": "/target/my-targets",
-                                "icon": "👁️",
-                                "order": 1,
-                            },
-                        ],
-                    },
-                    # Route Targets
-                    {
-                        "name": "Route Targets",
-                        "key": "target_route",
-                        "path": "#",
-                        "icon": "🗺️",
-                        "order": 3,
-                        "children": [
-                            {
-                                "name": "Assign Route Target",
-                                "key": "target_route_assign",
-                                "path": "/target/route/assign",
-                                "icon": "➕",
-                                "order": 1,
-                            },
-                            {
-                                "name": "Route Target List",
-                                "key": "target_route_list",
-                                "path": "/target/route/list",
-                                "icon": "📋",
-                                "order": 2,
-                            },
-                            {
-                                "name": "Route Performance",
-                                "key": "target_route_performance",
-                                "path": "/target/route/performance",
-                                "icon": "📊",
-                                "order": 3,
-                            },
-                        ],
-                    },
-                    # Call Targets
-                    {
-                        "name": "Call Targets",
-                        "key": "target_call",
-                        "path": "#",
-                        "icon": "📞",
-                        "order": 4,
-                        "children": [
-                            {
-                                "name": "Assign Call Target",
-                                "key": "target_call_assign",
-                                "path": "/target/call/assign",
-                                "icon": "➕",
-                                "order": 1,
-                            },
-                            {
-                                "name": "Call Target List",
-                                "key": "target_call_list",
-                                "path": "/target/call/list",
-                                "icon": "📋",
-                                "order": 2,
-                            },
-                            {
-                                "name": "Daily Activity",
-                                "key": "target_call_daily_activity",
-                                "path": "/target/call/daily-activity",
-                                "icon": "📅",
-                                "order": 3,
-                            },
-                            {
-                                "name": "Call Performance",
-                                "key": "target_call_performance",
-                                "path": "/target/call/performance",
-                                "icon": "📊",
-                                "order": 4,
-                            },
-                        ],
-                    },
-                    # Master Data
-                    {
-                        "name": "Master Data",
-                        "key": "target_master",
-                        "path": "#",
-                        "icon": "⚙️",
                         "order": 5,
                         "children": [
                             {
-                                "name": "Routes",
-                                "key": "target_master_routes",
-                                "path": "/target/master/routes",
-                                "icon": "🗺️",
+                                "name": "Leave List",
+                                "key": "hr_leave_list",
+                                "path": "/leave-management/leave-list",
+                                "icon": "📋",
                                 "order": 1,
                             },
                             {
-                                "name": "Products",
-                                "key": "target_master_products",
-                                "path": "/target/master/products",
-                                "icon": "📦",
+                                "name": "Early List",
+                                "key": "hr_early_list",
+                                "path": "/leave-management/early-list",
+                                "icon": "⏰",
                                 "order": 2,
+                            },
+                            {
+                                "name": "Late List",
+                                "key": "hr_late_list",
+                                "path": "/leave-management/late-list",
+                                "icon": "⏰",
+                                "order": 3,
                             },
                         ],
                     },
-                    # Reports (if needed)
                     {
-                        "name": "Reports",
-                        "key": "target_reports",
+                        "name": "Request",
+                        "key": "hr_request",
                         "path": "#",
-                        "icon": "📈",
+                        "icon": "📝",
                         "order": 6,
                         "children": [
                             {
-                                "name": "Route Performance",
-                                "key": "target_report_route",
-                                "path": "/target/route/performance",
-                                "icon": "📊",
+                                "name": "Leave Request",
+                                "key": "hr_request_leave",
+                                "path": "/hr/request/leave",
+                                "icon": "📋",
                                 "order": 1,
                             },
                             {
-                                "name": "Call Performance",
-                                "key": "target_report_call",
-                                "path": "/target/call/performance",
-                                "icon": "📊",
+                                "name": "Late Request",
+                                "key": "hr_request_late",
+                                "path": "/hr/request/late",
+                                "icon": "⏰",
                                 "order": 2,
                             },
                             {
-                                "name": "Employee Dashboard",
-                                "key": "target_employee_dashboard",
-                                "path": "/target/employee-dashboard",
-                                "icon": "👤",
+                                "name": "Early Request",
+                                "key": "hr_request_early",
+                                "path": "/hr/request/early",
+                                "icon": "⏰",
                                 "order": 3,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "Payroll",
+                        "key": "hr_payroll",
+                        "path": "#",
+                        "icon": "💰",
+                        "order": 7,
+                        "children": [
+                            {
+                                "name": "Payroll",
+                                "key": "hr_payroll_processing",
+                                "path": "/payroll",
+                                "icon": "💰",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Payslip",
+                                "key": "hr_payslip",
+                                "path": "/payslip",
+                                "icon": "📄",
+                                "order": 2,
                             },
                         ],
                     },
@@ -345,7 +230,7 @@ class Command(BaseCommand):
                 "key": "vehicle",
                 "path": "#",
                 "icon": "🚗",
-                "order": 5,
+                "order": 2,
                 "children": [
                     {
                         "name": "Fuel Management",
@@ -371,13 +256,132 @@ class Command(BaseCommand):
                 ],
             },
 
+            # ------------------ TARGET MANAGEMENT ------------------
+            {
+                "name": "Target Management",
+                "key": "target_management",
+                "path": "#",
+                "icon": "🎯",
+                "order": 3,
+                "children": [
+                    {
+                        "name": "My Targets",
+                        "key": "target_my_targets",
+                        "path": "#",
+                        "icon": "🎯",
+                        "order": 1,
+                        "children": [
+                            {
+                                "name": "View My Targets",
+                                "key": "target_view_my_targets",
+                                "path": "/target/my-targets",
+                                "icon": "👁️",
+                                "order": 1,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "Route Targets",
+                        "key": "target_route",
+                        "path": "#",
+                        "icon": "🗺️",
+                        "order": 2,
+                        "children": [
+                            {
+                                "name": "Assign Route Target",
+                                "key": "target_route_assign",
+                                "path": "/target/route/assign",
+                                "icon": "➕",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Route Target List",
+                                "key": "target_route_list",
+                                "path": "/target/route/list",
+                                "icon": "📋",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Route Performance",
+                                "key": "target_route_performance",
+                                "path": "/target/route/performance",
+                                "icon": "📊",
+                                "order": 3,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "Call Targets",
+                        "key": "target_call",
+                        "path": "#",
+                        "icon": "📞",
+                        "order": 3,
+                        "children": [
+                            {
+                                "name": "Assign Call Target",
+                                "key": "target_call_assign",
+                                "path": "/target/call/assign",
+                                "icon": "➕",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Call Target List",
+                                "key": "target_call_list",
+                                "path": "/target/call/list",
+                                "icon": "📋",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Call Performance",
+                                "key": "target_call_performance",
+                                "path": "/target/call/performance",
+                                "icon": "📊",
+                                "order": 3,
+                            },
+                        ],
+                    },
+                    {
+                        "name": "Master Data",
+                        "key": "target_master",
+                        "path": "#",
+                        "icon": "⚙️",
+                        "order": 4,
+                        "children": [
+                            {
+                                "name": "Routes",
+                                "key": "target_master_routes",
+                                "path": "/target/master/routes",
+                                "icon": "🗺️",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Products",
+                                "key": "target_master_products",
+                                "path": "/target/master/products",
+                                "icon": "📦",
+                                "order": 2,
+                            },
+                        ],
+                    },
+                ],
+            },
+
+            # ------------------ WAREHOUSE MANAGEMENT ------------------
+            {
+                "name": "Warehouse Management",
+                "key": "warehouse_management",
+                "path": "/under-construction",
+                "icon": "🏭",
+                "order": 4,
+            },
+
             # ------------------ DELIVERY MANAGEMENT ------------------
             {
                 "name": "Delivery Management",
                 "key": "delivery_management",
                 "path": "#",
                 "icon": "🚚",
-                "order": 6,
+                "order": 5,
                 "children": [
                     {
                         "name": "List Deliveries",
@@ -394,92 +398,61 @@ class Command(BaseCommand):
                         "order": 2,
                     },
                     {
-                        "name": "Today's Deliveries",
-                        "key": "delivery_today",
-                        "path": "/delivery-management/deliveries/today",
-                        "icon": "📅",
+                        "name": "Employee Delivery View",
+                        "key": "delivery_employee_view",
+                        "path": "/delivery-management/employee-view",
+                        "icon": "👤",
                         "order": 3,
-                    },
-                    {
-                        "name": "Upcoming Deliveries",
-                        "key": "delivery_upcoming",
-                        "path": "/delivery-management/deliveries/upcoming",
-                        "icon": "🔜",
-                        "order": 4,
-                    },
-                    {
-                        "name": "Statistics",
-                        "key": "delivery_statistics",
-                        "path": "/delivery-management/deliveries/statistics",
-                        "icon": "📊",
-                        "order": 5,
                     },
                 ],
             },
 
-            # ------------------ MASTER DATA ------------------
+            # ------------------ USER MANAGEMENT ------------------
             {
-                "name": "Master Data",
+                "name": "User Management",
+                "key": "user_management",
+                "path": "#",
+                "icon": "🧑",
+                "order": 6,
+                "children": [
+                    {
+                        "name": "Add User",
+                        "key": "user_add",
+                        "path": "/add-user",
+                        "icon": "➕",
+                        "order": 1,
+                    },
+                    {
+                        "name": "User Control",
+                        "key": "user_control",
+                        "path": "/user-control",
+                        "icon": "🔐",
+                        "order": 2,
+                    },
+                ],
+            },
+
+            # ------------------ MASTER ------------------
+            {
+                "name": "Master",
                 "key": "master",
                 "path": "#",
                 "icon": "⚙️",
                 "order": 7,
                 "children": [
                     {
-                        "name": "Job Titles",
-                        "key": "master_job_titles",
-                        "path": "/master/job-titles",
-                        "icon": "💼",
-                        "order": 1,
-                    },
-                    {
                         "name": "Department",
                         "key": "master_department",
                         "path": "/master/department",
                         "icon": "🏢",
-                        "order": 2,
-                    },
-                    {
-                        "name": "Leave Types",
-                        "key": "master_leave_types",
-                        "path": "/master/leave-types",
-                        "icon": "🗓️",
-                        "order": 3,
-                    },
-                    {
-                        "name": "Deductions",
-                        "key": "master_deductions",
-                        "path": "/master/deductions",
-                        "icon": "💸",
-                        "order": 4,
-                    },
-                    {
-                        "name": "Allowances",
-                        "key": "master_allowances",
-                        "path": "/master/allowences",
-                        "icon": "💵",
-                        "order": 5,
-                    },
-                    {
-                        "name": "WhatsApp Admin",
-                        "key": "master_whatsapp_admin",
-                        "path": "/master/whatsapp-admin",
-                        "icon": "📱",
-                        "order": 6,
-                    },
-                    {
-                        "name": "Office Setup",
-                        "key": "master_office_setup",
-                        "path": "/master/office-setup",
-                        "icon": "🏢",
-                        "order": 7,
+                        "order": 1,
                     },
                     {
                         "name": "Vehicle Master",
                         "key": "master_vehicle",
                         "path": "/master/vehicle-master",
                         "icon": "🚗",
-                        "order": 8,
+                        "order": 2,
                     },
                 ],
             },
@@ -546,36 +519,37 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"   - Updated: {updated_count} existing items"))
         self.stdout.write("=" * 110 + "\n")
         
-        # Verify Delivery Management structure
-        self.stdout.write("\n🔍 VERIFYING DELIVERY MANAGEMENT STRUCTURE:")
+        # Verify full menu structure
+        self.stdout.write("\n🔍 VERIFYING MENU STRUCTURE:")
         self.stdout.write("-" * 110)
-        
-        try:
-            delivery_mgmt = MenuItem.objects.get(key='delivery_management')
-            children = delivery_mgmt.children.filter(is_active=True).order_by('order')
-            self.stdout.write(self.style.SUCCESS(f"\n✅ Delivery Management found with {children.count()} children:"))
-            for i, child in enumerate(children, 1):
-                self.stdout.write(f"   {i}. {child.name} ({child.key}) - {child.path}")
-                if child.children.exists():
-                    for j, subchild in enumerate(child.children.filter(is_active=True).order_by('order'), 1):
-                        self.stdout.write(f"      {i}.{j}. {subchild.name} ({subchild.key}) - {subchild.path}")
-            
-            self.stdout.write(self.style.SUCCESS("\n✅ Delivery Management menu structure verified!"))
-            
-            # Highlight new additions
-            self.stdout.write("\n" + "=" * 110)
-            self.stdout.write(self.style.SUCCESS("🆕 DELIVERY MANAGEMENT MENU ITEMS ADDED:"))
-            self.stdout.write("-" * 110)
-            self.stdout.write("   1. List Deliveries - /delivery-management/deliveries")
-            self.stdout.write("   2. Create Delivery - /delivery-management/deliveries/new")
-            self.stdout.write("   3. Today's Deliveries - /delivery-management/deliveries/today")
-            self.stdout.write("   4. Upcoming Deliveries - /delivery-management/deliveries/upcoming")
-            self.stdout.write("   5. Statistics - /delivery-management/deliveries/statistics")
-            self.stdout.write("=" * 110)
-                
-        except MenuItem.DoesNotExist:
-            self.stdout.write(self.style.ERROR("❌ Delivery Management menu not found!"))
-        
+
+        top_level_keys = [
+            ('hr', 'HR Management'),
+            ('vehicle', 'Vehicle Management'),
+            ('target_management', 'Target Management'),
+            ('warehouse_management', 'Warehouse Management'),
+            ('delivery_management', 'Delivery Management'),
+            ('user_management', 'User Management'),
+            ('master', 'Master'),
+        ]
+
+        for key, label in top_level_keys:
+            try:
+                item = MenuItem.objects.get(key=key)
+                children = item.children.filter(is_active=True).order_by('order')
+                child_count = children.count()
+                if child_count:
+                    self.stdout.write(self.style.SUCCESS(f"\n✅ {label} — {child_count} children:"))
+                    for i, child in enumerate(children, 1):
+                        self.stdout.write(f"   {i}. {child.name} ({child.key}) - {child.path}")
+                        if child.children.exists():
+                            for j, subchild in enumerate(child.children.filter(is_active=True).order_by('order'), 1):
+                                self.stdout.write(f"      {i}.{j}. {subchild.name} ({subchild.key}) - {subchild.path}")
+                else:
+                    self.stdout.write(self.style.SUCCESS(f"\n✅ {label} — direct link: {item.path}"))
+            except MenuItem.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f"❌ {label} not found!"))
+
         self.stdout.write("\n" + "=" * 110)
         self.stdout.write("\n💡 Next steps:")
         self.stdout.write("   1. Run: python manage.py seed_menus")
@@ -583,11 +557,12 @@ class Command(BaseCommand):
         self.stdout.write("   3. Logout from application")
         self.stdout.write("   4. Clear browser cache: localStorage.clear() + sessionStorage.clear()")
         self.stdout.write("   5. Login again")
-        self.stdout.write("   6. Check Delivery Management menu in sidebar!")
-        self.stdout.write("\n📌 NOTE: Delivery Management features:")
-        self.stdout.write("   - List Deliveries: View all deliveries with filtering")
-        self.stdout.write("   - Create Delivery: Add new delivery with products and stops")
-        self.stdout.write("   - Today's Deliveries: Quick view of today's scheduled deliveries")
-        self.stdout.write("   - Upcoming Deliveries: See future scheduled deliveries")
-        self.stdout.write("   - Statistics: Overview of delivery performance and metrics")
+        self.stdout.write("\n📌 Menu sections seeded:")
+        self.stdout.write("   1. HR Management       — Recruitment, Attendance Mgmt, Punch In/Out, HR Master, Leave Mgmt, Request, Payroll")
+        self.stdout.write("   2. Vehicle Management  — Fuel Management, Travel, Challan")
+        self.stdout.write("   3. Target Management   — My Targets, Route Targets, Call Targets, Master Data")
+        self.stdout.write("   4. Warehouse Management — /under-construction (direct link)")
+        self.stdout.write("   5. Delivery Management — List Deliveries, Create Delivery, Employee Delivery View")
+        self.stdout.write("   6. User Management     — Add User, User Control")
+        self.stdout.write("   7. Master              — Department, Vehicle Master")
         self.stdout.write("\n" + "=" * 110 + "\n")

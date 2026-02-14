@@ -176,11 +176,8 @@ def complete_delivery(request, pk):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    # Update product delivered quantities
+    # Update product delivered quantities (if provided by caller)
     products_data = serializer.validated_data.get('products', [])
-    total_delivered = Decimal('0.00')
-    total_balance = Decimal('0.00')
-    total_collected = Decimal('0.00')
     
     for product_data in products_data:
         try:
@@ -190,28 +187,63 @@ def complete_delivery(request, pk):
             )
             delivery_product.delivered_quantity = Decimal(str(product_data['delivered_quantity']))
             delivery_product.save()
-            
-            total_delivered += delivery_product.delivered_quantity
-            total_balance += delivery_product.balance_quantity
-            
-            if delivery_product.unit_price:
-                total_collected += delivery_product.delivered_quantity * delivery_product.unit_price
-                
         except DeliveryProduct.DoesNotExist:
             return Response(
                 {'error': f'Product {product_data["product_id"]} not found in this delivery'},
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    # Complete the delivery
+    # ── Recalculate totals: PRIORITIZE STOPS over empty products ──────────────────
+    # Total delivered/balance boxes: use stops as primary source (actual workflow)
+    # Only fall back to products if stops have no data
+    
+    all_stops = delivery.stops.all()
+    total_delivered_from_stops = all_stops.aggregate(
+        s=Sum('delivered_boxes'))['s'] or Decimal('0.00')
+    
+    all_products = DeliveryProduct.objects.filter(delivery=delivery)
+    total_delivered_from_products = all_products.aggregate(
+        s=Sum('delivered_quantity'))['s'] or Decimal('0.00')
+    total_balance_from_products = all_products.aggregate(
+        s=Sum('balance_quantity'))['s'] or Decimal('0.00')
+
+    # Decision logic: STOPS are the source of truth (actual delivery workflow)
+    # Only use products if no stop data exists
+    if total_delivered_from_stops > Decimal('0.00'):
+        # Stops have delivery data (normal workflow) - use stops as source of truth
+        total_delivered = total_delivered_from_stops
+        # Calculate balance properly: loaded - delivered from stops
+        total_balance = max(Decimal('0.00'), delivery.total_loaded_boxes - total_delivered)
+    elif all_products.exists() and total_delivered_from_products > Decimal('0.00'):
+        # Products have been updated with delivery quantities (alternative workflow) - use products
+        total_delivered = total_delivered_from_products
+        total_balance = total_balance_from_products
+    else:
+        # No delivery data anywhere - everything is balance
+        total_delivered = Decimal('0.00')
+        total_balance = delivery.total_loaded_boxes
+
+    # Total cash collected: sum from all stops
+    stops_collected = all_stops.aggregate(
+        s=Sum('collected_amount'))['s'] or Decimal('0.00')
+    stops_pending = all_stops.aggregate(
+        s=Sum('pending_amount'))['s'] or Decimal('0.00')
+
+    # Use stops data if available, otherwise preserve existing
+    total_collected = stops_collected if stops_collected > Decimal('0.00') else delivery.collected_amount
+
+    # Complete the delivery with correctly computed totals
     delivery.complete_delivery(
-        user=request.user,  # ✅ This was already correct
+        user=request.user,
         odometer_reading=serializer.validated_data.get('odometer_reading'),
         fuel_level=serializer.validated_data.get('fuel_level'),
         notes=serializer.validated_data.get('notes', ''),
         delivered_boxes=total_delivered,
         balance_boxes=total_balance,
-        collected_amount=total_collected
+        collected_amount=total_collected,
+        completion_location=serializer.validated_data.get('completion_location', ''),
+        completion_latitude=serializer.validated_data.get('completion_latitude'),
+        completion_longitude=serializer.validated_data.get('completion_longitude'),
     )
     
     # Return updated delivery
@@ -401,10 +433,48 @@ def complete_delivery_stop(request, pk):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    # Update stop
-    serializer.save()
+    # Update stop and set arrival time if not already set
+    updated_stop = serializer.save()
+    if not updated_stop.actual_arrival:
+        updated_stop.actual_arrival = timezone.now()
+        updated_stop.save(update_fields=['actual_arrival'])
     
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    # ── After each stop, recalculate delivery-level running totals ────────────
+    delivery = updated_stop.delivery
+    all_stops = delivery.stops.all()
+
+    # Sum collected cash and pending from all stops so far
+    stops_collected = all_stops.aggregate(
+        s=Sum('collected_amount'))['s'] or Decimal('0.00')
+    stops_pending   = all_stops.aggregate(
+        s=Sum('pending_amount'))['s']   or Decimal('0.00')
+
+    # Sum delivered/balance boxes from all stops
+    stops_delivered = all_stops.aggregate(
+        s=Sum('delivered_boxes'))['s'] or Decimal('0.00')
+    stops_balance   = all_stops.aggregate(
+        s=Sum('balance_boxes'))['s']   or Decimal('0.00')
+
+    # Update delivery totals
+    delivery.total_delivered_boxes = stops_delivered
+    delivery.total_balance_boxes   = max(Decimal('0.00'), delivery.total_loaded_boxes - stops_delivered)
+    delivery.collected_amount      = stops_collected
+    delivery.total_pending_amount  = stops_pending
+    delivery.save(update_fields=[
+        'total_delivered_boxes', 'total_balance_boxes',
+        'collected_amount', 'total_pending_amount'
+    ])
+
+    # Return stop data plus updated delivery summary
+    response_data = serializer.data
+    response_data['delivery_summary'] = {
+        'total_delivered_boxes': str(delivery.total_delivered_boxes),
+        'total_balance_boxes':   str(delivery.total_balance_boxes),
+        'collected_amount':      str(delivery.collected_amount),
+        'total_pending_amount':  str(delivery.total_pending_amount),
+    }
+
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 # ==================== STATISTICS & REPORTS ====================

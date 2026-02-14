@@ -85,12 +85,21 @@ class LeaveMasterViewSet(viewsets.ModelViewSet):
     
     def destroy(self, request, *args, **kwargs):
         """Delete leave type"""
+        from django.db.models import ProtectedError
         instance = self.get_object()
-        instance.delete()
-        return Response({
-            'success': True,
-            'message': 'Leave type deleted successfully'
-        }, status=status.HTTP_204_NO_CONTENT)
+        try:
+            instance.delete()
+            return Response({
+                'success': True,
+                'message': 'Leave type deleted successfully'
+            }, status=status.HTTP_204_NO_CONTENT)
+        except ProtectedError:
+            linked_count = instance.leave_requests.count()
+            return Response({
+                'success': False,
+                'error': f'Cannot delete this leave type. It is linked to {linked_count} existing leave request(s). '
+                        f'Please reassign or delete those leave requests first.'
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['get'])
     def active(self, request):
