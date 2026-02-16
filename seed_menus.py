@@ -21,53 +21,62 @@ class Command(BaseCommand):
                 "order": 1,
                 "children": [
                     {
-                        "name": "CV Management",
-                        "key": "hr_cv",
-                        "path": "/cv-management",
-                        "icon": "📋",
+                        "name": "Recruitment",
+                        "key": "hr_recruitment",
+                        "path": "#",
+                        "icon": "🧑‍💼",
                         "order": 1,
-                    },
-                    {
-                        "name": "Interview Management",
-                        "key": "hr_interview",
-                        "path": "/interview-management",
-                        "icon": "👤",
-                        "order": 2,
-                    },
-                    {
-                        "name": "Offer Letter",
-                        "key": "hr_offer_letter",
-                        "path": "/offer-letter",
-                        "icon": "📄",
-                        "order": 3,
+                        "children": [
+                            {
+                                "name": "CV Management",
+                                "key": "hr_cv",
+                                "path": "/cv-management",
+                                "icon": "📋",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Interview Management",
+                                "key": "hr_interview",
+                                "path": "/interview-management",
+                                "icon": "👤",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Offer Letter",
+                                "key": "hr_offer_letter",
+                                "path": "/offer-letter",
+                                "icon": "📄",
+                                "order": 3,
+                            },
+                        ]
                     },
                     {
                         "name": "Employee Management",
                         "key": "hr_employee",
                         "path": "/employee-management",
                         "icon": "👥",
-                        "order": 4,
+                        "order": 2,
                     },
                     {
                         "name": "Experience Certificate",
                         "key": "hr_experience",
                         "path": "/experience-certificate",
                         "icon": "🎓",
-                        "order": 5,
+                        "order": 3,
                     },
                     {
                         "name": "Salary Certificate",
                         "key": "hr_salary",
                         "path": "/salary-certificate",
                         "icon": "💰",
-                        "order": 6,
+                        "order": 4,
                     },
                     {
                         "name": "Attendance",
                         "key": "hr_attendance",
                         "path": "#",
                         "icon": "📊",
-                        "order": 7,
+                        "order": 5,
                         "children": [
                             {
                                 "name": "Attendance Management",
@@ -93,11 +102,62 @@ class Command(BaseCommand):
                         ]
                     },
                     {
+                        "name": "HR Master",
+                        "key": "hr_master",
+                        "path": "#",
+                        "icon": "⚙️",
+                        "order": 6,
+                        "children": [
+                            {
+                                "name": "Job Titles",
+                                "key": "job_titles",
+                                "path": "/master/job-titles",
+                                "icon": "💼",
+                                "order": 1,
+                            },
+                            {
+                                "name": "Leave Types",
+                                "key": "master_leave_types",
+                                "path": "/master/leave-types",
+                                "icon": "🗂️",
+                                "order": 2,
+                            },
+                            {
+                                "name": "Deductions",
+                                "key": "master_deductions",
+                                "path": "/master/deductions",
+                                "icon": "➖",
+                                "order": 3,
+                            },
+                            {
+                                "name": "Allowences",
+                                "key": "master_allowences",
+                                "path": "/master/allowences",
+                                "icon": "➕",
+                                "order": 4,
+                            },
+                            {
+                                "name": "WhatsApp Admin",
+                                "key": "master_whatsapp_admin",
+                                "path": "/master/whatsapp-admin",
+                                "icon": "🟢",
+                                "order": 5,
+                            },
+                            {
+                                "name": "Office Setup",
+                                "key": "hr_office_setup",
+                                "path": "/hr/master/office-setup",
+                                "icon": "🏢",
+                                "order": 6,
+                            },
+                        ]
+                    },
+                    {
                         "name": "Leave Management",
                         "key": "hr_leave",
                         "path": "#",
                         "icon": "🗓️",
-                        "order": 8,
+                        "order": 7,
                         "children": [
                             {
                                 "name": "Leave Management",
@@ -136,7 +196,7 @@ class Command(BaseCommand):
                         "key": "hr_requests",
                         "path": "#",
                         "icon": "📝",
-                        "order": 9,
+                        "order": 8,
                         "children": [
                             {
                                 "name": "Leave Request",
@@ -159,6 +219,17 @@ class Command(BaseCommand):
                                 "icon": "🌅",
                                 "order": 3,
                             },
+                        ]
+                    },
+                    {
+                        "name": "Payroll",
+                        "key": "payroll",
+                        "path": "#",
+                        "icon": "💳",
+                        "order": 9,
+                        "children": [
+                            { "name": "Payroll", "key": "payroll_home", "path": "/payroll", "icon": "💳", "order": 1 },
+                            { "name": "Payslip", "key": "payslip", "path": "/payslip", "icon": "📄", "order": 2 },
                         ]
                     },
                 ]
@@ -200,7 +271,138 @@ class Command(BaseCommand):
                         "icon": "💼",
                         "order": 1,
                     },
+                    {
+                        "name": "Department",
+                        "key": "master_department",
+                        "path": "/master/department",
+                        "icon": "🏢",
+                        "order": 2,
+                    },
+                    {
+                        "name": "Vehicle Master",
+                        "key": "master_vehicle_master",
+                        "path": "/master/vehicle-master",
+                        "icon": "🚗",
+                        "order": 3,
+                    },
                 ]
+            },
+            {
+                "name": "Delivery Management",
+                "key": "delivery_management",
+                "path": "#",
+                "icon": "🚚",
+                "order": 4,
+                "children": [
+                    {
+                        "name": "Deliveries",
+                        "key": "deliveries_list",
+                        "path": "/delivery-management/deliveries",
+                        "icon": "📦",
+                        "order": 1,
+                    },
+                    {
+                        "name": "New Delivery",
+                        "key": "deliveries_new",
+                        "path": "/delivery-management/deliveries/new",
+                        "icon": "➕",
+                        "order": 2,
+                    },
+                    {
+                        "name": "Employee View",
+                        "key": "delivery_employee_view",
+                        "path": "/delivery-management/employee-view",
+                        "icon": "👷",
+                        "order": 3,
+                    },
+                ]
+            },
+            {
+                "name": "Vehicle Management",
+                "key": "vehicle_management",
+                "path": "#",
+                "icon": "🚗",
+                "order": 5,
+                "children": [
+                    { "name": "Fuel Management", "key": "vehicle_fuel", "path": "/vehicle/fuel-management", "icon": "⛽", "order": 1 },
+                    { "name": "Travel", "key": "vehicle_travel", "path": "/vehicle/travel", "icon": "🛣️", "order": 2 },
+                    { "name": "Challan", "key": "vehicle_challan", "path": "/vehicle/challan", "icon": "🧾", "order": 3 },
+                ]
+            },
+            {
+                "name": "Target Management",
+                "key": "target_management",
+                "path": "#",
+                "icon": "🎯",
+                "order": 6,
+                "children": [
+                    {
+                        "name": "My Targets",
+                        "key": "target_my_targets",
+                        "path": "#",
+                        "icon": "🎯",
+                        "order": 1,
+                        "children": [
+                            { "name": "View My Targets", "key": "target_my_targets_view", "path": "/target/my-targets", "icon": "👤", "order": 1 },
+                        ]
+                    },
+                    {
+                        "name": "Route Targets",
+                        "key": "target_route_targets",
+                        "path": "#",
+                        "icon": "🗺️",
+                        "order": 2,
+                        "children": [
+                            { "name": "Assign Route Target", "key": "target_route_assign", "path": "/target/route/assign", "icon": "🗺️", "order": 1 },
+                            { "name": "Route Target List", "key": "target_route_list", "path": "/target/route/list", "icon": "📋", "order": 2 },
+                            { "name": "Route Performance", "key": "target_route_performance", "path": "/target/route/performance", "icon": "📈", "order": 3 },
+                        ]
+                    },
+                    {
+                        "name": "Call Targets",
+                        "key": "target_call_targets",
+                        "path": "#",
+                        "icon": "📞",
+                        "order": 3,
+                        "children": [
+                            { "name": "Assign Call Target", "key": "target_call_assign", "path": "/target/call/assign", "icon": "📞", "order": 1 },
+                            { "name": "Call Target List", "key": "target_call_list", "path": "/target/call/list", "icon": "📋", "order": 2 },
+                            { "name": "Call Performance", "key": "target_call_performance", "path": "/target/call/performance", "icon": "📈", "order": 3 },
+                        ]
+                    },
+                    {
+                        "name": "Master Data",
+                        "key": "target_master_data",
+                        "path": "#",
+                        "icon": "⚙️",
+                        "order": 4,
+                        "children": [
+                            { "name": "Routes", "key": "target_master_routes", "path": "/target/master/routes", "icon": "🗺️", "order": 1 },
+                            { "name": "Products", "key": "target_master_products", "path": "/target/master/products", "icon": "📦", "order": 2 },
+                        ]
+                    },
+                    {
+                        "name": "Manager Dashboard",
+                        "key": "target_manager_dashboard",
+                        "path": "/target/dashboard",
+                        "icon": "📊",
+                        "order": 5,
+                    },
+                    {
+                        "name": "Comparative Performance",
+                        "key": "target_comparative_performance",
+                        "path": "/target/performance/comparative",
+                        "icon": "📈",
+                        "order": 6,
+                    },
+                ]
+            },
+            {
+                "name": "Warehouse Management",
+                "key": "warehouse_management",
+                "path": "/under-construction",
+                "icon": "🏭",
+                "order": 7,
             },
         ]
 
