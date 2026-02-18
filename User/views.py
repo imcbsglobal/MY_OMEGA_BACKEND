@@ -34,14 +34,19 @@ class AppUserViewSet(viewsets.ModelViewSet):
         elif self.action == 'brief_list':
             return UserBriefSerializer
         return AppUserSerializer
-    
+
     def get_queryset(self):
         """
-        Filter queryset based on query parameters
+        Filter queryset based on query parameters.
+        Default behavior:
+        - For list-like actions (e.g., `list`, `brief_list`), return only active users
+          unless `is_active` is explicitly provided.
+        - For detail actions (retrieve/update/partial_update/destroy), include inactive
+          users so admins can reactivate them.
         Supports search by name, email, job_title, etc.
         """
         queryset = AppUser.objects.all().order_by('-date_joined')
-        
+
         # Search parameter
         search = self.request.query_params.get('search', None)
         if search:
@@ -52,22 +57,27 @@ class AppUserViewSet(viewsets.ModelViewSet):
                 Q(job_role__icontains=search) |
                 Q(personal_phone__icontains=search)
             )
-        
+
         # Filter by user_level
         user_level = self.request.query_params.get('user_level', None)
         if user_level:
             queryset = queryset.filter(user_level=user_level)
-        
-        # Filter by is_active
+
+        # Filter by is_active (explicit override).
+        # If not provided and action is list-like, default to active only.
         is_active = self.request.query_params.get('is_active', None)
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == 'true')
-        
+        else:
+            # Apply default only for list-like actions
+            if getattr(self, 'action', None) in ('list', 'brief_list'):
+                queryset = queryset.filter(is_active=True)
+
         # Filter by organization
         organization = self.request.query_params.get('organization', None)
         if organization:
             queryset = queryset.filter(organization__icontains=organization)
-        
+
         return queryset
     
     def create(self, request, *args, **kwargs):

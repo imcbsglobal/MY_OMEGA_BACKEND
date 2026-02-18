@@ -27,7 +27,13 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
 
     def users(self, request):
         """GET /admin/users/  -> list AppUser"""
+        # Default: show only active users in admin lists
         qs = AppUser.objects.all().order_by("-date_joined")
+        is_active = request.query_params.get("is_active", None)
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active.lower() == "true")
+        else:
+            qs = qs.filter(is_active=True)
         return Response(SimpleUserSerializer(qs, many=True).data)
 
     def menu_tree(self, request):

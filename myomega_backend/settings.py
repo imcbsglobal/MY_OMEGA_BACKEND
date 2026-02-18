@@ -221,6 +221,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
+        'myomega_backend.permissions.IsActiveUser',
     ],
     # Use custom exception handler
     'EXCEPTION_HANDLER': 'myomega_backend.exception_handler.custom_exception_handler',

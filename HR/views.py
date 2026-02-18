@@ -579,7 +579,14 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
         result = []
 
+        # Only active users by default; override with ?is_active=true|false
         users = AppUser.objects.all().order_by('name')
+        is_active = request.query_params.get('is_active', None)
+        if is_active is not None:
+            users = users.filter(is_active=is_active.lower() == 'true')
+        else:
+            users = users.filter(is_active=True)
+
         for user in users:
             attendances = Attendance.objects.filter(
                 user=user,
@@ -648,7 +655,13 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         year = int(request.query_params.get('year', timezone.now().year))
 
         days_in_month = calendar.monthrange(year, month)[1]
+        # Only active users by default; override with ?is_active=true|false
         users = AppUser.objects.all().order_by('name')
+        is_active = request.query_params.get('is_active', None)
+        if is_active is not None:
+            users = users.filter(is_active=is_active.lower() == 'true')
+        else:
+            users = users.filter(is_active=True)
 
         holidays = set(Holiday.objects.filter(
             date__month=month,
@@ -1505,7 +1518,13 @@ def all_details(self, request):
 
     result = []
 
+    # Only active users by default; override with ?is_active=true|false
     users = AppUser.objects.all().order_by('name')
+    is_active = request.query_params.get('is_active', None)
+    if is_active is not None:
+        users = users.filter(is_active=is_active.lower() == 'true')
+    else:
+        users = users.filter(is_active=True)
 
     for user in users:
         # All real attendance rows for this user in this month

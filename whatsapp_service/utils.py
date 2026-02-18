@@ -259,7 +259,14 @@ def get_all_employee_numbers(exclude_none=True, exclude_duplicates=True):
             return "+" + raw
         return s
 
-    qs = Employee.objects.all()
+    # Only active employees by default; also respect linked AppUser.is_active
+    qs = Employee.objects.filter(is_active=True)
+    try:
+        from django.db.models import Q
+        qs = qs.filter(Q(user__isnull=True) | Q(user__is_active=True))
+    except Exception:
+        # If relations are not available, proceed with employee-level filter
+        pass
     for emp in qs:
         user = getattr(emp, "user", None)
         phone = None

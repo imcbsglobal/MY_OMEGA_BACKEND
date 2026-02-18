@@ -8,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.http import HttpResponse
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from .models import Payroll, PayrollDeduction, PayrollAllowance
 from .serializers import (
@@ -760,8 +760,17 @@ def get_all_employees_attendance_summary(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        # Get all employees
+        # Get all employees (default: only active employees)
         employees_qs = Employee.objects.all()
+        is_active = request.query_params.get('is_active', None)
+        if is_active is not None:
+            active_flag = is_active.lower() == 'true'
+            employees_qs = employees_qs.filter(is_active=active_flag)
+            # Also respect linked AppUser active state when present
+            employees_qs = employees_qs.filter(Q(user__isnull=True) | Q(user__is_active=active_flag))
+        else:
+            employees_qs = employees_qs.filter(is_active=True)
+            employees_qs = employees_qs.filter(Q(user__isnull=True) | Q(user__is_active=True))
         
         # Filter by department if provided
         if department:
