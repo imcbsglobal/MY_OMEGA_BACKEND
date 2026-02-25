@@ -272,6 +272,8 @@ class Trip(models.Model):
     )
     
     purpose = models.TextField(
+        null=True,
+        blank=True,
         verbose_name='Purpose of Trip'
     )
     
@@ -279,6 +281,8 @@ class Trip(models.Model):
     fuel_cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        null=True,
+        blank=True,
         default=0.00,
         verbose_name='Fuel Cost (₹)'
     )
@@ -286,6 +290,8 @@ class Trip(models.Model):
     odometer_start = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+        null=True,
+        blank=True,
         verbose_name='Odometer Start (KM)'
     )
     

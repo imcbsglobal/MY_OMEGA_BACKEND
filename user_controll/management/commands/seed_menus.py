@@ -280,8 +280,31 @@ class Command(BaseCommand):
                             },
                         ],
                     },
+                        {
+                            "name": "Marketing",
+                            "key": "target_marketing",
+                            "path": "#",
+                            "icon": "📢",
+                            "order": 1.5,
+                            "children": [
+                                {
+                                    "name": "Marketing Assign",
+                                    "key": "target_marketing_assign",
+                                    "path": "/target/marketing/assign",
+                                    "icon": "📢",
+                                    "order": 1,
+                                },
+                                {
+                                    "name": "Marketing View",
+                                    "key": "target_marketing_view",
+                                    "path": "/target/marketing/view",
+                                    "icon": "📢",
+                                    "order": 2,
+                                },
+                            ],
+                        },
                     {
-                        "name": "Route Targets",
+                        "name": "Sales",
                         "key": "target_route",
                         "path": "#",
                         "icon": "🗺️",
@@ -560,7 +583,7 @@ class Command(BaseCommand):
         self.stdout.write("\n📌 Menu sections seeded:")
         self.stdout.write("   1. HR Management       — Recruitment, Attendance Mgmt, Punch In/Out, HR Master, Leave Mgmt, Request, Payroll")
         self.stdout.write("   2. Vehicle Management  — Fuel Management, Travel, Challan")
-        self.stdout.write("   3. Target Management   — My Targets, Route Targets, Call Targets, Master Data")
+        self.stdout.write("   3. Target Management   — My Targets, Sales, Call Targets, Master Data")
         self.stdout.write("   4. Warehouse Management — /under-construction (direct link)")
         self.stdout.write("   5. Delivery Management — List Deliveries, Create Delivery, Employee Delivery View")
         self.stdout.write("   6. User Management     — Add User, User Control")

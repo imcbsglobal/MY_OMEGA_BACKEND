@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 
 
@@ -422,6 +423,67 @@ class CallDailyTarget(models.Model):
         return 0
 
 
+class TargetParameters(models.Model):
+    """
+    Target Parameters - Defines various parameter types and their targets/incentives
+    """
+    PARAMETER_CHOICES = [
+        ('TPA', 'TPA'),
+        ('T_COLLECTION', 'T/Collection'),
+        ('POM', 'POM'),
+        ('SALES_TARGET', 'Sales Target'),
+    ]
+
+    route_target_period = models.ForeignKey(
+        RouteTargetPeriod,
+        on_delete=models.CASCADE,
+        related_name='target_parameters'
+    )
+    parameter_type = models.CharField(
+        max_length=20,
+        choices=PARAMETER_CHOICES,
+        help_text='Type of parameter'
+    )
+    target_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text='Target value for this parameter'
+    )
+    incentive_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        null=True,
+        blank=True,
+        help_text='Incentive value for this parameter'
+    )
+    achieved_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text='Achieved value (for user manual entry)'
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'target_management_target_parameters'
+        verbose_name = 'Target Parameter'
+        verbose_name_plural = 'Target Parameters'
+        unique_together = ['route_target_period', 'parameter_type']
+        ordering = ['parameter_type']
+
+    def __str__(self):
+        return f"{self.route_target_period} - {self.get_parameter_type_display()}"
+
+    @property
+    def achievement_percentage(self):
+        if self.target_value > 0:
+            return (self.achieved_value / self.target_value) * 100
+        return 0
+
+
 class TargetAchievementLog(models.Model):
     """
     Log for tracking daily achievements and updates
@@ -478,4 +540,85 @@ class TargetAchievementLog(models.Model):
         ordering = ['-achievement_date', '-created_at']
 
     def __str__(self):
-        return f"{self.employee.get_full_name()} - {self.log_type} - {self.achievement_date}"
+                return f"{self.employee.get_full_name()} - {self.log_type} - {self.achievement_date}"
+
+        # --- Marketing Target Models ---
+class MarketingTargetPeriod(models.Model):
+    employee = models.ForeignKey(
+        'employee_management.Employee',
+        on_delete=models.CASCADE,
+        related_name='marketing_targets'
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_marketing_targets'
+    )
+    assigned_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'target_management_marketing_target_period'
+        verbose_name = 'Marketing Target Period'
+        verbose_name_plural = 'Marketing Target Periods'
+        ordering = ['-start_date', '-end_date']
+
+    def __str__(self):
+        return f"{self.employee.get_full_name()} - {self.start_date} to {self.end_date}"
+
+class MarketingTargetParameter(models.Model):
+    PARAMETER_CHOICES = [
+        ('shops_visited', 'No. of Shops Visited'),
+        ('total_boxes', 'Total Boxes'),
+        ('new_shops', 'New Shops'),
+        ('focus_category', 'Focus Category'),
+    ]
+    marketing_target_period = models.ForeignKey(
+        MarketingTargetPeriod,
+        on_delete=models.CASCADE,
+        related_name='target_parameters'
+    )
+    parameter_type = models.CharField(
+        max_length=32,
+        choices=PARAMETER_CHOICES
+    )
+    parameter_label = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True
+    )
+    target_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    incentive_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, null=True, blank=True)
+    achieved_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    achievement_percentage = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'target_management_marketing_target_parameter'
+        verbose_name = 'Marketing Target Parameter'
+        verbose_name_plural = 'Marketing Target Parameters'
+        unique_together = ['marketing_target_period', 'parameter_type']
+        ordering = ['parameter_type']
+
+    def __str__(self):
+        return f"{self.marketing_target_period} - {self.get_parameter_type_display()}"
+
+    def save(self, *args, **kwargs):
+        try:
+            achieved = Decimal(str(self.achieved_value or 0))
+            target = Decimal(str(self.target_value or 0))
+            if target > 0:
+                self.achievement_percentage = (achieved / target) * Decimal('100')
+            else:
+                self.achievement_percentage = Decimal('0')
+        except (InvalidOperation, TypeError):
+            self.achievement_percentage = Decimal('0')
+
+        super().save(*args, **kwargs)

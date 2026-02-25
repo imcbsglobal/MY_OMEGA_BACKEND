@@ -36,6 +36,8 @@ urlpatterns = [
     # ==================== USER-SPECIFIC ENDPOINTS ====================
     path('my-call-targets/', views.MyCallTargetsView.as_view(), name='my-call-targets'),
     path('my-route-targets/', views.MyRouteTargetsView.as_view(), name='my-route-targets'),
+    path('employee/target-parameters/<int:pk>/', views.TargetParameterUpdateView.as_view(), name='target-parameter-update'),
+     path('employee/marketing-target-parameters/<int:pk>/', views.MarketingTargetParameterUpdateView.as_view(), name='marketing-target-parameter-update'),
 
     # ==================== REPORTS & ANALYTICS ====================
     path('reports/route-summary/', views.route_target_summary, name='route-target-summary'),
@@ -59,4 +61,7 @@ urlpatterns = [
     path('employee/call-daily-targets/<int:daily_target_id>/update-achievement/',
          views.update_call_daily_achievement, name='employee-update-call-achievement'),
     path('employee/achievement-history/', views.employee_achievement_history, name='employee-achievement-history'),
+     # ==================== MARKETING TARGETS ====================
+     path('marketing-targets/', views.MarketingTargetPeriodListCreateView.as_view(), name='marketing-target-list-create'),
+     path('marketing-targets/<int:pk>/', views.MarketingTargetPeriodDetailView.as_view(), name='marketing-target-detail'),
 ]

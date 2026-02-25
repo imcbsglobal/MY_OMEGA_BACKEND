@@ -255,6 +255,29 @@ class Command(BaseCommand):
                         "icon": "🔒",
                         "order": 2,
                     },
+                        {
+                            "name": "Marketing",
+                            "key": "user_marketing",
+                            "path": "#",
+                            "icon": "📢",
+                            "order": 3,
+                            "children": [
+                                {
+                                    "name": "Marketing Assign",
+                                    "key": "user_marketing_assign",
+                                    "path": "/user/marketing/assign",
+                                    "icon": "📢",
+                                    "order": 1,
+                                },
+                                {
+                                    "name": "Marketing View",
+                                    "key": "user_marketing_view",
+                                    "path": "/user/marketing/view",
+                                    "icon": "📢",
+                                    "order": 2,
+                                },
+                            ]
+                        },
                 ]
             },
             {
@@ -346,12 +369,30 @@ class Command(BaseCommand):
                             { "name": "View My Targets", "key": "target_my_targets_view", "path": "/target/my-targets", "icon": "👤", "order": 1 },
                         ]
                     },
+                        {
+                            "name": "Marketing",
+                            "key": "target_marketing",
+                            "path": "#",
+                            "icon": "📢",
+                            "order": 1.5,
+                            "children": [
+                                { "name": "Marketing Assign", "key": "target_marketing_assign", "path": "/target/marketing/assign", "icon": "📢", "order": 1 },
+                                { "name": "Marketing View", "key": "target_marketing_view", "path": "/target/call/marketing/view", "icon": "📢", "order": 2 },
+                            ]
+                        },
+                    {
+                        "name": "Marketing Targets",
+                        "key": "target_marketing_targets",
+                        "path": "/target/call/marketing",
+                        "icon": "📢",
+                        "order": 2,
+                    },
                     {
                         "name": "Route Targets",
                         "key": "target_route_targets",
                         "path": "#",
                         "icon": "🗺️",
-                        "order": 2,
+                        "order": 3,
                         "children": [
                             { "name": "Assign Route Target", "key": "target_route_assign", "path": "/target/route/assign", "icon": "🗺️", "order": 1 },
                             { "name": "Route Target List", "key": "target_route_list", "path": "/target/route/list", "icon": "📋", "order": 2 },
@@ -363,7 +404,7 @@ class Command(BaseCommand):
                         "key": "target_call_targets",
                         "path": "#",
                         "icon": "📞",
-                        "order": 3,
+                        "order": 4,
                         "children": [
                             { "name": "Assign Call Target", "key": "target_call_assign", "path": "/target/call/assign", "icon": "📞", "order": 1 },
                             { "name": "Call Target List", "key": "target_call_list", "path": "/target/call/list", "icon": "📋", "order": 2 },
@@ -375,7 +416,7 @@ class Command(BaseCommand):
                         "key": "target_master_data",
                         "path": "#",
                         "icon": "⚙️",
-                        "order": 4,
+                        "order": 5,
                         "children": [
                             { "name": "Routes", "key": "target_master_routes", "path": "/target/master/routes", "icon": "🗺️", "order": 1 },
                             { "name": "Products", "key": "target_master_products", "path": "/target/master/products", "icon": "📦", "order": 2 },
@@ -386,14 +427,14 @@ class Command(BaseCommand):
                         "key": "target_manager_dashboard",
                         "path": "/target/dashboard",
                         "icon": "📊",
-                        "order": 5,
+                        "order": 6,
                     },
                     {
                         "name": "Comparative Performance",
                         "key": "target_comparative_performance",
                         "path": "/target/performance/comparative",
                         "icon": "📈",
-                        "order": 6,
+                        "order": 7,
                     },
                 ]
             },
@@ -404,6 +445,30 @@ class Command(BaseCommand):
                 "icon": "🏭",
                 "order": 7,
             },
+                {
+                    "name": "Frontend Navbar",
+                    "key": "frontend_navbar",
+                    "path": "#",
+                    "icon": "🖥️",
+                    "order": 8,
+                    "children": [
+                        {"name": "HR Management", "key": "frontend_hr_management", "path": "/cv-management", "icon": "👥", "order": 1},
+                        {"name": "Interview Management", "key": "frontend_interview_management", "path": "/interview-management", "icon": "👤", "order": 2},
+                        {"name": "Offer Letter", "key": "frontend_offer_letter", "path": "/offer-letter", "icon": "📄", "order": 3},
+                        {"name": "Employee Management", "key": "frontend_employee_management", "path": "/employee-management", "icon": "👥", "order": 4},
+                        {"name": "Attendance Management", "key": "frontend_attendance_management", "path": "/attendance-management", "icon": "📊", "order": 5},
+                        {"name": "Punch In / Punch Out", "key": "frontend_punch_in_out", "path": "/punch-in-out", "icon": "⏰", "order": 6},
+                        {"name": "Leave Management", "key": "frontend_leave_management", "path": "/leave-management", "icon": "🗓️", "order": 7},
+                        {"name": "Experience Certificate", "key": "frontend_experience_certificate", "path": "/experience-certificate", "icon": "🎓", "order": 8},
+                        {"name": "Salary Certificate", "key": "frontend_salary_certificate", "path": "/salary-certificate", "icon": "💰", "order": 9},
+                        {"name": "Vehicle Management", "key": "frontend_vehicle_management", "path": "/company-vehicle", "icon": "🚗", "order": 10},
+                        {"name": "Target Management", "key": "frontend_target_management", "path": "/target/my-targets", "icon": "🎯", "order": 11},
+                        {"name": "Warehouse Management", "key": "frontend_warehouse_management", "path": "/warehouse-list", "icon": "🏭", "order": 12},
+                        {"name": "Delivery Management", "key": "frontend_delivery_management", "path": "/delivery-status", "icon": "🚚", "order": 13},
+                        {"name": "User Management", "key": "frontend_user_management", "path": "/add-user", "icon": "🧑", "order": 14},
+                        {"name": "Master", "key": "frontend_master", "path": "/master-data", "icon": "⚙️", "order": 15},
+                    ]
+                },
         ]
 
         created_count = 0
@@ -467,3 +532,4 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"   - Updated: {updated_count} existing items")
         )
         self.stdout.write("="*60 + "\n")
+        

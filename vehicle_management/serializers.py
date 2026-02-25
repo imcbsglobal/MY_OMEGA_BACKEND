@@ -324,8 +324,6 @@ class TripStartSerializer(serializers.ModelSerializer):
             'time_period',
             'client_name',
             'purpose',
-            'fuel_cost',
-            'odometer_start',
             'odometer_start_image',
         ]
     
@@ -364,6 +362,8 @@ class TripEndSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trip
         fields = [
+            'fuel_cost',
+            'odometer_start',
             'end_time',
             'odometer_end',
             'odometer_end_image',
@@ -382,8 +382,10 @@ class TripEndSerializer(serializers.ModelSerializer):
         
         # Validate odometer end is greater than start
         odometer_end = data.get('odometer_end')
-        if odometer_end and self.instance.odometer_start:
-            if odometer_end < self.instance.odometer_start:
+        odometer_start = data.get('odometer_start', self.instance.odometer_start)
+        
+        if odometer_end and odometer_start:
+            if odometer_end < odometer_start:
                 raise serializers.ValidationError({
                     'odometer_end': 'End odometer reading must be greater than or equal to start reading.'
                 })

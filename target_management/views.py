@@ -16,7 +16,7 @@ from decimal import Decimal
 
 from .models import (
     Route, Product, RouteTargetPeriod, RouteTargetProductDetail,
-    CallTargetPeriod, CallDailyTarget, TargetAchievementLog
+    CallTargetPeriod, CallDailyTarget, TargetAchievementLog, TargetParameters
 )
 from .serializers import (
     RouteSerializer, RouteDetailSerializer,
@@ -26,6 +26,7 @@ from .serializers import (
     CallTargetPeriodSerializer, CallTargetPeriodDetailSerializer,
     CallDailyTargetSerializer,
     TargetAchievementLogSerializer,
+    TargetParametersSerializer,
 )
 
 
@@ -168,7 +169,7 @@ class RouteTargetPeriodListCreateView(generics.ListCreateAPIView):
     """
     queryset = RouteTargetPeriod.objects.select_related(
         'employee', 'route', 'assigned_by'
-    ).prefetch_related('product_details__product').all()
+    ).prefetch_related('product_details__product', 'target_parameters').all()
     permission_classes = [permissions.AllowAny]
     serializer_class = RouteTargetPeriodSerializer
     
@@ -198,13 +199,23 @@ class RouteTargetPeriodListCreateView(generics.ListCreateAPIView):
         if end_date:
             queryset = queryset.filter(end_date__lte=end_date)
         
-        return queryset.order_by('-start_date')
+        return queryset.order_by('-created_at')
     
     def perform_create(self, serializer):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"📝 Creating new route target...")
+        logger.info(f"📝 Data: {serializer.validated_data}")
+        
         if self.request.user.is_authenticated:
-            serializer.save(assigned_by=self.request.user)
+            instance = serializer.save(assigned_by=self.request.user)
         else:
-            serializer.save()
+            instance = serializer.save()
+        
+        logger.info(f"✅ Route target created: ID={instance.id}, Employee={instance.employee}, Route={instance.route}")
+        logger.info(f"✅ Parameters count: {instance.target_parameters.count()}")
+        for param in instance.target_parameters.all():
+            logger.info(f"  - {param.parameter_type}: Target={param.target_value}, Incentive={param.incentive_value}")
 
 
 class RouteTargetPeriodDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -310,7 +321,7 @@ class CallTargetPeriodListCreateView(generics.ListCreateAPIView):
         if end_date:
             queryset = queryset.filter(end_date__lte=end_date)
         
-        return queryset.order_by('-start_date')
+        return queryset.order_by('-created_at')
     
     def perform_create(self, serializer):
         if self.request.user.is_authenticated:
@@ -448,7 +459,7 @@ class MyCallTargetsView(generics.ListAPIView):
 
         return CallTargetPeriod.objects.filter(
             employee=emp, is_active=True
-        ).prefetch_related('daily_targets').order_by('-start_date')
+        ).prefetch_related('daily_targets').order_by('-created_at')
 
 
 class MyRouteTargetsView(generics.ListAPIView):
@@ -465,9 +476,67 @@ class MyRouteTargetsView(generics.ListAPIView):
         if not emp:
             return RouteTargetPeriod.objects.none()
 
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🔍 User: {user.email if hasattr(user, 'email') else user}")
+        logger.info(f"🔍 Employee: {emp.get_full_name() if hasattr(emp, 'get_full_name') else emp}")
+        logger.info(f"🔍 Employee ID: {emp.id}")
+        
+        # Check all route targets for this employee
+        all_targets = RouteTargetPeriod.objects.filter(employee=emp)
+        logger.info(f"🔍 Total route targets for this employee: {all_targets.count()}")
+        logger.info(f"🔍 Active route targets: {all_targets.filter(is_active=True).count()}")
+        
+        for target in all_targets:
+            logger.info(f"  - Route: {target.route.route_name if target.route else 'N/A'}, Active: {target.is_active}, Parameters: {target.target_parameters.count()}")
+
         return RouteTargetPeriod.objects.filter(
             employee=emp, is_active=True
-        ).select_related('route').prefetch_related('product_details__product').order_by('-start_date')
+        ).select_related('route').prefetch_related('product_details__product', 'target_parameters').order_by('-created_at')
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to ensure target_parameters are included"""
+        response = super().list(request, *args, **kwargs)
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"📊 MyRouteTargetsView response: {response.data}")
+        if isinstance(response.data, dict) and 'results' in response.data:
+            for idx, item in enumerate(response.data['results']):
+                logger.info(f"Route {idx}: target_parameters = {item.get('target_parameters', 'NOT FOUND')}")
+        return response
+
+
+class TargetParameterUpdateView(generics.UpdateAPIView):
+    """Allow employees to update their achieved values for target parameters"""
+    permission_classes = [permissions.AllowAny]
+    serializer_class = TargetParametersSerializer
+    
+    def get_queryset(self):
+        user = getattr(self.request, 'user', None)
+        if not user or not user.is_authenticated:
+            return TargetParameters.objects.none()
+        
+        emp = getattr(user, 'employee_profile', None)
+        if not emp:
+            return TargetParameters.objects.none()
+        
+        # Only allow updating parameters for targets assigned to this employee
+        return TargetParameters.objects.filter(
+            route_target_period__employee=emp,
+            route_target_period__is_active=True
+        )
+    
+    def update(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🎯 Updating parameter ID: {kwargs.get('pk')}")
+        logger.info(f"🎯 Data: {request.data}")
+        
+        response = super().update(request, *args, **kwargs)
+        logger.info(f"✅ Parameter updated successfully")
+        return response
 
 
 # ==================== REPORTS & ANALYTICS ====================
@@ -1774,3 +1843,238 @@ def employee_achievement_history(request):
         'total_logs': queryset.count(),
         'logs': serializer.data
     })
+
+# --- Marketing Target Views ---
+from .models import MarketingTargetPeriod, MarketingTargetParameter
+from .serializers import MarketingTargetPeriodSerializer
+from rest_framework import generics
+
+# Per-parameter update for MarketingTargetParameter
+from .serializers import MarketingTargetParameterSerializer
+
+
+class MarketingTargetParameterUpdateView(generics.RetrieveUpdateAPIView):
+    """Allow employees to retrieve and update their achieved/incentive values for marketing target parameters"""
+    permission_classes = [permissions.AllowAny]
+    serializer_class = MarketingTargetParameterSerializer
+
+    def get_queryset(self):
+        user = getattr(self.request, 'user', None)
+        if not user or not user.is_authenticated:
+            return MarketingTargetParameter.objects.none()
+
+        emp = getattr(user, 'employee_profile', None)
+        if not emp:
+            return MarketingTargetParameter.objects.none()
+
+        # Only allow updating parameters for marketing target periods assigned to this employee
+        return MarketingTargetParameter.objects.filter(
+            marketing_target_period__employee=emp,
+            marketing_target_period__is_active=True
+        )
+
+    def update(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"MarketingTargetParameterUpdateView.update called for pk={kwargs.get('pk')}")
+        logger.info(f"Incoming data: {request.data}")
+        # First let DRF serializer attempt the update (validation etc)
+        response = super().update(request, *args, **kwargs)
+
+        # Ensure the DB row actually reflects the incoming numeric fields by
+        # performing a direct write as a fallback. This helps if serializer
+        # validations or partial updates prevented the DB write in some flows.
+        try:
+            pk = kwargs.get('pk')
+            obj = MarketingTargetParameter.objects.filter(pk=pk).first()
+            if not obj:
+                logger.warning(f"MarketingTargetParameter id={pk} not found after serializer update")
+                return response
+
+            # Log pre-update values
+            logger.info(f"Before forced save: id={obj.pk} achieved_value={obj.achieved_value} incentive_value={obj.incentive_value} target_value={obj.target_value}")
+
+            changed = False
+            for fld in ('achieved_value', 'incentive_value', 'target_value'):
+                if fld in request.data:
+                    try:
+                        val = request.data.get(fld)
+                        # allow numeric strings
+                        if val is None or val == '':
+                            # skip empty
+                            continue
+                        # assign raw value; model fields will coerce/validate
+                        setattr(obj, fld, val)
+                        changed = True
+                    except Exception as _:
+                        logger.exception(f"Failed converting field {fld} value {request.data.get(fld)}")
+
+            if changed:
+                obj.save()
+                # ensure we read latest DB values
+                try:
+                    obj.refresh_from_db()
+                except Exception:
+                    pass
+                logger.info(f"After forced save: id={obj.pk} achieved_value={obj.achieved_value} incentive_value={obj.incentive_value} target_value={obj.target_value}")
+                # Re-serialize and return authoritative object so client sees persisted values
+                try:
+                    ser = MarketingTargetParameterSerializer(obj, context={'request': request})
+                    return Response(ser.data, status=response.status_code)
+                except Exception:
+                    logger.exception('Failed to re-serialize MarketingTargetParameter after forced save')
+            else:
+                logger.info(f"No numeric fields present to force-save for id={obj.pk}")
+        except Exception:
+            logger.exception('Error while forcing save MarketingTargetParameter')
+
+        return response
+    
+    def retrieve(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"MarketingTargetParameterUpdateView.retrieve called for pk={kwargs.get('pk')}")
+        resp = super().retrieve(request, *args, **kwargs)
+        try:
+            pk = kwargs.get('pk')
+            obj = MarketingTargetParameter.objects.filter(pk=pk).first()
+            if obj:
+                logger.info(f"Retrieved MarketingTargetParameter id={obj.pk} parameter_type={obj.parameter_type} target_value={obj.target_value} achieved_value={obj.achieved_value} incentive_value={obj.incentive_value}")
+        except Exception:
+            logger.exception('Error logging retrieved MarketingTargetParameter')
+        return resp
+
+
+class MarketingTargetPeriodListCreateView(generics.ListCreateAPIView):
+    queryset = MarketingTargetPeriod.objects.select_related('employee', 'assigned_by').prefetch_related('target_parameters').all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = MarketingTargetPeriodSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # If ?self=1 or ?self=true, filter to only the logged-in user's employee targets
+        self_param = self.request.query_params.get('self', None)
+        user = getattr(self.request, 'user', None)
+        if self_param in ['1', 'true', 'yes'] and user and user.is_authenticated:
+            # Prefer direct employee_profile relation
+            emp = getattr(user, 'employee_profile', None)
+            if not emp:
+                # Fallbacks: try to resolve Employee by linked user, by employee_id matching user's email,
+                # or by employee_id matching user's id (some systems stored PK in employee_id)
+                try:
+                    from employee_management.models import Employee
+                    emp = Employee.objects.filter(
+                        # match linked user
+                    ).filter(models.Q(user=user) | models.Q(employee_id=str(user.id)) | models.Q(employee_id=user.email)).first()
+                except Exception:
+                    emp = None
+
+            if emp:
+                queryset = queryset.filter(employee=emp)
+            else:
+                # No employee could be resolved for this user
+                queryset = queryset.none()
+        else:
+            employee_id = self.request.query_params.get('employee', None)
+            if employee_id:
+                queryset = queryset.filter(employee_id=employee_id)
+        start_date = self.request.query_params.get('start_date', None)
+        end_date = self.request.query_params.get('end_date', None)
+        if start_date:
+            queryset = queryset.filter(start_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(end_date__lte=end_date)
+        return queryset.order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        import logging, traceback
+        logger = logging.getLogger(__name__)
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            logger.exception('Error listing marketing targets')
+            return Response({'detail': str(e), 'trace': traceback.format_exc()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("MarketingTargetPeriodListCreateView.create called")
+        logger.info(f"Incoming create payload: {request.data}")
+        response = super().create(request, *args, **kwargs)
+        # Log saved parameter rows for debugging
+        try:
+            created_id = response.data.get('id') if isinstance(response.data, dict) else None
+            if created_id:
+                from .models import MarketingTargetParameter
+                params = MarketingTargetParameter.objects.filter(marketing_target_period_id=created_id)
+                for p in params:
+                    logger.info(f"Created MarketingTargetParameter id={p.pk} type={p.parameter_type} target_value={p.target_value} achieved_value={p.achieved_value} incentive_value={p.incentive_value}")
+        except Exception:
+            logger.exception('Error logging created marketing parameters')
+        return response
+
+class MarketingTargetPeriodDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MarketingTargetPeriod.objects.select_related('employee', 'assigned_by').prefetch_related('target_parameters').all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = MarketingTargetPeriodSerializer
+    
+    def get_object(self):
+        obj = super().get_object()
+        user = getattr(self.request, 'user', None)
+        # Allow if request user is staff/superuser or app admin
+        if user and user.is_authenticated:
+            user_is_admin = getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False) or (getattr(user, 'user_level', None) in ('Admin', 'Super Admin'))
+            if user_is_admin:
+                return obj
+            # Allow if user's employee_profile matches target.employee
+            # Check ownership using several fallbacks
+            try:
+                from django.db import connection
+                target_emp = getattr(obj, 'employee', None)
+                # 1) employee.user matches request.user
+                if target_emp and getattr(target_emp, 'user_id', None) == getattr(user, 'id', None):
+                    return obj
+
+                # 2) employee.employee_id equals user's email or user's id
+                if target_emp:
+                    emp_id_val = getattr(target_emp, 'employee_id', None)
+                    if emp_id_val and (str(emp_id_val) == str(getattr(user, 'email', '')) or str(emp_id_val) == str(getattr(user, 'id', ''))):
+                        return obj
+
+                # 3) database lookup fallbacks (in case relations are stale)
+                try:
+                    if MarketingTargetPeriod.objects.filter(pk=obj.pk, employee__user_id=user.id).exists():
+                        return obj
+                    if MarketingTargetPeriod.objects.filter(pk=obj.pk, employee__employee_id=str(getattr(user, 'email', ''))).exists():
+                        return obj
+                    if MarketingTargetPeriod.objects.filter(pk=obj.pk, employee__employee_id=str(getattr(user, 'id', ''))).exists():
+                        return obj
+                except Exception:
+                    # Ignore DB lookup errors and continue to deny below
+                    pass
+            except Exception:
+                pass
+
+            # If we reach here, user is not owner/admin
+            import logging
+            logger = logging.getLogger(__name__)
+            try:
+                t_emp_info = None
+                if hasattr(obj, 'employee') and obj.employee is not None:
+                    t_emp_info = {
+                        'employee_id': getattr(obj.employee, 'employee_id', None),
+                        'employee_pk': getattr(obj.employee, 'pk', None),
+                        'employee_user_id': getattr(obj.employee, 'user_id', None),
+                    }
+                logger.warning('Permission denied for marketing target detail', extra={'target_pk': obj.pk, 'user_id': getattr(user, 'id', None), 'target_employee': t_emp_info})
+            except Exception:
+                pass
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied('You do not have permission to access this marketing target')
+
+    def update(self, request, *args, **kwargs):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"MarketingTargetPeriodDetailView.update called for pk={kwargs.get('pk')}")
+        logger.info(f"Incoming data: {request.data}")
+        return super().update(request, *args, **kwargs)
