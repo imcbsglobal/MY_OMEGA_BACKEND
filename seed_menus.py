@@ -7,9 +7,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # First, let's clear old menu items to avoid conflicts
-        self.stdout.write("Clearing existing menu items...")
-        MenuItem.objects.all().delete()
-        self.stdout.write(self.style.SUCCESS("✓ Cleared existing menu items"))
+        self.stdout.write("\n" + "="*60)
+        self.stdout.write("Seeding menus safely (No deletion)...")
+        self.stdout.write("="*60 + "\n")
         
         # Define your exact menu structure
         menus = [

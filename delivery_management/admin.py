@@ -42,6 +42,7 @@ class DeliveryAdmin(admin.ModelAdmin):
     """Admin for Delivery model"""
     list_display = [
         'delivery_number',
+        'assigned_to',
         'employee',
         'vehicle',
         'route',
@@ -58,6 +59,7 @@ class DeliveryAdmin(admin.ModelAdmin):
     ]
     
     list_filter = [
+        'assigned_to',
         'status',
         'scheduled_date',
         'created_at',
@@ -68,6 +70,7 @@ class DeliveryAdmin(admin.ModelAdmin):
     
     search_fields = [
         'delivery_number',
+        'assigned_to__email',
         'employee__employee_id',
         'employee__full_name',
         'vehicle__registration_number',
@@ -90,6 +93,7 @@ class DeliveryAdmin(admin.ModelAdmin):
             'fields': (
                 'delivery_number',
                 'employee',
+                'assigned_to',
                 'vehicle',
                 'route',
                 'status'

@@ -43,18 +43,26 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
             is_active=True
         ).order_by("order", "name")
         return Response(MenuItemTreeSerializer(roots, many=True).data)
-
     def get_user_menus(self, request, user_id=None):
         """
         GET /admin/user/<user_id>/menus/
+
         Returns existing menu assignments for user.
 
-        If per-action rows exist:
-          { "menu_perms": [ { menu_id, key, name, can_view, can_edit, can_delete }, ... ] }
-
-        Otherwise (legacy behavior):
-          { "menu_ids": [1,2,3] }
+        Response format:
+        {
+            "menu_ids": [1,2,3],
+            "menu_perms": [
+                {
+                    "menu_item": 1,
+                    "can_view": true,
+                    "can_edit": false,
+                    "can_delete": false
+                }
+            ]
+        }
         """
+
         try:
             user = AppUser.objects.get(id=user_id)
         except AppUser.DoesNotExist:
@@ -63,37 +71,35 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        perms_qs = UserMenuAccess.objects.filter(user=user).select_related("menu_item")
+        # Get all permissions
+        perms_qs = UserMenuAccess.objects.filter(
+            user=user
+        ).select_related("menu_item")
 
-        if perms_qs.exists():
-            serializer = UserMenuAccessSerializer(perms_qs, many=True)
-            return Response({"menu_perms": serializer.data})
-        else:
-            menu_ids = list(
-                UserMenuAccess.objects.filter(user=user).values_list(
-                    "menu_item_id", flat=True
-                )
-            )
-            return Response({"menu_ids": menu_ids})
+        # ✅ Extract menu IDs (needed for checkbox checked state)
+        menu_ids = list(
+            perms_qs.values_list("menu_item_id", flat=True)
+        )
+
+        # ✅ Serialize full permission data
+        serializer = UserMenuAccessSerializer(perms_qs, many=True)
+
+        return Response({
+            "menu_ids": menu_ids,
+            "menu_perms": serializer.data
+        })
+
 
     def set_user_menus(self, request, user_id=None):
         """
-        POST /admin/user/<user_id>/menus/
+         POST /admin/user/<user_id>/menus/
 
-        Accepts either:
-          { "menu_ids": [1,2,3] }
-
-        OR per-action payload:
-          {
-            "items": [
-              { "menu_id": 1, "can_view": true, "can_edit": false, "can_delete": false },
-              ...
-            ]
-          }
-
-        OR:
-          { "all": true }  -> assign all active menus with full permissions.
+        Supports:
+          { "menu_ids": [...] }
+          { "items": [...] }
+          { "all": true }
         """
+
         try:
             user = AppUser.objects.get(id=user_id)
         except AppUser.DoesNotExist:
@@ -102,15 +108,15 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # IMPORTANT FIX:
-        # We do NOT short-circuit for Admin / Super Admin / superuser here.
-        # Everyone can have explicit UserMenuAccess rows now.
-
-        # Per-action payload (items or all)
+        # =====================================================
+        # ✅ PER ACTION PERMISSION MODE
+        # =====================================================
         if "items" in request.data or "all" in request.data:
+
             serializer = AssignMenusPayloadSerializer(
                 data={**request.data, "user_id": user.id}
             )
+
             if not serializer.is_valid():
                 return Response(
                     {"detail": "Invalid data", "errors": serializer.errors},
@@ -122,12 +128,13 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
 
             try:
                 with transaction.atomic():
-                    # clear existing assignments
+
                     UserMenuAccess.objects.filter(user=user).delete()
 
-                    # all = True -> full permissions to every active menu
+                    # ✅ Assign ALL menus
                     if data.get("all"):
                         menus = MenuItem.objects.filter(is_active=True)
+
                         bulk = [
                             UserMenuAccess(
                                 user=user,
@@ -138,18 +145,30 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                             )
                             for m in menus
                         ]
-                        if bulk:
-                            UserMenuAccess.objects.bulk_create(bulk)
+
+                        UserMenuAccess.objects.bulk_create(bulk)
                         assigned = len(bulk)
+
                     else:
                         items = data.get("items", [])
                         bulk = []
-                        menu_ids = set()
+                        valid_menu_ids = set()
 
-                        # direct items
+                        # ✅ keep only existing menus
+                        existing_menus = MenuItem.objects.filter(
+                            id__in=[i["menu_id"] for i in items]
+                        )
+
+                        menu_map = {m.id: m for m in existing_menus}
+
                         for it in items:
                             mid = it["menu_id"]
-                            menu_ids.add(mid)
+
+                            if mid not in menu_map:
+                                continue
+
+                            valid_menu_ids.add(mid)
+
                             bulk.append(
                                 UserMenuAccess(
                                     user=user,
@@ -160,18 +179,14 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                                 )
                             )
 
-                        # ensure parents present with at least can_view=True
+                        # ✅ AUTO ADD PARENTS
                         parent_ids = set()
-                        for mid in list(menu_ids):
-                            try:
-                                m = MenuItem.objects.get(id=mid)
-                            except MenuItem.DoesNotExist:
-                                continue
-                            p = m.parent
-                            while p:
-                                if p.id not in menu_ids and p.id not in parent_ids:
-                                    parent_ids.add(p.id)
-                                p = p.parent
+
+                        for menu in existing_menus:
+                            parent = menu.parent
+                            while parent:
+                                parent_ids.add(parent.id)
+                                parent = parent.parent
 
                         for pid in parent_ids:
                             bulk.append(
@@ -192,78 +207,66 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                     {"detail": "Assigned", "assigned_count": assigned},
                     status=status.HTTP_200_OK,
                 )
+
             except Exception as e:
                 return Response(
                     {"detail": f"Error assigning menus: {str(e)}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        # Legacy / simple payload: { "menu_ids": [...] }
+        # =====================================================
+        # ✅ SIMPLE CHECKBOX MODE (menu_ids)
+        # =====================================================
+
         serializer = UserMenuIdsSerializer(data=request.data)
+
         if not serializer.is_valid():
             return Response(
                 {"detail": "Invalid data", "errors": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        menu_ids = set(serializer.validated_data["menu_ids"])
+        menu_ids = set(serializer.validated_data.get("menu_ids", []))
 
-        # Validate IDs exist
-        if menu_ids:
-            valid_ids = set(
-                MenuItem.objects.filter(id__in=menu_ids).values_list(
-                    "id", flat=True
-                )
-            )
-            invalid_ids = menu_ids - valid_ids
-            if invalid_ids:
-                return Response(
-                    {"detail": f"Invalid menu IDs: {invalid_ids}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # ✅ only valid menus
+        valid_menus = MenuItem.objects.filter(id__in=menu_ids)
+        final_menu_ids = set(valid_menus.values_list("id", flat=True))
 
-        # include parents
-        final_menu_ids = set(menu_ids)
-        for menu_id in list(menu_ids):
-            try:
-                menu = MenuItem.objects.get(id=menu_id)
-            except MenuItem.DoesNotExist:
-                continue
-            current = menu.parent
-            while current:
-                final_menu_ids.add(current.id)
-                current = current.parent
+        # ✅ AUTO INCLUDE PARENTS SAFELY
+        for menu in valid_menus:
+            parent = menu.parent
+            while parent:
+                final_menu_ids.add(parent.id)
+                parent = parent.parent
 
         try:
             with transaction.atomic():
+
                 UserMenuAccess.objects.filter(user=user).delete()
-                if final_menu_ids:
-                    bulk = [
-                        UserMenuAccess(
-                            user=user,
-                            menu_item_id=mid,
-                            can_view=True,
-                            can_edit=False,
-                            can_delete=False,
-                        )
-                        for mid in final_menu_ids
-                    ]
+
+                bulk = [
+                    UserMenuAccess(
+                        user=user,
+                        menu_item_id=mid,
+                        can_view=True,
+                        can_edit=False,
+                        can_delete=False,
+                    )
+                    for mid in final_menu_ids
+                ]
+
+                if bulk:
                     UserMenuAccess.objects.bulk_create(bulk)
-                    return Response(
-                        {
-                            "ok": True,
-                            "menu_ids": list(final_menu_ids),
-                            "message": f"Successfully updated menu permissions for {user.email}",
-                        }
-                    )
-                else:
-                    return Response(
-                        {
-                            "ok": True,
-                            "menu_ids": [],
-                            "message": f"Cleared menu permissions for {user.email}",
-                        }
-                    )
+
+            return Response(
+                {
+                    "ok": True,
+                    "menu_ids": list(final_menu_ids),
+                    "message": f"Menus saved successfully for {user.email}",
+                },
+                status=status.HTTP_200_OK,
+            )
+
         except Exception as e:
             return Response(
                 {"detail": f"Error saving menus: {str(e)}"},

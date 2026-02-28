@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from delivery_management import views as delivery_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,6 +35,8 @@ urlpatterns = [
     path('api/vehicle-management/', include('vehicle_management.urls')),
     path('api/target-management/', include('target_management.urls')),
     path('api/delivery-management/', include('delivery_management.urls')),
+    # Shortcut endpoint for employee deliveries (filters by request.user)
+    path('api/delivery/my-deliveries/', delivery_views.my_deliveries),
  
 
 ]

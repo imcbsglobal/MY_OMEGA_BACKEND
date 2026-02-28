@@ -118,6 +118,11 @@ urlpatterns = [
     path('deliveries/<int:pk>/next-stop/', 
          views.get_next_stop, 
          name='delivery-next-stop'),
+
+    # Update delivery totals (manual override)
+    path('deliveries/<int:pk>/update-totals/',
+         views.update_delivery_totals,
+         name='delivery-update-totals'),
     
     # Delivery Summary (for admin reporting)
     path('deliveries/<int:pk>/summary/', 

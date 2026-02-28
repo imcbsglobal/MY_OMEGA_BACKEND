@@ -237,6 +237,15 @@ class Delivery(models.Model):
         related_name='completed_deliveries',
         help_text='User who completed this delivery'
     )
+    # The actual application user assigned to carry out this delivery
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_deliveries',
+        help_text='Application user assigned to this delivery'
+    )
 
     class Meta:
         db_table = 'delivery_management_delivery'
@@ -285,8 +294,19 @@ class Delivery(models.Model):
         # Auto-calculate pending amount
         if self.total_amount is not None and self.collected_amount is not None:
             self.total_pending_amount = max(Decimal('0.00'), self.total_amount - self.collected_amount)
-        
+
+        # If assigned_to is not set but an employee has a linked user, auto-assign
+        try:
+            if not self.assigned_to and getattr(self, 'employee', None):
+                emp_user = getattr(self.employee, 'user', None)
+                if emp_user:
+                    self.assigned_to = emp_user
+        except Exception:
+            # Be defensive: do not fail save if lookup fails
+            pass
+
         super().save(*args, **kwargs)
+
 
     @property
     def duration_minutes(self):
@@ -483,6 +503,13 @@ class DeliveryStop(models.Model):
     customer_name = models.CharField(
         max_length=255,
         help_text='Customer/Location name'
+    )
+    # Manually-entered shop name (added to support on-the-field edits)
+    shop_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Shop name entered by delivery person'
     )
     customer_address = models.TextField(
         help_text='Delivery address'

@@ -125,6 +125,7 @@ class DeliveryStopSerializer(serializers.ModelSerializer):
         model = DeliveryStop
         fields = [
             'id',
+            'shop_name',
             'stop_sequence',
             'customer_name',
             'customer_address',
@@ -158,6 +159,7 @@ class DeliveryStopCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryStop
         fields = [
+            'shop_name',
             'stop_sequence',
             'customer_name',
             'customer_address',
@@ -174,6 +176,7 @@ class DeliveryStopUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryStop
         fields = [
+            'shop_name',
             'delivered_boxes',
             'collected_amount',
             'status',
@@ -301,6 +304,7 @@ class DeliveryDetailSerializer(serializers.ModelSerializer):
             'created_by_name',
             'completed_by',
             'completed_by_name',
+            'assigned_to',
             'products',
             'stops',
             'created_at',
@@ -325,6 +329,7 @@ class DeliveryCreateSerializer(serializers.ModelSerializer):
             'employee',
             'vehicle',
             'route',
+            'assigned_to',
             'scheduled_date',
             'scheduled_time',
             'remarks',
@@ -388,16 +393,12 @@ class DeliveryUpdateSerializer(serializers.ModelSerializer):
             'scheduled_date',
             'scheduled_time',
             'total_loaded_boxes',
+            'total_delivered_boxes',
+            'collected_amount',
             'remarks',
         ]
-    
-    def validate(self, data):
-        # Prevent updates to non-scheduled deliveries
-        if self.instance and self.instance.status != 'scheduled':
-            raise serializers.ValidationError(
-                "Can only update scheduled deliveries. Use start/complete endpoints for other statuses."
-            )
-        return data
+    # Allow manual overrides of totals via PATCH from the summary UI.
+    # No special validation here; totals will be recalculated server-side after save.
 
 
 class DeliveryStartSerializer(serializers.Serializer):
