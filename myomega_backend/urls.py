@@ -38,6 +38,7 @@ urlpatterns = [
     # Shortcut endpoint for employee deliveries (filters by request.user)
     path('api/delivery/my-deliveries/', delivery_views.my_deliveries),
  
+    path('api/warehouse/', include('warehouse.urls')),
 
 ]
 
