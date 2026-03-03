@@ -18,6 +18,12 @@ from django.utils import timezone
 
 
 load_dotenv()
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    # pillow-heif not installed or registration failed; continue gracefully
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
