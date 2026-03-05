@@ -441,9 +441,17 @@ class Command(BaseCommand):
             {
                 "name": "Warehouse Management",
                 "key": "warehouse_management",
-                "path": "/under-construction",
+                "path": "#",
                 "icon": "🏭",
                 "order": 7,
+                "children": [
+                    { "name": "Warehouses", "key": "warehouse_list", "path": "/warehouse/warehouses", "icon": "🏬", "order": 1 },
+                    { "name": "Stock", "key": "warehouse_stock", "path": "/warehouse/stock", "icon": "📦", "order": 2 },
+                    { "name": "Stock Transfer", "key": "warehouse_stock_transfer", "path": "/warehouse/stock-transfer", "icon": "🔁", "order": 3 },
+                    { "name": "Assign Work", "key": "warehouse_assign", "path": "/warehouse/assign", "icon": "📋", "order": 4 },
+                    { "name": "Task Monitor", "key": "warehouse_admin", "path": "/warehouse/admin", "icon": "📊", "order": 5 },
+                    { "name": "My Warehouse Tasks", "key": "warehouse_mytasks", "path": "/warehouse/mytasks", "icon": "📦", "order": 6 },
+                ]
             },
                 {
                     "name": "Frontend Navbar",
