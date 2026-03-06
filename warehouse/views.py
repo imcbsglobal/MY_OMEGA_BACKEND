@@ -128,3 +128,52 @@ def employee_list(request):
         })
 
     return Response(data)
+
+
+# ─────────────────────────────────────────────
+# 6. Admin – Duty Report (per user, per month)
+# GET /api/warehouse/duty-report/?user_id=<id>&year=<yyyy>&month=<mm>
+# ─────────────────────────────────────────────
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def duty_report(request):
+    if not _is_admin(request.user):
+        return Response({'detail': 'Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+    user_id = request.query_params.get('user_id')
+    year = request.query_params.get('year')
+    month = request.query_params.get('month')
+
+    if not user_id:
+        return Response({'detail': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    tasks = WarehouseTask.objects.filter(assigned_to_id=user_id).select_related('assigned_to')
+
+    if year:
+        tasks = tasks.filter(assigned_date__year=int(year))
+    if month:
+        tasks = tasks.filter(assigned_date__month=int(month))
+
+    tasks = tasks.order_by('assigned_date', 'id')
+
+    # Build flat rows grouped by date with per-date SLNO
+    rows = []
+    from collections import defaultdict
+    date_slno = defaultdict(int)
+    for task in tasks:
+        date_key = str(task.assigned_date)
+        date_slno[date_key] += 1
+        rows.append({
+            'id': task.id,
+            'date': date_key,
+            'slno': date_slno[date_key],
+            'task_title': task.task_title,
+            'description': task.description,
+            'status': task.status,
+            'assigned_to_name': (
+                getattr(task.assigned_to, 'name', None)
+                or getattr(task.assigned_to, 'email', str(task.assigned_to))
+            ),
+        })
+
+    return Response(rows)
