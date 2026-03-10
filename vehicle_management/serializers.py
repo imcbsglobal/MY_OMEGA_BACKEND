@@ -220,6 +220,7 @@ class TripListSerializer(serializers.ModelSerializer):
             'time_period',
             'client_name',
             'purpose',
+            'route',
             'fuel_cost',
             'odometer_start',
             'odometer_end',
@@ -270,6 +271,7 @@ class TripDetailSerializer(serializers.ModelSerializer):
             'time_period',
             'client_name',
             'purpose',
+            'route',
             
             # Fuel & Odometer
             'fuel_cost',
@@ -324,6 +326,7 @@ class TripStartSerializer(serializers.ModelSerializer):
             'time_period',
             'client_name',
             'purpose',
+            'route',
             'odometer_start_image',
         ]
     

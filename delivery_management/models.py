@@ -395,7 +395,15 @@ class DeliveryProduct(models.Model):
     product = models.ForeignKey(
         'target_management.Product',
         on_delete=models.PROTECT,
-        related_name='delivery_items'
+        related_name='delivery_items',
+        null=True,
+        blank=True
+    )
+    bill_number = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Bill number / invoice reference (manual entry)'
     )
 
     # Quantities
@@ -422,20 +430,20 @@ class DeliveryProduct(models.Model):
     )
 
     # Pricing
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Total amount for this row (entered by user)'
+    )
     unit_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Price per unit'
-    )
-    total_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Total amount for this product'
+        help_text='Avg box value (auto-calculated: total_amount / no_of_boxes)'
     )
 
     # Additional Info
@@ -452,22 +460,23 @@ class DeliveryProduct(models.Model):
         db_table = 'delivery_management_delivery_product'
         verbose_name = 'Delivery Product'
         verbose_name_plural = 'Delivery Products'
-        ordering = ['product__product_name']
-        unique_together = ['delivery', 'product']
+        ordering = ['created_at']
 
     def __str__(self):
         return f"{self.delivery.delivery_number} - {self.product.product_name}"
 
     def save(self, *args, **kwargs):
-        """Auto-calculate balance and total amount"""
+        """Auto-calculate balance and avg_box_value (unit_price)"""
         # Calculate balance
         if self.loaded_quantity and self.delivered_quantity is not None:
             self.balance_quantity = self.loaded_quantity - self.delivered_quantity
-        
-        # Calculate total amount
-        if self.delivered_quantity and self.unit_price:
-            self.total_amount = self.delivered_quantity * self.unit_price
-        
+
+        # Calculate avg_box_value = total_amount / no_of_boxes
+        if self.total_amount and self.loaded_quantity and self.loaded_quantity > 0:
+            self.unit_price = Decimal(str(self.total_amount)) / Decimal(str(self.loaded_quantity))
+        else:
+            self.unit_price = None
+
         super().save(*args, **kwargs)
 
     @property

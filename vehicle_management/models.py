@@ -277,6 +277,14 @@ class Trip(models.Model):
         verbose_name='Purpose of Trip'
     )
     
+    route = models.CharField(
+        max_length=512,
+        null=True,
+        blank=True,
+        verbose_name='Route',
+        help_text='Route taken for the trip (e.g. City A → City B)'
+    )
+    
     # Fuel & Odometer - START
     fuel_cost = models.DecimalField(
         max_digits=10,

@@ -51,31 +51,40 @@ class ProductBriefSerializer(serializers.Serializer):
 class DeliveryProductSerializer(serializers.ModelSerializer):
     """Serializer for delivery products"""
     product_details = ProductBriefSerializer(source='product', read_only=True)
-    product_name = serializers.CharField(source='product.product_name', read_only=True)
+    product_name = serializers.CharField(source='product.product_name', read_only=True, default='')
     delivery_percentage = serializers.DecimalField(
         max_digits=5, 
         decimal_places=2, 
         read_only=True
     )
+    avg_box_value = serializers.DecimalField(
+        source='unit_price',
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True
+    )
 
     class Meta:
         model = DeliveryProduct
         fields = [
-            'id', 
-            'product', 
+            'id',
+            'bill_number',
+            'product',
             'product_details',
             'product_name',
             'loaded_quantity',
             'delivered_quantity',
             'balance_quantity',
-            'unit_price',
             'total_amount',
+            'avg_box_value',
+            'unit_price',
             'delivery_percentage',
             'notes',
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['balance_quantity', 'total_amount']
+        read_only_fields = ['balance_quantity', 'unit_price', 'avg_box_value']
 
 
 class DeliveryProductCreateSerializer(serializers.ModelSerializer):
@@ -83,11 +92,16 @@ class DeliveryProductCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryProduct
         fields = [
+            'bill_number',
             'product',
             'loaded_quantity',
-            'unit_price',
+            'total_amount',
             'notes'
         ]
+        extra_kwargs = {
+            'product': {'required': False, 'allow_null': True},
+            'total_amount': {'required': False},
+        }
 
     def validate_loaded_quantity(self, value):
         if value <= 0:
