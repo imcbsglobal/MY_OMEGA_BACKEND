@@ -1,25 +1,17 @@
 # vehicle_management/serializers.py
 from rest_framework import serializers
-from django.apps import apps
+from django.contrib.auth import get_user_model
 from .models import Vehicle, Trip, VehicleChallan
 from datetime import datetime
 
-
-# Try to get AppUser model
-UserModel = None
-try:
-    from User.models import AppUser as UserModel
-except Exception:
-    try:
-        UserModel = apps.get_model('User', 'AppUser')
-    except Exception:
-        UserModel = None
+# Always get the correct user model — never None, never a string
+UserModel = get_user_model()
 
 
 class VehicleListSerializer(serializers.ModelSerializer):
     """Serializer for vehicle list view"""
     photo_url = serializers.SerializerMethodField()
-    total_trips = serializers.IntegerField(read_only=True)
+    total_trips = serializers.SerializerMethodField()   # was IntegerField — needs annotation which was never provided
     total_distance = serializers.SerializerMethodField()
     insurance_days_left = serializers.SerializerMethodField()
     
@@ -52,7 +44,11 @@ class VehicleListSerializer(serializers.ModelSerializer):
         if obj.photo:
             return request.build_absolute_uri(obj.photo.url) if request else obj.photo.url
         return None
-    
+
+    def get_total_trips(self, obj):
+        # Use the model property (no annotation required)
+        return obj.total_trips if hasattr(obj, 'total_trips') else 0
+
     def get_total_distance(self, obj):
         return float(obj.total_distance_traveled) if hasattr(obj, 'total_distance_traveled') else 0.00
 
@@ -63,7 +59,7 @@ class VehicleListSerializer(serializers.ModelSerializer):
 class VehicleDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed vehicle view"""
     photo_url = serializers.SerializerMethodField()
-    total_trips = serializers.IntegerField(read_only=True)
+    total_trips = serializers.SerializerMethodField()   # fixed: was IntegerField requiring annotation
     total_distance = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     insurance_days_left = serializers.SerializerMethodField()
@@ -121,7 +117,10 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
         if obj.photo:
             return request.build_absolute_uri(obj.photo.url) if request else obj.photo.url
         return None
-    
+
+    def get_total_trips(self, obj):
+        return obj.total_trips if hasattr(obj, 'total_trips') else 0
+
     def get_total_distance(self, obj):
         return float(obj.total_distance_traveled) if hasattr(obj, 'total_distance_traveled') else 0.00
     
@@ -182,9 +181,9 @@ class VehicleCreateUpdateSerializer(serializers.ModelSerializer):
 class TripEmployeeSerializer(serializers.ModelSerializer):
     """Brief employee info for trips"""
     full_name = serializers.SerializerMethodField()
-    
+
     class Meta:
-        model = UserModel if UserModel else 'auth.User'
+        model = UserModel   # always the real model class now
         fields = ['id', 'email', 'full_name']
     
     def get_full_name(self, obj):
@@ -483,9 +482,9 @@ class ChallanVehicleSerializer(serializers.ModelSerializer):
 class ChallanOwnerSerializer(serializers.ModelSerializer):
     """Brief owner info for challans"""
     full_name = serializers.SerializerMethodField()
-    
+
     class Meta:
-        model = UserModel if UserModel else 'auth.User'
+        model = UserModel   # always the real model class now
         fields = ['id', 'email', 'full_name']
     
     def get_full_name(self, obj):

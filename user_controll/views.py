@@ -179,7 +179,7 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                                 )
                             )
 
-                        # ✅ AUTO ADD PARENTS
+                        # ✅ AUTO ADD PARENTS (skip if already explicitly assigned to avoid duplicate key)
                         parent_ids = set()
 
                         for menu in existing_menus:
@@ -189,6 +189,10 @@ class AdminUserMenuViewSet(viewsets.ViewSet):
                                 parent = parent.parent
 
                         for pid in parent_ids:
+                            if pid in valid_menu_ids:
+                                # Already assigned explicitly with user-chosen permissions — don't overwrite
+                                continue
+                            valid_menu_ids.add(pid)
                             bulk.append(
                                 UserMenuAccess(
                                     user=user,
