@@ -1,7 +1,7 @@
 # delivery_management/serializers.py
 from rest_framework import serializers
 from django.db import transaction
-from .models import Delivery, DeliveryProduct, DeliveryStop
+from .models import Delivery, DeliveryProduct, DeliveryStop, Courier
 from decimal import Decimal
 
 
@@ -608,3 +608,91 @@ class DeliveryStatsSerializer(serializers.Serializer):
     total_amount = serializers.DecimalField(max_digits=15, decimal_places=2)
     total_collected = serializers.DecimalField(max_digits=15, decimal_places=2)
     average_efficiency = serializers.DecimalField(max_digits=5, decimal_places=2)
+
+
+# ===================== COURIER SERIALIZERS =====================
+
+class CourierListSerializer(serializers.ModelSerializer):
+    """Serializer for Courier list view"""
+
+    class Meta:
+        model = Courier
+        fields = [
+            'id', 'date', 'order_placed_by', 'customer_name', 'customer_phone',
+            'weight_kg', 'courier_name', 'lr_number', 'payment_mode',
+            'bill_value', 'courier_amount', 'no_of_cartons', 'total_quantity',
+            'expense', 'who_prepared', 'received_date', 'created_at'
+        ]
+
+
+class CourierDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Courier detail view"""
+    created_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Courier
+        fields = [
+            'id', 'date', 'order_placed_by', 'customer_name', 'customer_address',
+            'customer_phone', 'weight_kg', 'courier_name', 'lr_number',
+            'payment_mode', 'bill_value', 'courier_amount', 'no_of_cartons',
+            'total_quantity', 'expense', 'who_prepared', 'received_date',
+            'created_by', 'created_at', 'updated_at'
+        ]
+
+    def get_created_by(self, obj):
+        if obj.created_by:
+            return {
+                'id': obj.created_by.id,
+                'username': obj.created_by.username,
+                'email': obj.created_by.email
+            }
+        return None
+
+
+class CourierCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for creating and updating Courier entries"""
+
+    class Meta:
+        model = Courier
+        fields = [
+            'date', 'order_placed_by', 'customer_name', 'customer_address', 'customer_phone',
+            'weight_kg', 'courier_name', 'lr_number', 'payment_mode', 'bill_value',
+            'courier_amount', 'no_of_cartons', 'total_quantity', 'expense',
+            'who_prepared', 'received_date'
+        ]
+
+    def validate_bill_value(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Bill value cannot be negative")
+        return value
+
+    def validate_courier_amount(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Courier amount cannot be negative")
+        return value
+
+    def validate_weight_kg(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Weight cannot be negative")
+        return value
+
+    def validate_no_of_cartons(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Number of cartons cannot be negative")
+        return value
+
+    def validate_total_quantity(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Total quantity cannot be negative")
+        return value
+
+    def create(self, validated_data):
+        # Expense is auto-calculated in model.save()
+        validated_data.setdefault('who_prepared', '')
+        return Courier.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save()
+        return instance

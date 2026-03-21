@@ -92,6 +92,17 @@ class Vehicle(models.Model):
     )
     
     # Ownership & Insurance
+    ownership_type = models.CharField(
+        max_length=32,
+        choices=[
+            ('company', 'Company'),
+            ('private', 'Private'),
+        ],
+        default='company',
+        verbose_name='Ownership Type',
+        help_text='Whether the vehicle is company owned or private'
+    )
+
     owner_name = models.CharField(
         max_length=255,
         null=True,
@@ -110,6 +121,12 @@ class Vehicle(models.Model):
         null=True,
         blank=True,
         verbose_name='Insurance Expiry Date'
+    )
+
+    pollution_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Pollution Expiry Date'
     )
     
     # Maintenance
@@ -184,6 +201,13 @@ class Vehicle(models.Model):
     @property
     def total_trips(self):
         return self.trips.count()
+
+    @property
+    def insurance_days_left(self):
+        """Days remaining until insurance expiry; negative when expired."""
+        if not self.insurance_expiry_date:
+            return None
+        return (self.insurance_expiry_date - timezone.now().date()).days
     
     @property
     def total_distance_traveled(self):
@@ -349,6 +373,40 @@ class Trip(models.Model):
         blank=True,
         verbose_name='Duration (Hours)',
         help_text='Auto-calculated from start and end time'
+    )
+    
+    # Maintenance Costs (Optional)
+    maintenance_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0.00,
+        verbose_name='Total Maintenance Cost (₹)'
+    )
+    
+    maintenance_washing = models.BooleanField(
+        default=False,
+        verbose_name='Washing',
+        help_text='Vehicle washing done during trip'
+    )
+    
+    maintenance_alignment = models.BooleanField(
+        default=False,
+        verbose_name='Alignment',
+        help_text='Wheel alignment done during trip'
+    )
+    
+    maintenance_air_checking = models.BooleanField(
+        default=False,
+        verbose_name='Air Checking',
+        help_text='Air pressure checking done during trip'
+    )
+    
+    maintenance_grease_oil = models.BooleanField(
+        default=False,
+        verbose_name='Grease Oil',
+        help_text='Grease oil check/replacement done during trip'
     )
     
     # Status

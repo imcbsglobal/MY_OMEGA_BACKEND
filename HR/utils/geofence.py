@@ -32,17 +32,31 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 def validate_office_geofence(user_lat, user_lon, user=None):
     """
     Validates if user is within office geofence radius.
-    Now uses OfficeLocation model from database instead of settings.py
-    
+    Out-house employees are exempt from geofence validation.
+
     Args:
         user_lat (float): User's latitude
-        user_lon (float): User's longitude  
+        user_lon (float): User's longitude
         user (AppUser, optional): User object for logging
-    
+
     Returns:
         tuple: (allowed: bool, distance_in_meters: float)
     """
     from HR.models import OfficeLocation
+
+    # ✅ Out-house employees can punch in/out from anywhere
+    if user is not None:
+        try:
+            employee = user.employee_profile
+            if getattr(employee, 'work_type', None) == 'out_house':
+                logger.info(f"[GEOFENCE] ✅ SKIPPED for out-house employee: {user.email}")
+                distance = haversine_distance(
+                    float(user_lat), float(user_lon),
+                    float(user_lat), float(user_lon)  # distance = 0
+                ) if user_lat and user_lon else 0
+                return True, 0
+        except Exception:
+            pass  # No employee profile — fall through to normal check
     
     # Get active office configuration from database
     office = OfficeLocation.get_active_office()

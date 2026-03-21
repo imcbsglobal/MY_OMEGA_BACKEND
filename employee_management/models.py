@@ -173,6 +173,12 @@ class Employee(models.Model):
         blank=True,
         verbose_name='PF Number'
     )
+    uan_number = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name='UAN Number'
+    )
     esi_number = models.CharField(
         max_length=64, 
         null=True, 
@@ -254,6 +260,20 @@ class Employee(models.Model):
     marital_status = models.CharField(max_length=32, null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
  
+    # Work Type
+    WORK_TYPE_CHOICES = [
+        ('in_house', 'In House'),
+        ('out_house', 'Out House'),
+    ]
+    work_type = models.CharField(
+        max_length=20,
+        choices=WORK_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name='Work Type',
+        help_text='Whether the employee works in-house or out-house'
+    )
+
     # Status
     is_active = models.BooleanField(default=True)
 

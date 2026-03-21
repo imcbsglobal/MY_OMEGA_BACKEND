@@ -34,9 +34,12 @@ class OfferLetterSerializer(serializers.ModelSerializer):
             'house_rent_allowance',
             'special_allowance',
             'conveyance_earnings',
+            'incentives_parameters',
 
             'joining_data',
             'notice_period',
+            'sales_director_name',
+            'sales_director_designation',
 
             'work_start_time',
             'work_end_time',
@@ -138,7 +141,28 @@ class OfferLetterSerializer(serializers.ModelSerializer):
                 "salary": "Salary must be a valid number"
             })
 
+        for text_field in ['sales_director_name', 'sales_director_designation']:
+            if text_field in data and data.get(text_field) is not None:
+                data[text_field] = str(data.get(text_field)).strip()
+
         return data
+
+    def validate_incentives_parameters(self, value):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Must be a list of incentive rows")
+        sanitized = []
+        for row in value:
+            if not isinstance(row, dict):
+                continue
+            sanitized.append({
+                'parameter': str(row.get('parameter', '')).strip(),
+                'daily_target': str(row.get('daily_target', '')).strip(),
+                'monthly_target': str(row.get('monthly_target', '')).strip(),
+                'incentive': str(row.get('incentive', '')).strip(),
+            })
+        return sanitized
 
 
 # ============================================================
@@ -160,11 +184,14 @@ class OfferLetterCreateSerializer(serializers.ModelSerializer):
             'house_rent_allowance',
             'special_allowance',
             'conveyance_earnings',
+            'incentives_parameters',
 
             'work_start_time',
             'work_end_time',
             'joining_data',
             'notice_period',
+            'sales_director_name',
+            'sales_director_designation',
 
             'subject',
             'body',

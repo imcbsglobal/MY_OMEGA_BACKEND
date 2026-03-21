@@ -1,10 +1,18 @@
 # delivery_management/urls.py
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
 
 app_name = 'delivery-management'
 
+# Initialize router for viewsets
+router = DefaultRouter()
+router.register(r'courier', views.CourierViewSet, basename='courier')
+
 urlpatterns = [
+    # ==================== VIEWSET ROUTES ====================
+    path('', include(router.urls)),
+    
     # ==================== MAIN DELIVERY ENDPOINTS ====================
     
     # Delivery List & Create

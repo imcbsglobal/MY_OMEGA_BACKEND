@@ -91,7 +91,7 @@ class BankInfoSerializer(serializers.ModelSerializer):
         model = Employee
         fields = [
             'salary_account_number', 'salary_bank_name', 'salary_ifsc_code',
-            'salary_branch', 'account_holder_name', 'pf_number', 'esi_number',
+            'salary_branch', 'account_holder_name', 'pf_number', 'uan_number', 'esi_number',
             'pan_number', 'aadhar_number'
         ]
 
@@ -119,7 +119,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
             'avatar_url', 'profile_picture',
             'designation', 'department', 'employment_status',
             'employment_type', 'location', 'is_active', 'created_at',
-            'job_info', 'phone_number'
+            'job_info', 'phone_number', 'work_type'
         ]
 
     def get_full_name(self, obj):
@@ -208,12 +208,14 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
 
             # GOVERNMENT IDS
             'pf_number',
+            'uan_number',
             'esi_number',
             'pan_number',
             'aadhar_number',
 
             # OTHER
             'notes',
+            'work_type',
             'is_active',
             'created_at',
             'updated_at',
@@ -300,6 +302,7 @@ class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
 
             # ================= GOVERNMENT IDS =================
             'pf_number',
+            'uan_number',
             'esi_number',
             'pan_number',
             'aadhar_number',
@@ -312,6 +315,7 @@ class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
 
             # ================= AVATAR & STATUS =================
             'avatar',
+            'work_type',
             'is_active',
         ]
 

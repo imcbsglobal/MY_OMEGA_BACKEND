@@ -32,9 +32,18 @@ class OfferLetter(models.Model):
     house_rent_allowance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     special_allowance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     conveyance_earnings = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    incentives_parameters = models.JSONField(
+        default=list,
+        blank=True,
+        null=True,
+        help_text='Optional incentive parameter rows shown in generated offer letter'
+    )
     
     joining_data = models.DateField()
     notice_period = models.IntegerField()
+
+    sales_director_name = models.CharField(max_length=255, null=True, blank=True)
+    sales_director_designation = models.CharField(max_length=255, null=True, blank=True)
 
     subject = models.CharField(max_length=255, default="Job Offer Letter")
     body = models.TextField()
