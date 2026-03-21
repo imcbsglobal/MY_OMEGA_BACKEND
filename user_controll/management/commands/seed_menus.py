@@ -7,10 +7,9 @@ class Command(BaseCommand):
     help = 'Seed menu items matching the Navbar sidebar structure'
 
     def handle(self, *args, **options):
-        # Clear old menu items to avoid conflicts
-        self.stdout.write("Clearing existing menu items...")
-        MenuItem.objects.all().delete()
-        self.stdout.write(self.style.SUCCESS("✓ Cleared existing menu items"))
+        # DO NOT delete existing menu items — that would cascade-delete all UserMenuAccess assignments.
+        # Instead, we use get_or_create + update so existing permissions are preserved.
+        self.stdout.write("Updating menu items (preserving existing user assignments)...")
 
         # Define your exact menu structure
         menus = [
@@ -463,13 +462,66 @@ class Command(BaseCommand):
                 ],
             },
 
+            # ------------------ REPORT ------------------
+            {
+                "name": "Report",
+                "key": "report",
+                "path": "#",
+                "icon": "📊",
+                "order": 8,
+                "children": [
+                    {
+                        "name": "Warehouse Duty Report",
+                        "key": "report_warehouse_duty",
+                        "path": "/warehouse/duty-report",
+                        "icon": "📋",
+                        "order": 1,
+                    },
+                    {
+                        "name": "Travel Report",
+                        "key": "report_travel",
+                        "path": "/vehicle/travel-report",
+                        "icon": "🗺️",
+                        "order": 2,
+                    },
+                    {
+                        "name": "Delivery Report",
+                        "key": "report_delivery",
+                        "path": "/delivery-management/report",
+                        "icon": "🚚",
+                        "order": 3,
+                    },
+                    {
+                        "name": "Route Target Report",
+                        "key": "report_route_target",
+                        "path": "/target/route-target-report",
+                        "icon": "🗺️",
+                        "order": 4,
+                    },
+                    {
+                        "name": "Call Target Report",
+                        "key": "report_call_target",
+                        "path": "/target/call-target-report",
+                        "icon": "📞",
+                        "order": 5,
+                    },
+                    {
+                        "name": "Marketing Target Report",
+                        "key": "report_marketing_target",
+                        "path": "/target/marketing-target-report",
+                        "icon": "📢",
+                        "order": 6,
+                    },
+                ],
+            },
+
             # ------------------ MASTER ------------------
             {
                 "name": "Master",
                 "key": "master",
                 "path": "#",
                 "icon": "⚙️",
-                "order": 7,
+                "order": 9,
                 "children": [
                     {
                         "name": "Department",
@@ -561,6 +613,7 @@ class Command(BaseCommand):
             ('warehouse_management', 'Warehouse Management'),
             ('delivery_management', 'Delivery Management'),
             ('user_management', 'User Management'),
+            ('report', 'Report'),
             ('master', 'Master'),
         ]
 
@@ -595,5 +648,6 @@ class Command(BaseCommand):
         self.stdout.write("   4. Warehouse Management — /under-construction (direct link)")
         self.stdout.write("   5. Delivery Management — List Deliveries, Create Delivery, Employee Delivery View")
         self.stdout.write("   6. User Management     — Add User, User Control")
-        self.stdout.write("   7. Master              — Department, Vehicle Master")
+        self.stdout.write("   8. Report              — Warehouse Duty, Travel, Delivery, Route Target, Call Target, Marketing Target")
+        self.stdout.write("   9. Master              — Department, Vehicle Master")
         self.stdout.write("\n" + "=" * 110 + "\n")
