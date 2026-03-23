@@ -104,6 +104,10 @@ def vehicle_dropdown(request):
             'registration_number': vehicle.registration_number,
             'company': vehicle.company or '',
             'vehicle_type': vehicle.vehicle_type or '',
+            'ownership_type': vehicle.ownership_type,
+            'insurance_expiry_date': vehicle.insurance_expiry_date,
+            'pollution_expiry_date': vehicle.pollution_expiry_date,
+            'insurance_days_left': vehicle.insurance_days_left,
             'current_odometer': float(vehicle.current_odometer),
         })
     

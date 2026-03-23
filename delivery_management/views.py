@@ -1,5 +1,5 @@
 # delivery_management/views.py
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -11,7 +11,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from rest_framework.exceptions import PermissionDenied
 
-from .models import Delivery, DeliveryProduct, DeliveryStop
+from .models import Delivery, DeliveryProduct, DeliveryStop, Courier
 from .serializers import (
     DeliveryListSerializer,
     DeliveryDetailSerializer,
@@ -25,7 +25,10 @@ from .serializers import (
     DeliveryStartSerializer,
     DeliveryCompleteSerializer,
     DeliveryUpdateProductsSerializer,
-    DeliveryStatsSerializer
+    DeliveryStatsSerializer,
+    CourierListSerializer,
+    CourierDetailSerializer,
+    CourierCreateUpdateSerializer
 )
 
 
@@ -931,3 +934,57 @@ def update_delivery_totals(request, pk):
     # Return updated summary (use helper to avoid calling decorated view)
     summary = _build_delivery_summary(delivery)
     return Response(summary, status=status.HTTP_200_OK)
+
+
+# ==================== COURIER MANAGEMENT ====================
+
+class CourierViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Courier management
+    - GET /delivery-management/courier/ - List all courier entries
+    - POST /delivery-management/courier/ - Create new courier entry
+    - GET /delivery-management/courier/{id}/ - Get courier entry detail
+    - PATCH /delivery-management/courier/{id}/ - Update courier entry
+    - DELETE /delivery-management/courier/{id}/ - Delete courier entry
+    """
+    queryset = Courier.objects.all().order_by('-date')
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """Use different serializers based on action"""
+        if self.action == 'list':
+            return CourierListSerializer
+        elif self.action == 'retrieve':
+            return CourierDetailSerializer
+        return CourierCreateUpdateSerializer
+    
+    def perform_create(self, serializer):
+        """Save courier entry with current user as creator"""
+        serializer.save(created_by=self.request.user)
+    
+    def get_queryset(self):
+        """Get queryset with optional filtering by date range, payment mode, and search"""
+        queryset = Courier.objects.all().order_by('-date')
+        params = self.request.query_params
+        
+        # Filter by date range if provided in query parameters
+        date_from = params.get('date_from')
+        date_to = params.get('date_to')
+        if date_from:
+            queryset = queryset.filter(date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(date__lte=date_to)
+
+        payment_mode = params.get('payment_mode')
+        if payment_mode:
+            queryset = queryset.filter(payment_mode__iexact=payment_mode)
+
+        search = params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(customer_name__icontains=search) |
+                Q(lr_number__icontains=search) |
+                Q(customer_phone__icontains=search)
+            )
+        
+        return queryset

@@ -674,3 +674,149 @@ class DeliveryStop(models.Model):
     def is_completed(self):
         """Check if stop is completed"""
         return self.status in ['delivered', 'partial', 'failed', 'skipped']
+
+
+class Courier(models.Model):
+    """
+    Courier Expense Management - Tracks courier financial data
+    """
+    PAYMENT_MODES = (
+        ('paid', 'Paid'),
+        ('credit', 'Credit'),
+    )
+
+    date = models.DateField(
+        default=timezone.now,
+        help_text='Date of courier expense'
+    )
+
+    order_placed_by = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Name of the person who placed the order'
+    )
+
+    customer_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Customer name'
+    )
+
+    customer_address = models.TextField(
+        blank=True,
+        help_text='Customer address'
+    )
+
+    customer_phone = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text='Customer phone number'
+    )
+
+    weight_kg = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        default=0,
+        help_text='Weight of the carton in kilograms'
+    )
+
+    courier_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Courier partner name'
+    )
+
+    lr_number = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='LR / Tracking ID'
+    )
+
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=PAYMENT_MODES,
+        default='paid',
+        help_text='Payment mode (Paid or Credit)'
+    )
+    
+    bill_value = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Bill value amount'
+    )
+    
+    courier_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Courier charge amount'
+    )
+    
+    no_of_cartons = models.PositiveIntegerField(
+        default=0,
+        help_text='Number of cartons'
+    )
+
+    total_quantity = models.PositiveIntegerField(
+        default=0,
+        help_text='Total quantity'
+    )
+
+    expense = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        default=0,
+        help_text='Total expense (auto-calculated: bill_value + courier_amount)'
+    )
+
+    who_prepared = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Entry prepared by'
+    )
+
+    received_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='Date received'
+    )
+    
+    # Audit Fields
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_courier_entries',
+        help_text='User who created this courier entry'
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        help_text='When this entry was created'
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='When this entry was last updated'
+    )
+    
+    class Meta:
+        db_table = 'delivery_management_courier'
+        verbose_name = 'Courier'
+        verbose_name_plural = 'Couriers'
+        ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['-date']),
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['payment_mode']),
+        ]
+    
+    def __str__(self):
+        return f"Courier - {self.date} - {self.expense}"
+    
+    def save(self, *args, **kwargs):
+        """Auto-calculate expense"""
+        self.expense = self.bill_value + self.courier_amount
+        super().save(*args, **kwargs)

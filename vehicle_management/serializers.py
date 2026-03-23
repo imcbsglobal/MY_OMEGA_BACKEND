@@ -13,6 +13,7 @@ class VehicleListSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
     total_trips = serializers.SerializerMethodField()   # was IntegerField — needs annotation which was never provided
     total_distance = serializers.SerializerMethodField()
+    insurance_days_left = serializers.SerializerMethodField()
     
     class Meta:
         model = Vehicle
@@ -22,6 +23,7 @@ class VehicleListSerializer(serializers.ModelSerializer):
             'company',
             'registration_number',
             'vehicle_type',
+            'ownership_type',
             'fuel_type',
             'color',
             'photo',
@@ -31,6 +33,8 @@ class VehicleListSerializer(serializers.ModelSerializer):
             'total_trips',
             'total_distance',
             'insurance_expiry_date',
+            'pollution_expiry_date',
+            'insurance_days_left',
             'next_service_date',
             'created_at',
         ]
@@ -48,6 +52,9 @@ class VehicleListSerializer(serializers.ModelSerializer):
     def get_total_distance(self, obj):
         return float(obj.total_distance_traveled) if hasattr(obj, 'total_distance_traveled') else 0.00
 
+    def get_insurance_days_left(self, obj):
+        return obj.insurance_days_left
+
 
 class VehicleDetailSerializer(serializers.ModelSerializer):
     """Serializer for detailed vehicle view"""
@@ -55,6 +62,7 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
     total_trips = serializers.SerializerMethodField()   # fixed: was IntegerField requiring annotation
     total_distance = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
+    insurance_days_left = serializers.SerializerMethodField()
     
     class Meta:
         model = Vehicle
@@ -65,6 +73,7 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             'company',
             'registration_number',
             'vehicle_type',
+            'ownership_type',
             'fuel_type',
             'color',
             'manufacturing_year',
@@ -76,6 +85,8 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             'owner_name',
             'insurance_number',
             'insurance_expiry_date',
+            'pollution_expiry_date',
+            'insurance_days_left',
             
             # Maintenance
             'last_service_date',
@@ -113,6 +124,9 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
     def get_total_distance(self, obj):
         return float(obj.total_distance_traveled) if hasattr(obj, 'total_distance_traveled') else 0.00
     
+    def get_insurance_days_left(self, obj):
+        return obj.insurance_days_left
+
     def get_created_by_name(self, obj):
         if obj.created_by:
             if hasattr(obj.created_by, 'get_full_name'):
@@ -131,6 +145,7 @@ class VehicleCreateUpdateSerializer(serializers.ModelSerializer):
             'company',
             'registration_number',
             'vehicle_type',
+            'ownership_type',
             'fuel_type',
             'color',
             'manufacturing_year',
@@ -139,6 +154,7 @@ class VehicleCreateUpdateSerializer(serializers.ModelSerializer):
             'owner_name',
             'insurance_number',
             'insurance_expiry_date',
+            'pollution_expiry_date',
             'last_service_date',
             'next_service_date',
             'current_odometer',
@@ -227,6 +243,11 @@ class TripListSerializer(serializers.ModelSerializer):
             'odometer_end_url',
             'distance_km',
             'duration_hours',
+            'maintenance_cost',
+            'maintenance_washing',
+            'maintenance_alignment',
+            'maintenance_air_checking',
+            'maintenance_grease_oil',
             'status',
             'created_at',
             'completed_at',
@@ -285,6 +306,13 @@ class TripDetailSerializer(serializers.ModelSerializer):
             'distance_km',
             'duration_hours',
             
+            # Maintenance
+            'maintenance_cost',
+            'maintenance_washing',
+            'maintenance_alignment',
+            'maintenance_air_checking',
+            'maintenance_grease_oil',
+            
             # Status & Approval
             'status',
             'approved_by',
@@ -327,6 +355,11 @@ class TripStartSerializer(serializers.ModelSerializer):
             'purpose',
             'route',
             'odometer_start_image',
+            'maintenance_cost',
+            'maintenance_washing',
+            'maintenance_alignment',
+            'maintenance_air_checking',
+            'maintenance_grease_oil',
         ]
     
     def validate(self, data):
