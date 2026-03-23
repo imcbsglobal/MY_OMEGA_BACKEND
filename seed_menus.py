@@ -543,4 +543,5 @@ class Command(BaseCommand):
 
 
         # wanna change the seed menu or add new menu? Just update the `menus` list in this command and run `python manage.py seed_menus` again. It will safely create new items and update existing ones without deleting anything!
-        
+        # and wanna run the python manage.py seed_menus command? Just open your terminal, navigate to your Django project directory (where manage.py is located) and run:
+        # python manage.py seed_menus
