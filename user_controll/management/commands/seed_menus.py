@@ -434,6 +434,13 @@ class Command(BaseCommand):
                         "icon": "👤",
                         "order": 3,
                     },
+                    {
+                        "name": "Courier",
+                        "key": "delivery_courier",
+                        "path": "/delivery-management/courier",
+                        "icon": "📦",
+                        "order": 4,
+                    },
                 ],
             },
 
@@ -646,7 +653,7 @@ class Command(BaseCommand):
         self.stdout.write("   2. Vehicle Management  — Fuel Management, Travel, Challan")
         self.stdout.write("   3. Target Management   — My Targets, Sales, Call Targets, Master Data")
         self.stdout.write("   4. Warehouse Management — /under-construction (direct link)")
-        self.stdout.write("   5. Delivery Management — List Deliveries, Create Delivery, Employee Delivery View")
+        self.stdout.write("   5. Delivery Management — List Deliveries, Create Delivery, Employee Delivery View, Courier")
         self.stdout.write("   6. User Management     — Add User, User Control")
         self.stdout.write("   8. Report              — Warehouse Duty, Travel, Delivery, Route Target, Call Target, Marketing Target")
         self.stdout.write("   9. Master              — Department, Vehicle Master")
