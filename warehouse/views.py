@@ -27,9 +27,6 @@ def _is_admin(user):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def assign_task(request):
-    if not _is_admin(request.user):
-        return Response({'detail': 'Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
-
     serializer = WarehouseTaskCreateSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         task = serializer.save()
@@ -84,9 +81,6 @@ def update_task(request, pk):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_tasks(request):
-    if not _is_admin(request.user):
-        return Response({'detail': 'Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
-
     tasks = WarehouseTask.objects.select_related('assigned_by', 'assigned_to').all()
 
     # Optional filters
@@ -108,8 +102,6 @@ def admin_tasks(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def employee_list(request):
-    if not _is_admin(request.user):
-        return Response({'detail': 'Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
     # Fetch employees from the employee_management app (only active employees)
     from employee_management.models import Employee
 
@@ -137,9 +129,6 @@ def employee_list(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def duty_report(request):
-    if not _is_admin(request.user):
-        return Response({'detail': 'Admin access required.'}, status=status.HTTP_403_FORBIDDEN)
-
     user_id = request.query_params.get('user_id')
     year = request.query_params.get('year')
     month = request.query_params.get('month')
