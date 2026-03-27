@@ -40,6 +40,8 @@ class OfferLetterSerializer(serializers.ModelSerializer):
             'notice_period',
             'sales_director_name',
             'sales_director_designation',
+            'hr_name',
+            'hr_name',
 
             'work_start_time',
             'work_end_time',
@@ -192,6 +194,7 @@ class OfferLetterCreateSerializer(serializers.ModelSerializer):
             'notice_period',
             'sales_director_name',
             'sales_director_designation',
+            'hr_name',
 
             'subject',
             'body',

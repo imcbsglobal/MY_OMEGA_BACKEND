@@ -44,6 +44,7 @@ class OfferLetter(models.Model):
 
     sales_director_name = models.CharField(max_length=255, null=True, blank=True)
     sales_director_designation = models.CharField(max_length=255, null=True, blank=True)
+    hr_name = models.CharField(max_length=255, null=True, blank=True)
 
     subject = models.CharField(max_length=255, default="Job Offer Letter")
     body = models.TextField()
