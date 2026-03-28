@@ -148,10 +148,17 @@ def duty_report(request):
     # Build flat rows grouped by date with per-date SLNO
     rows = []
     from collections import defaultdict
+    
     date_slno = defaultdict(int)
     for task in tasks:
         date_key = str(task.assigned_date)
         date_slno[date_key] += 1
+        
+        assigned_to_name = (
+            getattr(task.assigned_to, 'name', None)
+            or getattr(task.assigned_to, 'email', str(task.assigned_to))
+        )
+        
         rows.append({
             'id': task.id,
             'date': date_key,
@@ -159,10 +166,11 @@ def duty_report(request):
             'task_title': task.task_title,
             'description': task.description,
             'status': task.status,
-            'assigned_to_name': (
-                getattr(task.assigned_to, 'name', None)
-                or getattr(task.assigned_to, 'email', str(task.assigned_to))
-            ),
+            'assigned_to_name': assigned_to_name,
+            'completed_work': task.completed_work,
+            'total_work': task.total_work,
+            'completion_percentage': task.completion_percentage,
+            'due_date': str(task.due_date),
         })
 
     return Response(rows)
