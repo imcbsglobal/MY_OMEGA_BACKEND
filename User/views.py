@@ -82,7 +82,15 @@ class AppUserViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """Create a new user/employee"""
-        serializer = self.get_serializer(data=request.data)
+        # Strip password fields if requester is not a Super Admin
+        data = request.data.copy()
+        actor = request.user
+        is_super_admin = actor.is_superuser or getattr(actor, "user_level", "") == "Super Admin"
+        if not is_super_admin:
+            data.pop("password", None)
+            data.pop("confirm_password", None)
+
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         
@@ -95,9 +103,17 @@ class AppUserViewSet(viewsets.ModelViewSet):
     
     def update(self, request, *args, **kwargs):
         """Update user/employee"""
+        # Strip password fields if requester is not a Super Admin
+        data = request.data.copy()
+        actor = request.user
+        is_super_admin = actor.is_superuser or getattr(actor, "user_level", "") == "Super Admin"
+        if not is_super_admin:
+            data.pop("password", None)
+            data.pop("confirm_password", None)
+
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         
@@ -153,9 +169,17 @@ class AppUserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def change_password(self, request, pk=None):
         """
-        Change password for a specific user
+        Change password for a specific user — Super Admin only.
         URL: /api/users/{id}/change_password/
         """
+        actor = request.user
+        is_super_admin = actor.is_superuser or getattr(actor, "user_level", "") == "Super Admin"
+        if not is_super_admin:
+            return Response(
+                {"error": "Only Super Admins can change passwords."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         user = self.get_object()
         serializer = PasswordChangeSerializer(data=request.data, context={'request': request})
         

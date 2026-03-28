@@ -41,16 +41,14 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
                 Q(department__icontains=search)
             )
 
-        # Default: only active employees unless explicitly overridden
+        # Filter by employee is_active status only (Employee.is_active is independent of AppUser.is_active)
         is_active = self.request.query_params.get('is_active', None)
         if is_active is not None:
             active_flag = is_active.lower() == 'true'
             queryset = queryset.filter(is_active=active_flag)
-            # Respect linked AppUser state when present
-            queryset = queryset.filter(Q(user__isnull=True) | Q(user__is_active=active_flag))
         else:
+            # Default: show only active employees
             queryset = queryset.filter(is_active=True)
-            queryset = queryset.filter(Q(user__isnull=True) | Q(user__is_active=True))
         
         return queryset.order_by('-created_at')
     

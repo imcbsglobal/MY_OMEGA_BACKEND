@@ -1,71 +1,36 @@
-
-# ============================================================================
-# FILE 2: whatsapp_service/admin_numbers.py
-# ============================================================================
-
+# whatsapp_service/admin_numbers.py
 """
 Central place to manage admin WhatsApp numbers.
 
-IMPORTANT: All numbers MUST be in FULL INTERNATIONAL FORMAT
-Example:
-  "+919089786756"
+⚠️  This file is a LEGACY fallback only.
+    The system is now fully DATABASE-DRIVEN.
+    All admin numbers should be managed via the admin panel at /api/whatsapp/admin/
+
+    This file's helpers (get_hr_admin_numbers, etc.) now pull from the DB,
+    NOT from the hardcoded lists below. The lists below are intentionally empty.
 """
 
 # ========== YOUR API NUMBER (DON'T SEND TO THIS) ==========
-# This is the number that SENDS messages via DXING
-# We should NEVER send notifications TO this number
-# This number will be AUTOMATICALLY EXCLUDED from all recipient lists
 API_SENDER_NUMBER = None  # Set this if your API has a fixed sender number
 
-
-# ========== HR / ATTENDANCE ADMINS ==========
-# Add your HR team numbers here
-HR_ADMIN_NUMBERS = [
-    "+918281561081",     # HR Admin - UPDATE WITH YOUR ACTUAL NUMBER
-]
-
-# Main HR fallback
-HR_MAIN_NUMBER = None   # Optional: Set main HR number
+# ========== LEAVE EMPTY — USE ADMIN PANEL INSTEAD ==========
+# All numbers are now managed in the database via /api/whatsapp/admin/admin-numbers/
+HR_ADMIN_NUMBERS = []
+HR_MAIN_NUMBER = None
+MANAGER_FALLBACK_NUMBERS = []
+PAYROLL_ADMIN_NUMBERS = []
+GLOBAL_CC_NUMBERS = []
 
 
-# ========== MANAGER FALLBACK ==========
-# These managers receive ALL:
-# - Leave requests
-# - Late/Early requests
-# - Generic WhatsApp messages (when "to" not provided)
-MANAGER_FALLBACK_NUMBERS = [
-    "+918281561081",     # Manager - UPDATE WITH YOUR ACTUAL NUMBER
-    # Add more manager numbers if needed
-]
-
-
-# ========== PAYROLL ADMINS (Optional) ==========
-PAYROLL_ADMIN_NUMBERS = [
-    # Add payroll numbers here if needed
-]
-
-
-# ========== GLOBAL CC (Optional) ==========
-GLOBAL_CC_NUMBERS = [
-    # Optional CC numbers
-]
-
-
-# ========== HELPERS (DON'T EDIT BELOW THIS LINE) ==========
+# ========== HELPERS (DATABASE-DRIVEN) ==========
 
 def _normalize(numbers, exclude_api=True):
-    """
-    Normalize and deduplicate numbers.
-    If exclude_api=True, removes the API_SENDER_NUMBER from the list.
-    """
     cleaned = []
     api_normalized = None
-    
     if exclude_api and API_SENDER_NUMBER:
         api_normalized = str(API_SENDER_NUMBER).strip()
         if not api_normalized.startswith("+"):
             api_normalized = "+" + api_normalized
-    
     for n in numbers or []:
         if not n:
             continue
@@ -74,58 +39,90 @@ def _normalize(numbers, exclude_api=True):
             continue
         if not s.startswith("+"):
             s = "+" + s
-        
-        # Skip if this is the API sender number
         if exclude_api and api_normalized and s == api_normalized:
             continue
-            
         if s not in cleaned:
             cleaned.append(s)
-    
     return cleaned
 
 
 def get_hr_admin_numbers():
-    """Get HR admin numbers, excluding the API sender number."""
-    return _normalize(HR_ADMIN_NUMBERS, exclude_api=True)
+    """Get HR admin numbers from DATABASE (not hardcoded list)."""
+    try:
+        from whatsapp_service.models import AdminNumber
+        numbers = list(
+            AdminNumber.objects.filter(
+                role='hr_admin', is_active=True, is_api_sender=False
+            ).values_list('phone_number', flat=True)
+        )
+        return numbers
+    except Exception:
+        return _normalize(HR_ADMIN_NUMBERS)
 
 
 def get_hr_main_number():
-    """Get main HR number, excluding the API sender number."""
-    if HR_MAIN_NUMBER:
-        normalized = _normalize([HR_MAIN_NUMBER], exclude_api=True)
-        return normalized[0] if normalized else None
     hr = get_hr_admin_numbers()
     return hr[0] if hr else None
 
 
 def get_payroll_admin_numbers():
-    """Get payroll admin numbers, excluding the API sender number."""
-    return _normalize(PAYROLL_ADMIN_NUMBERS, exclude_api=True)
+    try:
+        from whatsapp_service.models import AdminNumber
+        return list(
+            AdminNumber.objects.filter(
+                role='payroll_admin', is_active=True, is_api_sender=False
+            ).values_list('phone_number', flat=True)
+        )
+    except Exception:
+        return _normalize(PAYROLL_ADMIN_NUMBERS)
 
 
 def get_manager_fallback_numbers():
-    """Get manager fallback numbers, excluding the API sender number."""
-    return _normalize(MANAGER_FALLBACK_NUMBERS, exclude_api=True)
+    """Get manager numbers from DATABASE (not hardcoded list)."""
+    try:
+        from whatsapp_service.models import AdminNumber
+        numbers = list(
+            AdminNumber.objects.filter(
+                role='manager', is_active=True, is_api_sender=False
+            ).values_list('phone_number', flat=True)
+        )
+        return numbers
+    except Exception:
+        return _normalize(MANAGER_FALLBACK_NUMBERS)
 
 
 def get_global_cc_numbers():
-    """Get global CC numbers, excluding the API sender number."""
-    return _normalize(GLOBAL_CC_NUMBERS, exclude_api=True)
+    try:
+        from whatsapp_service.models import AdminNumber
+        return list(
+            AdminNumber.objects.filter(
+                role='global_cc', is_active=True, is_api_sender=False
+            ).values_list('phone_number', flat=True)
+        )
+    except Exception:
+        return _normalize(GLOBAL_CC_NUMBERS)
 
 
 def get_all_notification_recipients():
-    """Get all unique notification recipients, excluding the API sender number."""
-    all_numbers = set()
-    all_numbers.update(get_hr_admin_numbers())
-    all_numbers.update(get_manager_fallback_numbers())
-    return list(all_numbers)
+    """Get all unique notification recipients from database."""
+    try:
+        from whatsapp_service.models import AdminNumber
+        numbers = list(
+            AdminNumber.objects.filter(
+                is_active=True, is_api_sender=False
+            ).values_list('phone_number', flat=True)
+        )
+        return list(set(numbers))
+    except Exception:
+        all_numbers = set()
+        all_numbers.update(get_hr_admin_numbers())
+        all_numbers.update(get_manager_fallback_numbers())
+        return list(all_numbers)
 
 
 def print_config():
-    """Print the current configuration."""
     print("=" * 60)
-    print("WhatsApp Admin Numbers Configuration")
+    print("WhatsApp Admin Numbers Configuration (DATABASE-DRIVEN)")
     print("=" * 60)
     print(f"API Sender (EXCLUDED): {API_SENDER_NUMBER or 'Not set'}")
     print(f"HR Admins: {get_hr_admin_numbers()}")

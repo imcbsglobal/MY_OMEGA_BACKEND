@@ -2,8 +2,9 @@
 """
 WhatsApp Service Views
 
-PunchInView  / PunchOutView  — send notification to employee AND HR/managers
-GenericRequestView           — send to explicit 'to' or fall back to managers
+PunchInView  / PunchOutView  — send notification to EMPLOYEE ONLY
+                               (no admin/HR notifications for punch events)
+GenericRequestView             — send to explicit 'to' or fall back to managers
 """
 
 from django.utils import timezone
@@ -40,8 +41,11 @@ class PunchInView(APIView):
     Body (all optional):
       { "to": "+91...", "location": "..." }
 
-    - Sends punch-in message to the employee.
-    - Also sends an alert to all HR admins and managers.
+    - Sends punch-in message to the EMPLOYEE ONLY.
+    - Does NOT send to HR/admins (punch events are employee-only notifications).
+    - The template's recipient_type is respected:
+        'employee' or 'both' → message is sent
+        'admin'              → skipped (admin-only templates not sent to employees)
     """
 
     def post(self, request):
@@ -52,6 +56,14 @@ class PunchInView(APIView):
 
         location = request.data.get("location", "Not recorded")
         user = getattr(request, "user", None)
+
+        # ── Check if the punch_in template is meant for employees ──
+        from .utils import get_template
+        template = get_template('punch_in')
+        if template and template.recipient_type == 'admin':
+            # Template is admin-only; skip employee send
+            logger.info("[PUNCH IN] punch_in template is admin-only, skipping employee send")
+            return Response({"ok": True, "mode": "skipped_admin_only_template"})
 
         message = format_punch_message(
             user=user,
@@ -72,7 +84,7 @@ class PunchInView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 1. Notify employee
+        # ── Send to EMPLOYEE ONLY ──
         result = send_whatsapp_notification(to, message)
         if result is None:
             return Response(
@@ -80,10 +92,12 @@ class PunchInView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # 2. Notify HR / Managers
-        send_to_managers_and_hr(message)
+        # ── NO send_to_managers_and_hr() here ──
+        # Punch events go to the employee only.
+        # If you want admin alerts for punch events, create a separate
+        # endpoint or add it explicitly with a clear intent.
 
-        # 3. Optional broadcast to all employees
+        # Optional broadcast to all employees (disabled by default)
         if getattr(settings, "WHATSAPP_NOTIFY_ALL_EMPLOYEES_ON_PUNCH", False):
             try:
                 for num in get_all_employee_numbers():
@@ -110,8 +124,8 @@ class PunchOutView(APIView):
     Body (all optional):
       { "to": "+91...", "location": "..." }
 
-    - Sends punch-out message to the employee.
-    - Also sends an alert to all HR admins and managers.
+    - Sends punch-out message to the EMPLOYEE ONLY.
+    - Does NOT send to HR/admins (punch events are employee-only notifications).
     """
 
     def post(self, request):
@@ -122,6 +136,13 @@ class PunchOutView(APIView):
 
         location = request.data.get("location", "Not recorded")
         user = getattr(request, "user", None)
+
+        # ── Check if the punch_out template is meant for employees ──
+        from .utils import get_template
+        template = get_template('punch_out')
+        if template and template.recipient_type == 'admin':
+            logger.info("[PUNCH OUT] punch_out template is admin-only, skipping employee send")
+            return Response({"ok": True, "mode": "skipped_admin_only_template"})
 
         message = format_punch_message(
             user=user,
@@ -142,7 +163,7 @@ class PunchOutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 1. Notify employee
+        # ── Send to EMPLOYEE ONLY ──
         result = send_whatsapp_notification(to, message)
         if result is None:
             return Response(
@@ -150,10 +171,9 @@ class PunchOutView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # 2. Notify HR / Managers
-        send_to_managers_and_hr(message)
+        # ── NO send_to_managers_and_hr() here ──
 
-        # 3. Optional broadcast to all employees
+        # Optional broadcast to all employees (disabled by default)
         if getattr(settings, "WHATSAPP_NOTIFY_ALL_EMPLOYEES_ON_PUNCH", False):
             try:
                 for num in get_all_employee_numbers():

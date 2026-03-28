@@ -275,6 +275,7 @@ class Attendance(models.Model):
     STATUS_CHOICES = [
         ('full', 'Full Day'),
         ('half', 'Half Day'),
+        ('absent', 'Absent'),
         ('leave', 'Leave'),
         ('wfh', 'Work From Home'),
         ('sunday', 'Sunday (Paid)'),
@@ -332,6 +333,10 @@ class Attendance(models.Model):
     
     # Holiday tracking
     is_sunday = models.BooleanField(default=False)
+    is_working_sunday = models.BooleanField(
+        default=False,
+        help_text='Admin-marked: this Sunday is treated as a regular working day'
+    )
     is_holiday = models.BooleanField(default=False)
     holiday = models.ForeignKey(
         Holiday,
@@ -403,7 +408,8 @@ class Attendance(models.Model):
         # Check if this date is a Sunday
         if self.date and self.date.weekday() == 6:
             self.is_sunday = True
-            if not self.first_punch_in_time:
+            # Only auto-set sunday status if NOT explicitly marked as a working sunday
+            if not self.is_working_sunday and not self.first_punch_in_time:
                 self.status = 'sunday'
                 self.is_paid_day = True
                 self.verification_status = 'verified'
@@ -477,7 +483,7 @@ class Attendance(models.Model):
     
     def update_status(self):
         """Update attendance status based on working hours"""
-        if self.status in ['leave', 'holiday', 'sunday']:
+        if self.status in ['leave', 'holiday', 'sunday', 'absent', 'special_leave', 'mandatory_holiday']:
             return
         
         if self.total_working_hours >= 7.5:
@@ -645,4 +651,4 @@ class OfficeLocation(models.Model):
         """Human-readable distance information"""
         if self.geofence_radius_meters >= 1000:
             return f"{self.geofence_radius_meters / 1000:.1f} km"
-        return f"{self.geofence_radius_meters} m"        
+        return f"{self.geofence_radius_meters} m"

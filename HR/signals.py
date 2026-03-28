@@ -26,6 +26,7 @@ try:
         get_user_phone,
         get_hr_admin_numbers,
         get_manager_fallback_numbers,
+        get_template,                 # ✅ read recipient_type from DB template
         format_punch_message,
         format_leave_request_message,
         format_leave_approval_message,
@@ -45,20 +46,26 @@ except Exception as e:
 # ATTENDANCE — store old values before update
 # ============================================================================
 
+# In-process dedup set: tracks (attendance_pk, event) pairs already queued
+# for on_commit in the current request cycle. Prevents double-queueing when
+# the same Attendance row is saved more than once in a single request.
+_punch_notified = set()
+
+
 @receiver(pre_save, sender=Attendance)
 def store_old_attendance_values(sender, instance, **kwargs):
     """Snapshot old punch times so we can detect actual changes in post_save."""
     if instance.pk:
         try:
-            old = Attendance.objects.get(pk=instance.pk)
-            instance._old_first_punch_in  = old.first_punch_in_time
-            instance._old_last_punch_out  = old.last_punch_out_time
+            old_obj = Attendance.objects.get(pk=instance.pk)
+            instance._old_first_punch_in = old_obj.first_punch_in_time
+            instance._old_last_punch_out = old_obj.last_punch_out_time
         except Attendance.DoesNotExist:
-            instance._old_first_punch_in  = None
-            instance._old_last_punch_out  = None
+            instance._old_first_punch_in = None
+            instance._old_last_punch_out = None
     else:
-        instance._old_first_punch_in  = None
-        instance._old_last_punch_out  = None
+        instance._old_first_punch_in = None
+        instance._old_last_punch_out = None
 
 
 # ============================================================================
@@ -67,81 +74,142 @@ def store_old_attendance_values(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Attendance)
 def handle_punch_notifications(sender, instance, created, **kwargs):
-    transaction.on_commit(lambda: _send_punch_notifications(instance, created))
+    """
+    Queue punch notifications to run after the DB transaction commits.
 
+    Dedup logic (two layers):
+      1. _punch_notified set  — prevents the same event being queued twice
+         in the same Python process request (e.g. two saves in one request).
+      2. Inside _send_punch_notifications — re-reads the DB to confirm the
+         punch time actually exists before sending, so stale on_commit
+         closures are harmless.
+    """
+    pk = instance.pk
 
-def _send_punch_notifications(instance, created):
-    if not WHATSAPP_ENABLED:
-        logger.warning("[PUNCH] WhatsApp not enabled — skipping")
-        return
-
-    if getattr(instance, '_signal_processing', False):
-        return
-    instance._signal_processing = True
-
-    try:
-        from django.utils import timezone as tz
-
-        user_phone = get_user_phone(instance.user)
-
-        # ── PUNCH IN ────────────────────────────────────────────────────────
-        if created and instance.first_punch_in_time:
-            logger.info(f"[PUNCH IN] User {instance.user.id} at {instance.first_punch_in_time}")
-
-            local_time = tz.localtime(instance.first_punch_in_time)
-            msg = format_punch_message(
-                user=instance.user,
-                action="PUNCH IN",
-                location=instance.first_punch_in_location or "Not recorded",
-                time=local_time.strftime("%I:%M %p"),
-                date=local_time.strftime("%d %b %Y"),
+    # ── PUNCH IN dedup ──────────────────────────────────────────────────────
+    if created and instance.first_punch_in_time:
+        key = (pk, 'punch_in')
+        if key not in _punch_notified:
+            _punch_notified.add(key)
+            # Capture values NOW (closure over primitives, not the ORM instance)
+            user_id       = instance.user_id
+            punch_in_time = instance.first_punch_in_time
+            location      = instance.first_punch_in_location or "Not recorded"
+            transaction.on_commit(
+                lambda uid=user_id, t=punch_in_time, loc=location, k=key:
+                    _send_punch_in(uid, t, loc, k)
             )
 
-            # 1. Notify employee
-            if user_phone:
-                result = send_whatsapp_notification(user_phone, msg)
-                logger.info(f"[PUNCH IN] Employee notified → {user_phone}: {result}")
-            else:
-                logger.warning(f"[PUNCH IN] No phone for user {instance.user.id}")
-
-            # 2. Notify HR / Managers
-            send_to_managers_and_hr(msg)
-            logger.info("[PUNCH IN] HR/Manager notification sent")
-
-        # ── PUNCH OUT ───────────────────────────────────────────────────────
-        if not created:
-            old_punch_out = getattr(instance, '_old_last_punch_out', None)
-            new_punch_out = instance.last_punch_out_time
-
-            # Only fire when last_punch_out changes from None → a value
-            if old_punch_out is None and new_punch_out is not None:
-                logger.info(f"[PUNCH OUT] User {instance.user.id} at {new_punch_out}")
-
-                local_time = tz.localtime(new_punch_out)
-                msg = format_punch_message(
-                    user=instance.user,
-                    action="PUNCH OUT",
-                    location=instance.last_punch_out_location or "Not recorded",
-                    time=local_time.strftime("%I:%M %p"),
-                    date=local_time.strftime("%d %b %Y"),
+    # ── PUNCH OUT dedup ─────────────────────────────────────────────────────
+    if not created:
+        old_punch_out = getattr(instance, '_old_last_punch_out', None)
+        new_punch_out = instance.last_punch_out_time
+        if old_punch_out is None and new_punch_out is not None:
+            key = (pk, 'punch_out')
+            if key not in _punch_notified:
+                _punch_notified.add(key)
+                user_id        = instance.user_id
+                punch_out_time = instance.last_punch_out_time
+                location       = instance.last_punch_out_location or "Not recorded"
+                transaction.on_commit(
+                    lambda uid=user_id, t=punch_out_time, loc=location, k=key:
+                        _send_punch_out(uid, t, loc, k)
                 )
 
-                # 1. Notify employee
-                if user_phone:
-                    result = send_whatsapp_notification(user_phone, msg)
-                    logger.info(f"[PUNCH OUT] Employee notified → {user_phone}: {result}")
-                else:
-                    logger.warning(f"[PUNCH OUT] No phone for user {instance.user.id}")
 
-                # 2. Notify HR / Managers
-                send_to_managers_and_hr(msg)
-                logger.info("[PUNCH OUT] HR/Manager notification sent")
+def _send_punch_in(user_id, punch_time, location, dedup_key):
+    """Send PUNCH IN notification. Runs after DB commit."""
+    # Remove from dedup set so future punches on a new request work normally
+    _punch_notified.discard(dedup_key)
+
+    if not WHATSAPP_ENABLED:
+        return
+
+    try:
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone as tz
+
+        User = get_user_model()
+        user = User.objects.get(pk=user_id)
+
+        local_time = tz.localtime(punch_time)
+        msg = format_punch_message(
+            user=user,
+            action="PUNCH IN",
+            location=location,
+            time=local_time.strftime("%I:%M %p"),
+            date=local_time.strftime("%d %b %Y"),
+        )
+
+        punch_in_template = get_template('punch_in')
+        recipient_type = getattr(punch_in_template, 'recipient_type', 'both')
+        logger.info(f"[PUNCH IN] template recipient_type='{recipient_type}' for user {user_id}")
+
+        # Notify employee
+        if recipient_type in ('employee', 'both'):
+            phone = get_user_phone(user)
+            if phone:
+                result = send_whatsapp_notification(phone, msg)
+                logger.info(f"[PUNCH IN] Employee notified → {phone}: {result}")
+            else:
+                logger.warning(f"[PUNCH IN] No phone for user {user_id}")
+
+        # Notify HR / Managers
+        if recipient_type in ('admin', 'both'):
+            send_to_managers_and_hr(msg)
+            logger.info("[PUNCH IN] HR/Manager notification sent")
+        else:
+            logger.info(f"[PUNCH IN] Skipping HR/Manager (recipient_type='{recipient_type}')")
 
     except Exception as e:
-        logger.exception(f"[PUNCH] Unexpected error: {e}")
-    finally:
-        if hasattr(instance, '_signal_processing'):
-            delattr(instance, '_signal_processing')
+        logger.exception(f"[PUNCH IN] Error for user {user_id}: {e}")
+
+
+def _send_punch_out(user_id, punch_time, location, dedup_key):
+    """Send PUNCH OUT notification. Runs after DB commit."""
+    _punch_notified.discard(dedup_key)
+
+    if not WHATSAPP_ENABLED:
+        return
+
+    try:
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone as tz
+
+        User = get_user_model()
+        user = User.objects.get(pk=user_id)
+
+        local_time = tz.localtime(punch_time)
+        msg = format_punch_message(
+            user=user,
+            action="PUNCH OUT",
+            location=location,
+            time=local_time.strftime("%I:%M %p"),
+            date=local_time.strftime("%d %b %Y"),
+        )
+
+        punch_out_template = get_template('punch_out')
+        recipient_type = getattr(punch_out_template, 'recipient_type', 'both')
+        logger.info(f"[PUNCH OUT] template recipient_type='{recipient_type}' for user {user_id}")
+
+        # Notify employee
+        if recipient_type in ('employee', 'both'):
+            phone = get_user_phone(user)
+            if phone:
+                result = send_whatsapp_notification(phone, msg)
+                logger.info(f"[PUNCH OUT] Employee notified → {phone}: {result}")
+            else:
+                logger.warning(f"[PUNCH OUT] No phone for user {user_id}")
+
+        # Notify HR / Managers
+        if recipient_type in ('admin', 'both'):
+            send_to_managers_and_hr(msg)
+            logger.info("[PUNCH OUT] HR/Manager notification sent")
+        else:
+            logger.info(f"[PUNCH OUT] Skipping HR/Manager (recipient_type='{recipient_type}')")
+
+    except Exception as e:
+        logger.exception(f"[PUNCH OUT] Error for user {user_id}: {e}")
 
 
 # ============================================================================

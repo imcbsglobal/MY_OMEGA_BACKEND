@@ -335,6 +335,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'is_paid_day',
             # Holiday fields
             'is_sunday',
+            'is_working_sunday',
             'is_holiday',
             # Notes
             'note',
@@ -674,4 +675,4 @@ class OfficeLocationSummarySerializer(serializers.ModelSerializer):
             'geofence_radius_meters',
             'is_active',
             'configured_at'
-        ]        
+        ]

@@ -376,18 +376,17 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         attendances = Attendance.objects.filter(user=user, date__month=month, date__year=year)
         holidays = Holiday.objects.filter(date__month=month, date__year=year, is_active=True).count()
         
-        # ✅ NOW THIS WILL WORK
         sundays = self._count_sundays(year, month)
-        
         days_in_month = calendar.monthrange(year, month)[1]
-        verified_full_days = attendances.filter(status='full', verification_status='verified').count()
-        verified_half_days = attendances.filter(status='half', verification_status='verified').count()
+
+        full_days = attendances.filter(status='full').count()
+        half_days = attendances.filter(status='half').count()
         leaves = attendances.filter(status='leave').count()
         total_working_hours = attendances.aggregate(total=Sum('total_working_hours'))['total'] or 0
         total_break_hours = attendances.aggregate(total=Sum('total_break_hours'))['total'] or 0
         marked_days = attendances.count()
         not_marked = days_in_month - marked_days - holidays - sundays
-        
+
         return Response({
             'user_id': user.id,
             'user_name': user.name,
@@ -395,8 +394,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'month': month,
             'year': year,
             'total_days': days_in_month,
-            'verified_full_days': verified_full_days,
-            'verified_half_days': verified_half_days,
+            'full_days': full_days,
+            'half_days': half_days,
             'leaves': leaves,
             'not_marked': not_marked,
             'total_working_hours': round(total_working_hours, 2),
@@ -405,9 +404,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             'sundays': sundays,
         })
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], url_path='mark_leave')
     def mark_leave(self, request):
-        """Mark a day as leave (Admin only)"""
         if not self._is_admin(request.user):
             return Response({'error': 'Only admins can mark leave'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -465,6 +463,142 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         response_serializer = AttendanceSerializer(attendance, context={'request': request})
         return Response({'message': 'Leave marked successfully', 'attendance': response_serializer.data},
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    # =========================================================================
+    # ✅ BUG FIX: mark_sunday_working
+    #    Previously used 'status': 'half' as a placeholder which caused the
+    #    frontend determineStatus() to show HD (Half Day) instead of WS
+    #    (Working Sunday) for a Sunday with no actual punch data.
+    #    Fix: Use 'status': 'working_sunday' as the placeholder so the
+    #    frontend can reliably detect the WS state without relying on hours
+    #    or punch data.
+    # =========================================================================
+    @action(detail=False, methods=['post'], url_path='mark_sunday_working')
+    def mark_sunday_working(self, request):
+        """
+        Mark a Sunday as a working day (Admin only).
+        Creates or updates an Attendance record so the day behaves like a
+        regular work-day instead of auto-resolving to 'sunday'.
+        Body: { user_id, date, admin_note (optional) }
+        """
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can mark a Sunday as a working day'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        user_id = request.data.get('user_id')
+        date_str = request.data.get('date')
+        admin_note = request.data.get('admin_note', '')
+
+        if not user_id or not date_str:
+            return Response({'error': 'user_id and date are required'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            target_user = AppUser.objects.get(id=user_id)
+        except AppUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            attendance_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if attendance_date.weekday() != 6:
+            return Response({'error': 'The provided date is not a Sunday'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        attendance, created = Attendance.objects.get_or_create(
+            user=target_user,
+            date=attendance_date,
+            defaults={
+                'is_working_sunday': True,
+                'is_sunday': True,
+                # ✅ FIX: Use 'working_sunday' instead of 'half' so the frontend
+                #    can correctly show the WS badge rather than the HD badge.
+                #    The status will be updated to 'full' or 'half' after the
+                #    employee actually punches in/out on that day.
+                'status': 'working_sunday',
+                'is_paid_day': True,
+                'verification_status': 'unverified',
+            }
+        )
+
+        if not created:
+            attendance.is_working_sunday = True
+            attendance.is_sunday = True
+            # ✅ FIX: Reset status if it was previously 'sunday' OR 'half'
+            #    (the old broken placeholder). This ensures existing records
+            #    that were saved with 'half' are also corrected on next update.
+            if attendance.status in ('sunday', 'half', 'working_sunday'):
+                # Only reset if there is no real punch data yet
+                has_punch = bool(attendance.first_punch_in_time)
+                if not has_punch:
+                    attendance.status = 'working_sunday'
+                    attendance.verification_status = 'unverified'
+
+        if admin_note:
+            stamped = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] Working Sunday: {admin_note}"
+            attendance.admin_note = f"{attendance.admin_note}\n{stamped}" if attendance.admin_note else stamped
+
+        attendance.save()
+
+        serializer = AttendanceSerializer(attendance, context={'request': request})
+        return Response(
+            {'message': 'Sunday marked as working day', 'attendance': serializer.data},
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
+
+    @action(detail=False, methods=['post'], url_path='unmark_sunday_working')
+    def unmark_sunday_working(self, request):
+        """
+        Revert a working Sunday back to a normal (off) Sunday (Admin only).
+        Body: { user_id, date }
+        """
+        if not self._is_admin(request.user):
+            return Response({'error': 'Only admins can revert a working Sunday'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        user_id = request.data.get('user_id')
+        date_str = request.data.get('date')
+
+        if not user_id or not date_str:
+            return Response({'error': 'user_id and date are required'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            attendance_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            attendance = Attendance.objects.get(user_id=user_id, date=attendance_date)
+        except Attendance.DoesNotExist:
+            return Response({'error': 'No attendance record found for this date'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        attendance.is_working_sunday = False
+        # Clear any punch data and reset to sunday status
+        attendance.status = 'sunday'
+        attendance.is_paid_day = True
+        attendance.verification_status = 'verified'
+        attendance.first_punch_in_time = None
+        attendance.first_punch_in_location = None
+        attendance.first_punch_in_latitude = None
+        attendance.first_punch_in_longitude = None
+        attendance.last_punch_out_time = None
+        attendance.last_punch_out_location = None
+        attendance.last_punch_out_latitude = None
+        attendance.last_punch_out_longitude = None
+        attendance.total_working_hours = 0
+        attendance.total_break_hours = 0
+        attendance.is_currently_on_break = False
+        attendance.punch_records.all().delete()
+        attendance.save()
+
+        serializer = AttendanceSerializer(attendance, context={'request': request})
+        return Response({'message': 'Working Sunday reverted to regular Sunday', 'attendance': serializer.data})
 
     @action(detail=False, methods=['get'])
     def summary(self, request):
@@ -820,7 +954,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         leave_master_id = serializer.validated_data.get('leave_master')
 
         # Handle leave status
-        if new_status in ['leave', 'special_leave', 'mandatory_holiday']:
+        if new_status in ['leave', 'special_leave', 'mandatory_holiday', 'absent']:
             attendance.first_punch_in_time = None
             attendance.last_punch_out_time = None
             attendance.first_punch_in_location = None
@@ -836,8 +970,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             # Delete all punch records
             attendance.punch_records.all().delete()
 
-            # Set leave_master if provided
-            if leave_master_id:
+            # Set leave_master if provided (only for leave types, not absent)
+            if leave_master_id and new_status != 'absent':
                 try:
                     leave_master = LeaveMaster.objects.get(id=leave_master_id)
                     attendance.leave_master = leave_master
@@ -1173,9 +1307,8 @@ class LateRequestViewSet(viewsets.ModelViewSet):
             logger.info(f"Perform create completed")
 
             logger.info(f"Fetching created instance...")
-            # ✅ REMOVE 'leave_master' FROM HERE - Line 1064
             instance = LateRequest.objects.select_related(
-                'user', 'reviewed_by'  # ✅ Only these two
+                'user', 'reviewed_by'
             ).get(id=serializer.instance.id)
             
             response_serializer = LateRequestSerializer(instance)
@@ -1204,7 +1337,7 @@ class LateRequestViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='my-requests')
     def my_requests(self, request):
         qs = LateRequest.objects.filter(user=request.user).select_related(
-            'user', 'reviewed_by', 'leave_master'
+            'user', 'reviewed_by'
         ).order_by('-created_at')
         serializer = LateRequestSerializer(qs, many=True)
         return Response(serializer.data)
@@ -1297,9 +1430,8 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         
-        # ✅ REMOVE 'leave_master' FROM HERE TOO
         instance = EarlyRequest.objects.select_related(
-            'user', 'reviewed_by'  # ✅ Only these two
+            'user', 'reviewed_by'
         ).get(id=serializer.instance.id)
         
         response_serializer = EarlyRequestSerializer(instance)
@@ -1312,7 +1444,7 @@ class EarlyRequestViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='my-requests')
     def my_requests(self, request):
         qs = EarlyRequest.objects.filter(user=request.user).select_related(
-            'user', 'reviewed_by', 'leave_master'
+            'user', 'reviewed_by'
         ).order_by('-created_at')
         serializer = EarlyRequestSerializer(qs, many=True)
         return Response(serializer.data)
@@ -1487,9 +1619,6 @@ def reverse_geocode_bigdata(request):
         })
 
 
-
-
-
 @action(detail=False, methods=['get'], url_path='all-details')
 def all_details(self, request):
     """
@@ -1588,10 +1717,6 @@ def all_details(self, request):
         })
 
     return Response(result)
-
-
-
-
 
 
 # HR/views.py - Add Leave Master ViewSet and enhance Leave Request endpoints
@@ -2057,9 +2182,6 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             'data': serializer.data,
             'count': leave_types.count()
         })
-
-
-
 
 
 # HR/views.py - Add this new endpoint

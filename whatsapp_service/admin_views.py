@@ -520,3 +520,129 @@ class MessageTemplateViewSet(viewsets.ModelViewSet):
             'updated': updated,
             'message': f'{len(updated)} template(s) reset to defaults.',
         })
+
+
+# ============================================================================
+# Send Message (Admin Portal — manual send)
+# ============================================================================
+
+from rest_framework.views import APIView
+
+
+class SendMessageView(APIView):
+    """
+    POST /api/whatsapp/admin/send/
+    
+    Send a WhatsApp message manually from the admin portal.
+
+    Body options:
+      1. Send to specific number:
+         { "to": "+918281561081", "message": "Hello!" }
+
+      2. Send to a named role (all active numbers with that role):
+         { "role": "hr_admin", "message": "Hello!" }
+         role choices: hr_admin | manager | payroll_admin | global_cc | all_admins
+
+      3. Send to all admins + managers (no 'to' or 'role'):
+         { "message": "Broadcast to all" }
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        message = (request.data.get('message') or '').strip()
+        to = (request.data.get('to') or '').strip()
+        role = (request.data.get('role') or '').strip()
+
+        if not message:
+            return Response(
+                {'success': False, 'error': 'message is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            from .utils import send_whatsapp_notification
+
+            results = []
+
+            # ── Case 1: explicit number ──────────────────────────────────────
+            if to:
+                result = send_whatsapp_notification(to, message)
+                results.append({
+                    'number': to,
+                    'name': 'Direct',
+                    'ok': result is not None,
+                })
+
+            # ── Case 2: by role ──────────────────────────────────────────────
+            elif role:
+                if role == 'all_admins':
+                    recipients = list(
+                        AdminNumber.objects.filter(is_active=True, is_api_sender=False)
+                        .values('name', 'phone_number', 'role')
+                    )
+                else:
+                    recipients = list(
+                        AdminNumber.objects.filter(
+                            role=role, is_active=True, is_api_sender=False
+                        ).values('name', 'phone_number', 'role')
+                    )
+
+                if not recipients:
+                    return Response(
+                        {'success': False, 'error': f'No active numbers found for role: {role}'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                for r in recipients:
+                    result = send_whatsapp_notification(r['phone_number'], message)
+                    results.append({
+                        'number': r['phone_number'],
+                        'name': r['name'],
+                        'role': r['role'],
+                        'ok': result is not None,
+                    })
+
+            # ── Case 3: broadcast to all active admins ───────────────────────
+            else:
+                recipients = list(
+                    AdminNumber.objects.filter(is_active=True, is_api_sender=False)
+                    .values('name', 'phone_number', 'role')
+                )
+
+                if not recipients:
+                    return Response(
+                        {'success': False, 'error': 'No active admin numbers configured'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                for r in recipients:
+                    result = send_whatsapp_notification(r['phone_number'], message)
+                    results.append({
+                        'number': r['phone_number'],
+                        'name': r['name'],
+                        'role': r['role'],
+                        'ok': result is not None,
+                    })
+
+            success_count = sum(1 for r in results if r['ok'])
+            fail_count = len(results) - success_count
+
+            logger.info(
+                f"[ADMIN SEND] Manual send: {success_count} succeeded, {fail_count} failed"
+            )
+
+            return Response({
+                'success': True,
+                'sent': success_count,
+                'failed': fail_count,
+                'results': results,
+                'message': f'Message sent to {success_count} of {len(results)} recipient(s).',
+            })
+
+        except Exception as e:
+            logger.exception(f"[ADMIN SEND] Error: {e}")
+            return Response(
+                {'success': False, 'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
