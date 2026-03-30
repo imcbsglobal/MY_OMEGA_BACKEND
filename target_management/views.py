@@ -13,6 +13,7 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 from decimal import Decimal
+from django.db.models import ProtectedError
 
 from .models import (
     Route, Product, RouteTargetPeriod, RouteTargetProductDetail,
@@ -116,6 +117,15 @@ class RouteDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise ValidationError({
                 'detail': 'Unable to update route due to a database constraint.'
             })
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete: this route has linked targets. Remove them first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )    
 
 
 # ==================== PRODUCT MASTER VIEWS ====================

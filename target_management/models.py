@@ -20,11 +20,10 @@ class Route(models.Model):
         help_text='Destination location'
     )
     route_code = models.CharField(
-        max_length=20,
+        max_length=50,
         unique=True,
         null=True,
         blank=True,
-        help_text='Unique route code/identifier (optional)'
     )
     description = models.TextField(
         blank=True,
