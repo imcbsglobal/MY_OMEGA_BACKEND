@@ -159,10 +159,34 @@ class TripListAPIView(generics.ListAPIView):
         'vehicle', 'employee', 'approved_by'
     ).all()
     serializer_class = TripListSerializer
-    permission_classes = [permissions.AllowAny]  # Change to IsAuthenticated in production
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     
     def get_queryset(self):
+        from user_controll.models import UserMenuAccess
+        
+        user = self.request.user
         queryset = super().get_queryset()
+        
+        # ✅ Permission check for trip report access
+        is_superuser = getattr(user, 'is_superuser', False)
+        is_staff = getattr(user, 'is_staff', False)
+        is_admin = getattr(user, 'user_level', '') in ('Admin', 'Super Admin')
+        
+        # If not super admin/staff/admin, check menu access
+        if not (is_superuser or is_staff or is_admin):
+            menu_access = UserMenuAccess.objects.filter(
+                user=user,
+                menu_item__key__in=['travel_report', 'vehicle_management', 'trips'],
+                can_view=True,
+                menu_item__is_active=True
+            ).exists()
+            
+            if not menu_access:
+                # User has no access - return empty
+                return queryset.none()
+            
+            # Non-admin users can only see their own trips
+            queryset = queryset.filter(employee_id=user.id)
         
         # Filter by status
         status_filter = self.request.query_params.get('status', None)

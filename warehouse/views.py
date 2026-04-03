@@ -129,12 +129,44 @@ def employee_list(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def duty_report(request):
+    from user_controll.models import UserMenuAccess
+    
+    user = request.user
     user_id = request.query_params.get('user_id')
     year = request.query_params.get('year')
     month = request.query_params.get('month')
 
     if not user_id:
         return Response({'detail': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ PERMISSION CHECK: Only allow access if user has warehouse duty report access
+    has_access = (
+        getattr(user, 'is_superuser', False) or  # Django superuser bypasses
+        getattr(user, 'is_staff', False) or  # Staff can access
+        getattr(user, 'user_level', '') in ('Admin', 'Super Admin')  # App-level admin/super admin
+    )
+    
+    # If not super admin/admin, check menu access and restrict to their own data
+    if not has_access:
+        menu_access = UserMenuAccess.objects.filter(
+            user=user,
+            menu_item__key__in=['warehouse_duty_report', 'warehouse'],
+            can_view=True,
+            menu_item__is_active=True
+        ).first()
+        
+        if not menu_access:
+            return Response(
+                {'detail': 'You do not have permission to access warehouse duty reports.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Non-admin users can only view their own data
+        if int(user_id) != user.id:
+            return Response(
+                {'detail': 'You can only view your own duty report.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
     tasks = WarehouseTask.objects.filter(assigned_to_id=user_id).select_related('assigned_to')
 

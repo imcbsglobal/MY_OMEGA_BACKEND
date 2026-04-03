@@ -62,9 +62,38 @@ class DeliveryListCreateAPIView(generics.ListCreateAPIView):
         return DeliveryListSerializer
     
     def get_queryset(self):
+        from user_controll.models import UserMenuAccess
+        
         queryset = Delivery.objects.select_related(
             'employee', 'vehicle', 'route', 'created_by', 'completed_by'
         ).prefetch_related('products', 'stops')
+        
+        user = self.request.user
+        is_superuser = getattr(user, 'is_superuser', False)
+        is_staff = getattr(user, 'is_staff', False)
+        is_admin = getattr(user, 'user_level', '') in ('Admin', 'Super Admin')
+        
+        # ✅ Permission check for delivery report access
+        if not (is_superuser or is_staff or is_admin):
+            menu_access = UserMenuAccess.objects.filter(
+                user=user,
+                menu_item__key__in=['delivery_report', 'delivery_management', 'deliveries'],
+                can_view=True,
+                menu_item__is_active=True
+            ).exists()
+            
+            if not menu_access:
+                # User has no access - return empty
+                return Delivery.objects.none()
+            
+            # Non-admin users can only see their own deliveries
+            try:
+                from employee_management.models import Employee
+                employee = Employee.objects.get(user=user)
+                queryset = queryset.filter(employee=employee)
+            except Exception:
+                # No employee profile -> return empty queryset
+                return Delivery.objects.none()
         
         # Filter by status
         status_param = self.request.query_params.get('status', None)
@@ -93,22 +122,6 @@ class DeliveryListCreateAPIView(generics.ListCreateAPIView):
         route_id = self.request.query_params.get('route_id', None)
         if route_id:
             queryset = queryset.filter(route_id=route_id)
-        
-        # If the user is not staff, restrict list to deliveries assigned to their employee record
-        try:
-            user = self.request.user
-            if not (user.is_staff or user.is_superuser):
-                # Resolve employee for current user
-                from employee_management.models import Employee
-                try:
-                    employee = Employee.objects.get(user=user)
-                    queryset = queryset.filter(employee=employee)
-                except Employee.DoesNotExist:
-                    # No employee profile -> return empty queryset
-                    return Delivery.objects.none()
-        except Exception:
-            # In case of unexpected errors, fall back to the safe queryset
-            pass
 
         return queryset.order_by('-scheduled_date', '-scheduled_time')
     

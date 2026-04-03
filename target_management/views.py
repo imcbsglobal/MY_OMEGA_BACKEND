@@ -180,11 +180,34 @@ class RouteTargetPeriodListCreateView(generics.ListCreateAPIView):
     queryset = RouteTargetPeriod.objects.select_related(
         'employee', 'route', 'assigned_by'
     ).prefetch_related('product_details__product', 'target_parameters').all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     serializer_class = RouteTargetPeriodSerializer
     
     def get_queryset(self):
+        from user_controll.models import UserMenuAccess
+        
+        user = self.request.user
         queryset = super().get_queryset()
+        
+        is_superuser = getattr(user, 'is_superuser', False)
+        is_staff = getattr(user, 'is_staff', False)
+        is_admin = getattr(user, 'user_level', '') in ('Admin', 'Super Admin')
+        
+        # ✅ Permission check for route target report access
+        if not (is_superuser or is_staff or is_admin):
+            menu_access = UserMenuAccess.objects.filter(
+                user=user,
+                menu_item__key__in=['route_target_report', 'target_management', 'route_targets'],
+                can_view=True,
+                menu_item__is_active=True
+            ).exists()
+            
+            if not menu_access:
+                # User has no access - return empty
+                return queryset.none()
+            
+            # Non-admin users can only see their own targets
+            queryset = queryset.filter(employee_id=user.id)
         
         # Filter by employee
         employee_id = self.request.query_params.get('employee', None)
@@ -237,7 +260,7 @@ class RouteTargetPeriodDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = RouteTargetPeriod.objects.select_related(
         'employee', 'route', 'assigned_by'
     ).prefetch_related('product_details__product').all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     serializer_class = RouteTargetPeriodDetailSerializer
 
 
@@ -307,11 +330,34 @@ class CallTargetPeriodListCreateView(generics.ListCreateAPIView):
     queryset = CallTargetPeriod.objects.select_related(
         'employee', 'assigned_by'
     ).prefetch_related('daily_targets').all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     serializer_class = CallTargetPeriodSerializer
     
     def get_queryset(self):
+        from user_controll.models import UserMenuAccess
+        
+        user = self.request.user
         queryset = super().get_queryset()
+        
+        is_superuser = getattr(user, 'is_superuser', False)
+        is_staff = getattr(user, 'is_staff', False)
+        is_admin = getattr(user, 'user_level', '') in ('Admin', 'Super Admin')
+        
+        # ✅ Permission check for call target report access
+        if not (is_superuser or is_staff or is_admin):
+            menu_access = UserMenuAccess.objects.filter(
+                user=user,
+                menu_item__key__in=['call_target_report', 'target_management', 'call_targets'],
+                can_view=True,
+                menu_item__is_active=True
+            ).exists()
+            
+            if not menu_access:
+                # User has no access - return empty
+                return queryset.none()
+            
+            # Non-admin users can only see their own targets
+            queryset = queryset.filter(employee_id=user.id)
         
         # Filter by employee
         employee_id = self.request.query_params.get('employee', None)
@@ -349,7 +395,7 @@ class CallTargetPeriodDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CallTargetPeriod.objects.select_related(
         'employee', 'assigned_by'
     ).prefetch_related('daily_targets').all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     serializer_class = CallTargetPeriodDetailSerializer
 
 
@@ -1957,37 +2003,68 @@ class MarketingTargetParameterUpdateView(generics.RetrieveUpdateAPIView):
 
 class MarketingTargetPeriodListCreateView(generics.ListCreateAPIView):
     queryset = MarketingTargetPeriod.objects.select_related('employee', 'assigned_by').prefetch_related('target_parameters').all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     serializer_class = MarketingTargetPeriodSerializer
 
     def get_queryset(self):
+        from user_controll.models import UserMenuAccess
+        
         queryset = super().get_queryset()
-        # If ?self=1 or ?self=true, filter to only the logged-in user's employee targets
-        self_param = self.request.query_params.get('self', None)
         user = getattr(self.request, 'user', None)
-        if self_param in ['1', 'true', 'yes'] and user and user.is_authenticated:
-            # Prefer direct employee_profile relation
-            emp = getattr(user, 'employee_profile', None)
-            if not emp:
-                # Fallbacks: try to resolve Employee by linked user, by employee_id matching user's email,
-                # or by employee_id matching user's id (some systems stored PK in employee_id)
-                try:
-                    from employee_management.models import Employee
-                    emp = Employee.objects.filter(
-                        # match linked user
-                    ).filter(models.Q(user=user) | models.Q(employee_id=str(user.id)) | models.Q(employee_id=user.email)).first()
-                except Exception:
-                    emp = None
-
-            if emp:
-                queryset = queryset.filter(employee=emp)
+        
+        is_superuser = getattr(user, 'is_superuser', False)
+        is_staff = getattr(user, 'is_staff', False)
+        is_admin = getattr(user, 'user_level', '') in ('Admin', 'Super Admin')
+        
+        # ✅ Permission check for marketing target report access
+        if not (is_superuser or is_staff or is_admin):
+            menu_access = UserMenuAccess.objects.filter(
+                user=user,
+                menu_item__key__in=['marketing_target_report', 'target_management', 'marketing_targets'],
+                can_view=True,
+                menu_item__is_active=True
+            ).exists()
+            
+            if not menu_access:
+                # User has no access - return empty
+                return queryset.none()
+            
+            # Non-admin users can only see their own targets
+            if user and user.is_authenticated:
+                queryset = queryset.filter(employee_id=user.id)
             else:
-                # No employee could be resolved for this user
-                queryset = queryset.none()
-        else:
-            employee_id = self.request.query_params.get('employee', None)
-            if employee_id:
-                queryset = queryset.filter(employee_id=employee_id)
+                return queryset.none()
+        
+        # Allow admin override if 'all=true' is passed
+        all_param = self.request.query_params.get('all', None)
+        if all_param not in ['1', 'true', 'yes']:
+            # If ?self=1 or ?self=true, filter to only the logged-in user's employee targets
+            self_param = self.request.query_params.get('self', None)
+            if self_param in ['1', 'true', 'yes'] and user and user.is_authenticated:
+                # Prefer direct employee_profile relation
+                emp = getattr(user, 'employee_profile', None)
+                if not emp:
+                    # Fallbacks: try to resolve Employee by linked user, by employee_id matching user's email,
+                    # or by employee_id matching user's id (some systems stored PK in employee_id)
+                    try:
+                        from employee_management.models import Employee
+                        import django.db.models as models
+                        emp = Employee.objects.filter(
+                            models.Q(user=user) | models.Q(employee_id=str(user.id)) | models.Q(employee_id=user.email)
+                        ).first()
+                    except Exception:
+                        emp = None
+
+                if emp:
+                    queryset = queryset.filter(employee=emp)
+                else:
+                    # No employee could be resolved for this user
+                    queryset = queryset.none()
+            else:
+                employee_id = self.request.query_params.get('employee', None)
+                if employee_id:
+                    queryset = queryset.filter(employee_id=employee_id)
+        
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         if start_date:
@@ -2025,7 +2102,7 @@ class MarketingTargetPeriodListCreateView(generics.ListCreateAPIView):
 
 class MarketingTargetPeriodDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = MarketingTargetPeriod.objects.select_related('employee', 'assigned_by').prefetch_related('target_parameters').all()
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Changed from AllowAny
     serializer_class = MarketingTargetPeriodSerializer
     
     def get_object(self):
