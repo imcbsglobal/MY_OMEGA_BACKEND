@@ -31,6 +31,7 @@ from .Serializers import (
 from master.models import LeaveMaster
 from master.serializers import LeaveMasterSerializer
 from User.models import AppUser
+from employee_management.models import Employee
 
 
 class AttendanceViewSet(viewsets.ModelViewSet):
@@ -115,12 +116,25 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         print(f"Source: {office_info['source']}")
         print("=" * 80)
 
-        # ✅ VALIDATE GEOFENCE
-        allowed, distance = validate_office_geofence(lat, lon, user=user)
-        
-        print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
+        # Determine if geofence should be enforced for this user
+        enforce_geofence = False
+        try:
+            emp = getattr(user, 'employee_profile', None)
+            if emp and getattr(emp, 'work_type', None) == 'out_house':
+                enforce_geofence = True
+        except Exception:
+            emp = None
+
+        # ✅ VALIDATE GEOFENCE (only for out_house employees)
+        if enforce_geofence:
+            allowed, distance = validate_office_geofence(lat, lon, user=user)
+            print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
+        else:
+            # If not enforcing, mark allowed and distance as 0 for logging/response
+            allowed, distance = True, 0
+            print(f"🎯 Geofence Skipped for user (work_type != out_house).")
         print("=" * 80)
-        
+
         if not allowed:
             excess_distance = distance - office_info['radius']
             
@@ -155,7 +169,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             user=user,
             date=today,
             defaults={
-                'status': 'half', 
+                'status': 'half',
                 'is_currently_on_break': False,
                 'is_paid_day': True,  # ✅ CRITICAL: Explicitly set this!
             }
@@ -251,41 +265,56 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         print(f"Source: {office_info['source']}")
         print("=" * 80)
         
-        # If lat/lon are provided, validate geofence. Otherwise, skip.
-        if lat is not None and lon is not None:
-            allowed, distance = validate_office_geofence(lat, lon, user=user)
-            print(f"Geofence Result: allowed={allowed}, distance={distance}m")
-            print("=" * 80)
+        # Determine if geofence should be enforced for this user
+        enforce_geofence = False
+        try:
+            emp = getattr(user, 'employee_profile', None)
+            if emp and getattr(emp, 'work_type', None) == 'out_house':
+                enforce_geofence = True
+        except Exception:
+            emp = None
 
-            if not allowed:
-                excess_distance = distance - office_info['radius']
-                
-                print(f"❌ PUNCH OUT REJECTED!")
-                print(f"Distance: {distance}m")
-                print(f"Excess: {excess_distance}m")
+        # If lat/lon are provided, validate geofence only when enforcement applies
+        if lat is not None and lon is not None:
+            if enforce_geofence:
+                allowed, distance = validate_office_geofence(lat, lon, user=user)
+                print(f"Geofence Result: allowed={allowed}, distance={distance}m")
                 print("=" * 80)
+
+                if not allowed:
+                    excess_distance = distance - office_info['radius']
+                    
+                    print(f"❌ PUNCH OUT REJECTED!")
+                    print(f"Distance: {distance}m")
+                    print(f"Excess: {excess_distance}m")
+                    print("=" * 80)
+                    
+                    return Response({
+                        'error': 'Punch out denied: You are outside the office premises',
+                        'detail': f'You are {distance:.0f}m away from office. You need to be within {office_info["radius"]:.0f}m.',
+                        'distance_meters': distance,
+                        'allowed_radius': office_info['radius'],
+                        'excess_distance': round(excess_distance, 2),
+                        'office_location': {
+                            'latitude': office_info['latitude'],
+                            'longitude': office_info['longitude'],
+                            'address': office_info['address']
+                        },
+                        'user_location': {
+                            'latitude': lat,
+                            'longitude': lon
+                        }
+                    }, status=status.HTTP_403_FORBIDDEN)
                 
-                return Response({
-                    'error': 'Punch out denied: You are outside the office premises',
-                    'detail': f'You are {distance:.0f}m away from office. You need to be within {office_info["radius"]:.0f}m.',
-                    'distance_meters': distance,
-                    'allowed_radius': office_info['radius'],
-                    'excess_distance': round(excess_distance, 2),
-                    'office_location': {
-                        'latitude': office_info['latitude'],
-                        'longitude': office_info['longitude'],
-                        'address': office_info['address']
-                    },
-                    'user_location': {
-                        'latitude': lat,
-                        'longitude': lon
-                    }
-                }, status=status.HTTP_403_FORBIDDEN)
-            
-            print(f"✅ PUNCH OUT ALLOWED - Distance: {distance}m")
-            print("=" * 80)
+                print(f"✅ PUNCH OUT ALLOWED - Distance: {distance}m")
+                print("=" * 80)
+            else:
+                # Geofence not enforced for this user
+                distance = 0
+                print(f"⚠️ PUNCH OUT - Geofence check skipped for user (work_type != out_house)")
+                print("=" * 80)
         else:
-            # Geofence validation skipped
+            # Geofence validation skipped (no coords provided)
             distance = None
             print(f"⚠️ PUNCH OUT - Geofence validation skipped (no coordinates provided)")
             print("=" * 80)
@@ -336,19 +365,25 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='my_records')
     def my_records(self, request):
-        user = request.user
-        month = request.query_params.get('month')
-        year = request.query_params.get('year')
-        qs = Attendance.objects.filter(user=user)
-        if month and year:
-            qs = qs.filter(date__month=month, date__year=year)
-        result = []
-        for att in qs.order_by('date', 'first_punch_in_time'):
-            d = AttendanceSerializer(att, context={'request': request}).data
-            punches = att.punch_records.all().order_by('punch_time')
-            d['punch_records'] = PunchRecordSerializer(punches, many=True).data
-            result.append(d)
-        return Response(result)
+        try:
+            user = request.user
+            month = request.query_params.get('month')
+            year = request.query_params.get('year')
+            qs = Attendance.objects.filter(user=user)
+            if month and year:
+                qs = qs.filter(date__month=month, date__year=year)
+            result = []
+            for att in qs.order_by('date', 'first_punch_in_time'):
+                d = AttendanceSerializer(att, context={'request': request}).data
+                punches = att.punch_records.all().order_by('punch_time')
+                d['punch_records'] = PunchRecordSerializer(punches, many=True).data
+                result.append(d)
+            return Response(result)
+        except Exception as e:
+            print(f"❌ ERROR in my_records: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e), 'detail': 'Failed to fetch attendance records'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _count_sundays(self, year, month):
         """Count the number of Sundays in a given month"""
