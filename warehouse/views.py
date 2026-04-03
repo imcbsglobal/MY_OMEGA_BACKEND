@@ -130,23 +130,23 @@ def employee_list(request):
 @permission_classes([IsAuthenticated])
 def duty_report(request):
     from user_controll.models import UserMenuAccess
+    from datetime import datetime
     
     user = request.user
     user_id = request.query_params.get('user_id')
     year = request.query_params.get('year')
     month = request.query_params.get('month')
-
-    if not user_id:
-        return Response({'detail': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
 
     # ✅ PERMISSION CHECK: Only allow access if user has warehouse duty report access
-    has_access = (
-        getattr(user, 'is_superuser', False) or  # Django superuser bypasses
-        getattr(user, 'is_staff', False) or  # Staff can access
-        getattr(user, 'user_level', '') in ('Admin', 'Super Admin')  # App-level admin/super admin
-    )
+    is_superuser = getattr(user, 'is_superuser', False)
+    is_staff = getattr(user, 'is_staff', False)
+    is_admin = getattr(user, 'user_level', '') in ('Admin', 'Super Admin')
     
-    # If not super admin/admin, check menu access and restrict to their own data
+    has_access = is_superuser or is_staff or is_admin
+    
+    # If not super admin/admin, check menu access for regular users
     if not has_access:
         menu_access = UserMenuAccess.objects.filter(
             user=user,
@@ -160,19 +160,38 @@ def duty_report(request):
                 {'detail': 'You do not have permission to access warehouse duty reports.'},
                 status=status.HTTP_403_FORBIDDEN
             )
+    
+    # Determine which user(s) to show data for
+    if user_id:
+        # Specific user requested
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            return Response({'detail': 'Invalid user_id.'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Non-admin users can only view their own data
-        if int(user_id) != user.id:
+        if not has_access and user_id != user.id:
             return Response(
                 {'detail': 'You can only view your own duty report.'},
                 status=status.HTTP_403_FORBIDDEN
             )
+        
+        tasks = WarehouseTask.objects.filter(assigned_to_id=user_id).select_related('assigned_to')
+    else:
+        # Show all employees (only if user is admin, otherwise show only their own)
+        if not has_access:
+            # Non-admin user without specific user_id - show only their own data
+            tasks = WarehouseTask.objects.filter(assigned_to_id=user.id).select_related('assigned_to')
+        else:
+            # Admin/superuser - show all data
+            tasks = WarehouseTask.objects.all().select_related('assigned_to')
 
-    tasks = WarehouseTask.objects.filter(assigned_to_id=user_id).select_related('assigned_to')
-
-    if year:
+    # Apply date filters (new preference for start_date/end_date)
+    if start_date and end_date:
+        tasks = tasks.filter(assigned_date__gte=start_date, assigned_date__lte=end_date)
+    elif year:
         tasks = tasks.filter(assigned_date__year=int(year))
-    if month:
+    elif month:
         tasks = tasks.filter(assigned_date__month=int(month))
 
     tasks = tasks.order_by('assigned_date', 'id')
