@@ -120,19 +120,21 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         enforce_geofence = False
         try:
             emp = getattr(user, 'employee_profile', None)
-            if emp and getattr(emp, 'work_type', None) == 'out_house':
+            # ✅ IN-HOUSE (office) employees MUST punch in at office location only
+            # OUT-HOUSE (field/remote) employees can punch in from anywhere
+            if emp and getattr(emp, 'work_type', None) == 'in_house':
                 enforce_geofence = True
         except Exception:
             emp = None
 
-        # ✅ VALIDATE GEOFENCE (only for out_house employees)
+        # ✅ VALIDATE GEOFENCE (only for in_house/office employees)
         if enforce_geofence:
             allowed, distance = validate_office_geofence(lat, lon, user=user)
             print(f"🎯 Geofence Result: allowed={allowed}, distance={distance}m")
         else:
-            # If not enforcing, mark allowed and distance as 0 for logging/response
+            # Out-house employees don't need geofence validation
             allowed, distance = True, 0
-            print(f"🎯 Geofence Skipped for user (work_type != out_house).")
+            print(f"🎯 Geofence Skipped for out-house/field employee (work_type != in_house).")
         print("=" * 80)
 
         if not allowed:
@@ -269,7 +271,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         enforce_geofence = False
         try:
             emp = getattr(user, 'employee_profile', None)
-            if emp and getattr(emp, 'work_type', None) == 'out_house':
+            # ✅ IN-HOUSE (office) employees MUST punch out at office location only
+            # OUT-HOUSE (field/remote) employees can punch out from anywhere
+            if emp and getattr(emp, 'work_type', None) == 'in_house':
                 enforce_geofence = True
         except Exception:
             emp = None
