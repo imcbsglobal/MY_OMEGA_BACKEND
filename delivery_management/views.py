@@ -914,30 +914,21 @@ def update_delivery_totals(request, pk):
     td = request.data.get('total_delivered_boxes', None)
     ca = request.data.get('collected_amount', None)
 
-    # Validate numerical input and bounds
+    # Validate numerical input only (removed limit checks)
     try:
-        tl = delivery.total_loaded_boxes or Decimal('0.00')
-        ta = delivery.total_amount or Decimal('0.00')
-
         if td is not None:
             td = Decimal(str(td))
             if td < 0:
                 return Response({'error': 'total_delivered_boxes cannot be negative'}, status=status.HTTP_400_BAD_REQUEST)
-            # Do not allow delivered > loaded
-            if td > tl:
-                return Response({'error': 'total_delivered_boxes cannot exceed total_loaded_boxes'}, status=status.HTTP_400_BAD_REQUEST)
             delivery.total_delivered_boxes = td
 
         if ca is not None:
             ca = Decimal(str(ca))
             if ca < 0:
                 return Response({'error': 'collected_amount cannot be negative'}, status=status.HTTP_400_BAD_REQUEST)
-            # Do not allow collected > total amount
-            if ca > ta:
-                return Response({'error': 'collected_amount cannot exceed total_amount'}, status=status.HTTP_400_BAD_REQUEST)
             delivery.collected_amount = ca
-    except Exception:
-        return Response({'error': 'Invalid numeric values provided'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': f'Invalid numeric values provided: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Recalculate derived totals
     delivery.total_balance_boxes = max(Decimal('0.00'), (delivery.total_loaded_boxes or Decimal('0.00')) - (delivery.total_delivered_boxes or Decimal('0.00')))

@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "html2pdf": "^0.0.11"
+  }
+}

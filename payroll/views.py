@@ -412,7 +412,7 @@ class AllowanceListView(APIView):
         try:
             pa = PayrollAllowance.objects.create(
                 payroll=payroll, 
-                allowance_type=atype if atype in dict(PayrollAllowance.ALLOWANCE_TYPES) else 'Other', 
+                allowance_type=atype if atype and atype.strip() else 'Other', 
                 amount=Decimal(str(amount)), 
                 description=description
             )
@@ -460,7 +460,7 @@ class AddDeductionView(APIView):
         try:
             pd = PayrollDeduction.objects.create(
                 payroll=payroll, 
-                deduction_type=dtype if dtype in dict(PayrollDeduction.DEDUCTION_TYPES) else 'Other', 
+                deduction_type=dtype if dtype and dtype.strip() else 'Other', 
                 amount=Decimal(str(amount)), 
                 description=description
             )
@@ -508,7 +508,7 @@ class AddAllowanceView(APIView):
         try:
             pa = PayrollAllowance.objects.create(
                 payroll=payroll, 
-                allowance_type=atype if atype in dict(PayrollAllowance.ALLOWANCE_TYPES) else 'Other', 
+                allowance_type=atype if atype and atype.strip() else 'Other', 
                 amount=Decimal(str(amount)), 
                 description=description
             )

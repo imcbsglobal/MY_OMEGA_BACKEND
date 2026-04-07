@@ -85,11 +85,13 @@ class PayrollDeduction(models.Model):
         ('Insurance', 'Insurance'),
         ('Loan', 'Loan'),
         ('Advance', 'Advance'),
+        ('PF', 'Provident Fund'),
+        ('TDS', 'Tax Deducted at Source'),
         ('Other', 'Other'),
     ]
 
     payroll = models.ForeignKey(Payroll, on_delete=models.CASCADE, related_name='deduction_items')
-    deduction_type = models.CharField(max_length=40, choices=DEDUCTION_TYPES)
+    deduction_type = models.CharField(max_length=100)  # Remove choices to allow any type
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     description = models.CharField(max_length=200, blank=True)
 
@@ -106,11 +108,14 @@ class PayrollAllowance(models.Model):
         ('DA', 'Dearness Allowance'),
         ('Bonus', 'Bonus'),
         ('Incentive', 'Incentive'),
+        ('PF', 'Provident Fund'),
+        ('Overtime', 'Overtime'),
+        ('Festival', 'Festival'),
         ('Other', 'Other'),
     ]
 
     payroll = models.ForeignKey(Payroll, on_delete=models.CASCADE, related_name='allowance_items')
-    allowance_type = models.CharField(max_length=40, choices=ALLOWANCE_TYPES)
+    allowance_type = models.CharField(max_length=100)  # Remove choices to allow any type
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     description = models.CharField(max_length=200, blank=True)
 
