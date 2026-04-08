@@ -356,6 +356,13 @@ class Trip(models.Model):
         verbose_name='Odometer End Image'
     )
     
+    invoice_bill_image = models.ImageField(
+        upload_to='trips/invoice_bills/',
+        null=True,
+        blank=True,
+        verbose_name='Invoice Bill Image'
+    )
+    
     # Calculated Fields
     distance_km = models.DecimalField(
         max_digits=10,

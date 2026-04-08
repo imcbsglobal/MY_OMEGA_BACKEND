@@ -220,6 +220,7 @@ class TripListSerializer(serializers.ModelSerializer):
     employee_info = TripEmployeeSerializer(source='employee', read_only=True)
     odometer_start_url = serializers.SerializerMethodField()
     odometer_end_url = serializers.SerializerMethodField()
+    invoice_bill_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Trip
@@ -241,6 +242,7 @@ class TripListSerializer(serializers.ModelSerializer):
             'odometer_end',
             'odometer_start_url',
             'odometer_end_url',
+            'invoice_bill_url',
             'distance_km',
             'duration_hours',
             'maintenance_cost',
@@ -264,6 +266,12 @@ class TripListSerializer(serializers.ModelSerializer):
         if obj.odometer_end_image:
             return request.build_absolute_uri(obj.odometer_end_image.url) if request else obj.odometer_end_image.url
         return None
+    
+    def get_invoice_bill_url(self, obj):
+        request = self.context.get('request')
+        if obj.invoice_bill_image:
+            return request.build_absolute_uri(obj.invoice_bill_image.url) if request else obj.invoice_bill_image.url
+        return None
 
 
 class TripDetailSerializer(serializers.ModelSerializer):
@@ -273,6 +281,7 @@ class TripDetailSerializer(serializers.ModelSerializer):
     approved_by_info = TripEmployeeSerializer(source='approved_by', read_only=True)
     odometer_start_url = serializers.SerializerMethodField()
     odometer_end_url = serializers.SerializerMethodField()
+    invoice_bill_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Trip
@@ -301,6 +310,8 @@ class TripDetailSerializer(serializers.ModelSerializer):
             'odometer_end',
             'odometer_end_image',
             'odometer_end_url',
+            'invoice_bill_image',
+            'invoice_bill_url',
             
             # Calculated
             'distance_km',
@@ -336,6 +347,12 @@ class TripDetailSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if obj.odometer_end_image:
             return request.build_absolute_uri(obj.odometer_end_image.url) if request else obj.odometer_end_image.url
+        return None
+    
+    def get_invoice_bill_url(self, obj):
+        request = self.context.get('request')
+        if obj.invoice_bill_image:
+            return request.build_absolute_uri(obj.invoice_bill_image.url) if request else obj.invoice_bill_image.url
         return None
 
 
@@ -402,6 +419,7 @@ class TripEndSerializer(serializers.ModelSerializer):
             'end_time',
             'odometer_end',
             'odometer_end_image',
+            'invoice_bill_image',
         ]
     
     def validate(self, data):
