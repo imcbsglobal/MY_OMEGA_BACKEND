@@ -6,6 +6,8 @@ class WarehouseTaskSerializer(serializers.ModelSerializer):
     assigned_to_name = serializers.SerializerMethodField()
     assigned_by_name = serializers.SerializerMethodField()
     completion_percentage = serializers.ReadOnlyField()
+    duration_display = serializers.ReadOnlyField()
+    duration_hours = serializers.ReadOnlyField()
 
     class Meta:
         model = WarehouseTask
@@ -24,10 +26,14 @@ class WarehouseTaskSerializer(serializers.ModelSerializer):
             'completion_percentage',
             'status',
             'remarks',
+            'start_datetime',
+            'completed_datetime',
+            'duration_display',
+            'duration_hours',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['assigned_by', 'created_at', 'updated_at']
+        read_only_fields = ['assigned_by', 'start_datetime', 'completed_datetime', 'created_at', 'updated_at']
 
     def get_assigned_to_name(self, obj):
         user = obj.assigned_to
