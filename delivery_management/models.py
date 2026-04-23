@@ -365,10 +365,15 @@ class Delivery(models.Model):
                          delivered_boxes=0, balance_boxes=0, collected_amount=0, notes='',
                          completion_location='', completion_latitude=None, completion_longitude=None):
         """Complete the delivery"""
+        print(f"[MODEL DEBUG] complete_delivery called for {self.delivery_number}")
+        print(f"[MODEL DEBUG] Current status: {self.status}, can_complete: {self.can_complete()}")
+        
         if not self.can_complete():
             raise ValueError('Delivery cannot be completed in current status')
         
         self.status = 'completed'
+        print(f"[MODEL DEBUG] Status set to: {self.status}")
+        
         self.end_datetime = timezone.now()
         self.odometer_end = odometer_reading
         self.fuel_end = fuel_level
@@ -380,7 +385,10 @@ class Delivery(models.Model):
         self.completion_latitude = completion_latitude
         self.completion_longitude = completion_longitude
         self.completed_by = user
+        
+        print(f"[MODEL DEBUG] About to save with status: {self.status}")
         self.save()
+        print(f"[MODEL DEBUG] Saved! Status is now: {self.status}")
 
 
 class DeliveryProduct(models.Model):

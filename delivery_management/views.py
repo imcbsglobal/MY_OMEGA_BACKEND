@@ -238,11 +238,18 @@ def start_delivery(request, pk):
 @permission_classes([IsAuthenticated])
 def complete_delivery(request, pk):
     """Complete a delivery"""
+    print(f"\n[DEBUG] complete_delivery called for delivery_id={pk}")
+    print(f"[DEBUG] User: {request.user}, is_staff: {request.user.is_staff}")
+    
     delivery = get_object_or_404(Delivery, pk=pk)
+    print(f"[DEBUG] Delivery found: {delivery.delivery_number}, current_status: {delivery.status}")
+    
     _ensure_user_has_access(request.user, delivery)
+    print(f"[DEBUG] User access verified")
     
     # Check if delivery can be completed
     if delivery.status != 'in_progress':
+        print(f"[ERROR] Cannot complete delivery with status: {delivery.status}")
         return Response(
             {'error': f'Cannot complete delivery with status: {delivery.status}'},
             status=status.HTTP_400_BAD_REQUEST
@@ -254,12 +261,17 @@ def complete_delivery(request, pk):
         context={'delivery': delivery}
     )
     if not serializer.is_valid():
+        print(f"[ERROR] Serializer validation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    print(f"[DEBUG] Serializer validation passed")
     
     # Update product delivered quantities (if provided by caller)
     products_data = serializer.validated_data.get('products', [])
+    print(f"[DEBUG] Processing {len(products_data)} products")
     
-    for product_data in products_data:
+    for i, product_data in enumerate(products_data):
+        print(f"[DEBUG] Product {i}: {product_data}")
         try:
             delivery_product = DeliveryProduct.objects.get(
                 delivery=delivery,
@@ -313,6 +325,7 @@ def complete_delivery(request, pk):
     total_collected = stops_collected if stops_collected > Decimal('0.00') else delivery.collected_amount
 
     # Complete the delivery with correctly computed totals
+    print(f"[DEBUG] Calling complete_delivery() on delivery {delivery.id}")
     delivery.complete_delivery(
         user=request.user,
         odometer_reading=serializer.validated_data.get('odometer_reading'),
@@ -325,10 +338,25 @@ def complete_delivery(request, pk):
         completion_latitude=serializer.validated_data.get('completion_latitude'),
         completion_longitude=serializer.validated_data.get('completion_longitude'),
     )
+
+    # Defensive persistence: force-complete in DB in case any custom path left status stale.
+    Delivery.objects.filter(pk=delivery.pk).update(
+        status='completed',
+        completed_by=request.user,
+        end_datetime=delivery.end_datetime or timezone.now()
+    )
+    
+    # Verify status was updated
+    delivery.refresh_from_db()
+    print(f"[DEBUG] Delivery status after complete_delivery: {delivery.status}")
+    print(f"[DEBUG] Completed at: {delivery.end_datetime}")
+    print(f"[DEBUG] Completed by: {delivery.completed_by}")
     
     # Return updated delivery
     response_serializer = DeliveryDetailSerializer(delivery)
-    return Response(response_serializer.data, status=status.HTTP_200_OK)
+    response_data = response_serializer.data
+    print(f"[DEBUG] Response status field: {response_data.get('status')}")
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -742,11 +770,17 @@ def my_deliveries(request):
         first_stop = d.stops.order_by('stop_sequence').first()
         shop_name = first_stop.shop_name if first_stop else ''
 
+        # Safety normalization: if completion markers are present, force completed status
+        # to avoid stale status rendering in employee view.
+        effective_status = d.status
+        if (d.end_datetime or d.completed_by_id) and d.status != 'completed':
+            effective_status = 'completed'
+
         results.append({
             'id': d.id,
             'delivery_number': d.delivery_number,
             'shop_name': shop_name,
-            'status': d.status,
+            'status': effective_status,
             'collected_amount': float(d.collected_amount or 0),
             'delivery_date': d.scheduled_date,
             'can_update': True,
@@ -910,9 +944,14 @@ def update_delivery_totals(request, pk):
     """
     delivery = get_object_or_404(Delivery, pk=pk)
 
-    # Parse incoming values (only allow these two fields)
+    # Parse incoming values
     td = request.data.get('total_delivered_boxes', None)
     ca = request.data.get('collected_amount', None)
+    mark_completed = request.data.get('mark_completed', False)
+
+    # Normalize mark_completed (accept bool / string)
+    if isinstance(mark_completed, str):
+        mark_completed = mark_completed.strip().lower() in ['1', 'true', 'yes', 'y']
 
     # Validate numerical input only (removed limit checks)
     try:
@@ -933,7 +972,18 @@ def update_delivery_totals(request, pk):
     # Recalculate derived totals
     delivery.total_balance_boxes = max(Decimal('0.00'), (delivery.total_loaded_boxes or Decimal('0.00')) - (delivery.total_delivered_boxes or Decimal('0.00')))
     delivery.total_pending_amount = max(Decimal('0.00'), (delivery.total_amount or Decimal('0.00')) - (delivery.collected_amount or Decimal('0.00')))
-    delivery.save(update_fields=['total_delivered_boxes', 'collected_amount', 'total_balance_boxes', 'total_pending_amount'])
+
+    update_fields = ['total_delivered_boxes', 'collected_amount', 'total_balance_boxes', 'total_pending_amount']
+
+    # Optional: finalize delivery status from summary screen edits.
+    if mark_completed and delivery.status not in ['completed', 'cancelled']:
+        delivery.status = 'completed'
+        delivery.completed_by = request.user
+        if not delivery.end_datetime:
+            delivery.end_datetime = timezone.now()
+        update_fields.extend(['status', 'completed_by', 'end_datetime'])
+
+    delivery.save(update_fields=update_fields)
 
     # Return updated summary (use helper to avoid calling decorated view)
     summary = _build_delivery_summary(delivery)
