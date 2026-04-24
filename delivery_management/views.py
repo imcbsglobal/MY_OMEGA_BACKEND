@@ -767,8 +767,22 @@ def my_deliveries(request):
     results = []
     for d in queryset:
         # pick first stop shop name if present
-        first_stop = d.stops.order_by('stop_sequence').first()
+        stops_qs = d.stops.order_by('stop_sequence')
+        first_stop = stops_qs.first()
         shop_name = first_stop.shop_name if first_stop else ''
+
+        # Build customer names string for frontend search and display.
+        customer_names = ', '.join(
+            [s.customer_name for s in stops_qs if getattr(s, 'customer_name', None)]
+        )
+
+        # Ensure pending amount is always available for card rendering.
+        total_pending_amount = d.total_pending_amount
+        if total_pending_amount is None:
+            if d.total_amount is not None and d.collected_amount is not None:
+                total_pending_amount = max(Decimal('0.00'), d.total_amount - d.collected_amount)
+            else:
+                total_pending_amount = stops_qs.aggregate(s=Sum('pending_amount'))['s'] or Decimal('0.00')
 
         # Safety normalization: if completion markers are present, force completed status
         # to avoid stale status rendering in employee view.
@@ -780,8 +794,13 @@ def my_deliveries(request):
             'id': d.id,
             'delivery_number': d.delivery_number,
             'shop_name': shop_name,
+            'customer_names': customer_names,
             'status': effective_status,
+            'scheduled_date': d.scheduled_date,
+            'scheduled_time': d.scheduled_time,
             'collected_amount': float(d.collected_amount or 0),
+            'total_amount': float(d.total_amount or 0),
+            'total_pending_amount': float(total_pending_amount or 0),
             'delivery_date': d.scheduled_date,
             'can_update': True,
             'vehicle_number': getattr(d.vehicle, 'registration_number', ''),
