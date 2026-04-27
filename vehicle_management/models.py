@@ -128,6 +128,18 @@ class Vehicle(models.Model):
         blank=True,
         verbose_name='Pollution Expiry Date'
     )
+
+    tax_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Tax Expiry Date'
+    )
+
+    permit_expiry_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Permit Expiry Date'
+    )
     
     # Maintenance
     last_service_date = models.DateField(
@@ -140,6 +152,15 @@ class Vehicle(models.Model):
         null=True,
         blank=True,
         verbose_name='Next Service Date'
+    )
+
+    next_service_km = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Next service due at this KM reading',
+        verbose_name='Next Service KM'
     )
     
     current_odometer = models.DecimalField(
@@ -163,6 +184,13 @@ class Vehicle(models.Model):
         null=True,
         blank=True,
         verbose_name='Engine Number'
+    )
+
+    witness = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='Witness'
     )
     
     notes = models.TextField(

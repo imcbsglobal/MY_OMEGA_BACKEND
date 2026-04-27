@@ -34,8 +34,11 @@ class VehicleListSerializer(serializers.ModelSerializer):
             'total_distance',
             'insurance_expiry_date',
             'pollution_expiry_date',
+            'tax_expiry_date',
+            'permit_expiry_date',
             'insurance_days_left',
             'next_service_date',
+            'next_service_km',
             'created_at',
         ]
     
@@ -86,16 +89,20 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             'insurance_number',
             'insurance_expiry_date',
             'pollution_expiry_date',
+            'tax_expiry_date',
+            'permit_expiry_date',
             'insurance_days_left',
             
             # Maintenance
             'last_service_date',
             'next_service_date',
+            'next_service_km',
             'current_odometer',
             
             # Technical
             'chassis_number',
             'engine_number',
+            'witness',
             
             # Additional
             'notes',
@@ -155,11 +162,15 @@ class VehicleCreateUpdateSerializer(serializers.ModelSerializer):
             'insurance_number',
             'insurance_expiry_date',
             'pollution_expiry_date',
+            'tax_expiry_date',
+            'permit_expiry_date',
             'last_service_date',
             'next_service_date',
+            'next_service_km',
             'current_odometer',
             'chassis_number',
             'engine_number',
+            'witness',
             'notes',
             'is_active',
         ]
