@@ -614,20 +614,32 @@ class DeliveryStatsSerializer(serializers.Serializer):
 
 class CourierListSerializer(serializers.ModelSerializer):
     """Serializer for Courier list view"""
+    courier_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = Courier
         fields = [
             'id', 'date', 'order_placed_by', 'customer_name', 'customer_phone',
             'weight_kg', 'courier_name', 'lr_number', 'payment_mode',
-            'bill_value', 'courier_amount', 'no_of_cartons', 'total_quantity',
+            'bill_value', 'courier_percentage', 'courier_amount', 'no_of_cartons', 'total_quantity',
             'expense', 'who_prepared', 'received_date', 'created_at'
         ]
+
+    def get_courier_percentage(self, obj):
+        try:
+            bill = obj.bill_value or 0
+            courier = obj.courier_amount or 0
+            if bill and float(bill) > 0:
+                return round((float(courier) / float(bill)) * 100, 2)
+        except Exception:
+            pass
+        return None
 
 
 class CourierDetailSerializer(serializers.ModelSerializer):
     """Serializer for Courier detail view"""
     created_by = serializers.SerializerMethodField()
+    courier_percentage = serializers.SerializerMethodField()
 
     class Meta:
         model = Courier
@@ -635,7 +647,7 @@ class CourierDetailSerializer(serializers.ModelSerializer):
             'id', 'date', 'order_placed_by', 'customer_name', 'customer_address',
             'customer_phone', 'weight_kg', 'courier_name', 'lr_number',
             'payment_mode', 'bill_value', 'courier_amount', 'no_of_cartons',
-            'total_quantity', 'expense', 'who_prepared', 'received_date',
+            'total_quantity', 'courier_percentage', 'expense', 'who_prepared', 'received_date',
             'created_by', 'created_at', 'updated_at'
         ]
 
@@ -646,6 +658,16 @@ class CourierDetailSerializer(serializers.ModelSerializer):
                 'username': obj.created_by.username,
                 'email': obj.created_by.email
             }
+        return None
+
+    def get_courier_percentage(self, obj):
+        try:
+            bill = obj.bill_value or 0
+            courier = obj.courier_amount or 0
+            if bill and float(bill) > 0:
+                return round((float(courier) / float(bill)) * 100, 2)
+        except Exception:
+            pass
         return None
 
 
