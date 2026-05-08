@@ -81,18 +81,25 @@ def update_task(request, pk):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_tasks(request):
-    tasks = WarehouseTask.objects.select_related('assigned_by', 'assigned_to').all()
+    try:
+        tasks = WarehouseTask.objects.select_related('assigned_by', 'assigned_to').all()
 
-    # Optional filters
-    status_filter = request.query_params.get('status')
-    employee_filter = request.query_params.get('employee_id')
-    if status_filter:
-        tasks = tasks.filter(status=status_filter)
-    if employee_filter:
-        tasks = tasks.filter(assigned_to_id=employee_filter)
+        # Optional filters
+        status_filter = request.query_params.get('status')
+        employee_filter = request.query_params.get('employee_id')
+        if status_filter:
+            tasks = tasks.filter(status=status_filter)
+        if employee_filter:
+            tasks = tasks.filter(assigned_to_id=employee_filter)
 
-    serializer = WarehouseTaskSerializer(tasks, many=True)
-    return Response(serializer.data)
+        serializer = WarehouseTaskSerializer(tasks, many=True)
+        return Response(serializer.data)
+    except Exception as exc:
+        import traceback
+        return Response(
+            {'detail': str(exc), 'trace': traceback.format_exc()},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # ─────────────────────────────────────────────

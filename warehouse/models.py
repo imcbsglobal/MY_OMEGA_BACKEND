@@ -44,18 +44,24 @@ class WarehouseTask(models.Model):
 
     def save(self, *args, **kwargs):
         from django.utils import timezone
-        
-        # Set start_datetime when status changes to "In Progress"
+
+        is_new = self.pk is None
+
+        # Set start_datetime when task is first created (assigned)
+        if is_new and not self.start_datetime:
+            self.start_datetime = timezone.now()
+
+        # Also set start_datetime when status changes to "In Progress" (if not already set)
         if self.status == self.STATUS_IN_PROGRESS and not self.start_datetime:
             self.start_datetime = timezone.now()
-        
+
         # Auto-update status based on completed_work
         if self.completed_work >= self.total_work and self.total_work > 0:
             self.status = self.STATUS_COMPLETED
-            # Set completed_datetime when status changes to "Completed"
+            # Set completed_datetime when task is completed
             if not self.completed_datetime:
                 self.completed_datetime = timezone.now()
-        
+
         super().save(*args, **kwargs)
 
     @property
