@@ -26,8 +26,8 @@ class Route(models.Model):
         blank=True,
     )
     description = models.TextField(
+        null=True,
         blank=True,
-        help_text='Route description or notes'
     )
     is_active = models.BooleanField(
         default=True,

@@ -38,12 +38,36 @@ class WarehouseTaskSerializer(serializers.ModelSerializer):
         read_only_fields = ['assigned_by', 'start_datetime', 'completed_datetime', 'created_at', 'updated_at']
 
     def get_assigned_to_name(self, obj):
-        user = obj.assigned_to
-        return getattr(user, 'name', None) or getattr(user, 'email', str(user))
+        try:
+            user = obj.assigned_to
+            if user is None:
+                return ''
+            return (
+                getattr(user, 'full_name', None)
+                or getattr(user, 'name', None)
+                or getattr(user, 'first_name', None)
+                or getattr(user, 'email', None)
+                or getattr(user, 'username', None)
+                or str(user)
+            )
+        except Exception:
+            return ''
 
     def get_assigned_by_name(self, obj):
-        user = obj.assigned_by
-        return getattr(user, 'name', None) or getattr(user, 'email', str(user))
+        try:
+            user = obj.assigned_by
+            if user is None:
+                return ''
+            return (
+                getattr(user, 'full_name', None)
+                or getattr(user, 'name', None)
+                or getattr(user, 'first_name', None)
+                or getattr(user, 'email', None)
+                or getattr(user, 'username', None)
+                or str(user)
+            )
+        except Exception:
+            return ''
 
 
 class WarehouseTaskCreateSerializer(serializers.ModelSerializer):
