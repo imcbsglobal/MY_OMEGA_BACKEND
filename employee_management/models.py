@@ -119,11 +119,12 @@ class Employee(models.Model):
         blank=True,
         help_text='E.g., Full-time, Part-time, Intern'
     )
-    department = models.CharField(
-        max_length=128, 
-        null=True, 
+    # Allow multiple departments per employee using Department model
+    department = models.ManyToManyField(
+        'cv_management.Department',
         blank=True,
-        help_text='Department name'
+        related_name='employees',
+        help_text='Departments this employee belongs to'
     )
     designation = models.CharField(
         max_length=128, 

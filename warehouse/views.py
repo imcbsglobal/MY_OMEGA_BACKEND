@@ -222,6 +222,8 @@ def duty_report(request):
             'total_work': task.total_work,
             'completion_percentage': task.completion_percentage,
             'due_date': str(task.due_date),
+            'start_time': str(task.start_time) if task.start_time else None,
+            'end_time': str(task.end_time) if task.end_time else None,
             'duration_display': task.duration_display,
             'duration_hours': task.duration_hours,
         })

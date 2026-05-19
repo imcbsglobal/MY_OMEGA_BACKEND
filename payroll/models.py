@@ -124,3 +124,52 @@ class PayrollAllowance(models.Model):
 
     def __str__(self):
         return f"{self.payroll} - {self.allowance_type}"
+
+
+class SalaryIncrement(models.Model):
+    CYCLE_CHOICES = [
+        ('Custom / Manual', 'Custom / Manual'),
+        ('Monthly', 'Monthly'),
+        ('Quarterly', 'Quarterly'),
+        ('Semi-Annual', 'Semi-Annual'),
+        ('Annual', 'Annual'),
+    ]
+
+    employee = models.ForeignKey(
+        'employee_management.Employee',
+        on_delete=models.CASCADE,
+        related_name='salary_increments'
+    )
+    
+    increment_date = models.DateField()
+    previous_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    new_salary = models.DecimalField(max_digits=12, decimal_places=2)
+    increment_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    increment_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    
+    increment_cycle = models.CharField(
+        max_length=20,
+        choices=CYCLE_CHOICES,
+        default='Custom / Manual'
+    )
+    next_increment_date = models.DateField(null=True, blank=True)
+    
+    notes = models.TextField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_increments'
+    )
+
+    class Meta:
+        ordering = ['-increment_date']
+        db_table = 'payroll_salarincrement'
+
+    def __str__(self):
+        emp_name = getattr(self.employee, 'name', None) or getattr(self.employee, 'employee_id', None)
+        return f"{emp_name} - {self.increment_date} (INR {self.increment_amount})"

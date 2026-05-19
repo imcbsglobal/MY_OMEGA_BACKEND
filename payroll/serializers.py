@@ -1,7 +1,7 @@
 # payroll/serializers.py - Fixed with defensive employee name handling
 
 from rest_framework import serializers
-from .models import Payroll, PayrollDeduction, PayrollAllowance
+from .models import Payroll, PayrollDeduction, PayrollAllowance, SalaryIncrement
 
 
 # =========================
@@ -542,6 +542,128 @@ def get_employee_name_for_pdf(employee):
     # Fallback to employee_id or id
     emp_id = getattr(employee, 'employee_id', None) or getattr(employee, 'id', None)
     return f'Employee {emp_id}' if emp_id else 'Unknown'
+
+
+# =========================
+# SALARY INCREMENT
+# =========================
+class SalaryIncrementSerializer(serializers.ModelSerializer):
+    employee_id = serializers.IntegerField(source='employee.id', read_only=True)
+    employee_name = serializers.SerializerMethodField()
+    employee_code = serializers.SerializerMethodField()
+    employee_role = serializers.SerializerMethodField()
+    employee_department = serializers.SerializerMethodField()
+    created_by_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SalaryIncrement
+        fields = [
+            'id',
+            'employee_id',
+            'employee_name',
+            'employee_code',
+            'employee_role',
+            'employee_department',
+            'increment_date',
+            'previous_salary',
+            'new_salary',
+            'increment_amount',
+            'increment_percent',
+            'increment_cycle',
+            'next_increment_date',
+            'notes',
+            'created_at',
+            'updated_at',
+            'created_by_email',
+        ]
+
+    def get_employee_name(self, obj):
+        if not obj.employee:
+            return 'Unknown'
+        return (
+            getattr(obj.employee, 'full_name', None)
+            or getattr(obj.employee, 'name', None)
+            or getattr(obj.employee, 'employee_id', 'Unknown')
+        )
+
+    def get_employee_code(self, obj):
+        if not obj.employee:
+            return 'N/A'
+        return getattr(obj.employee, 'employee_id', 'N/A')
+
+    def get_employee_role(self, obj):
+        if not obj.employee:
+            return 'N/A'
+        return getattr(obj.employee, 'designation', None) or getattr(obj.employee, 'role', 'N/A')
+
+    def get_employee_department(self, obj):
+        if not obj.employee:
+            return 'N/A'
+        try:
+            departments = obj.employee.department.all()
+            names = [department.name for department in departments if getattr(department, 'name', None)]
+            if names:
+                return ', '.join(names)
+        except Exception:
+            pass
+
+        for field in ['dept', 'company_department']:
+            if hasattr(obj.employee, field):
+                value = getattr(obj.employee, field)
+                if value:
+                    return str(value)
+        return 'N/A'
+
+    def get_created_by_email(self, obj):
+        if obj.created_by:
+            return getattr(obj.created_by, 'email', 'system')
+        return 'system'
+
+
+class SalaryIncrementListSerializer(serializers.ModelSerializer):
+    employee_id = serializers.IntegerField(source='employee.id', read_only=True)
+    employee_name = serializers.SerializerMethodField()
+    employee_code = serializers.SerializerMethodField()
+    previous_salary = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    new_salary = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    created_by_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SalaryIncrement
+        fields = [
+            'id',
+            'employee_id',
+            'employee_name',
+            'employee_code',
+            'previous_salary',
+            'new_salary',
+            'increment_date',
+            'increment_amount',
+            'increment_percent',
+            'increment_cycle',
+            'next_increment_date',
+            'created_at',
+            'created_by_email',
+        ]
+
+    def get_employee_name(self, obj):
+        if not obj.employee:
+            return 'Unknown'
+        return (
+            getattr(obj.employee, 'full_name', None)
+            or getattr(obj.employee, 'name', None)
+            or getattr(obj.employee, 'employee_id', 'Unknown')
+        )
+
+    def get_employee_code(self, obj):
+        if not obj.employee:
+            return 'N/A'
+        return getattr(obj.employee, 'employee_id', 'N/A')
+
+    def get_created_by_email(self, obj):
+        if obj.created_by:
+            return getattr(obj.created_by, 'email', 'system')
+        return 'system'
 
 
 def generate_payslip_pdf(payroll):

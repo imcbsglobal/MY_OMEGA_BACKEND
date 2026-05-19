@@ -478,24 +478,24 @@ class Command(BaseCommand):
                 "order": 8,
                 "children": [
                     {
-                        "name": "Warehouse Duty Report",
-                        "key": "report_warehouse_duty",
-                        "path": "/warehouse/duty-report",
-                        "icon": "📋",
+                        "name": "Call Target Report",
+                        "key": "report_call_target",
+                        "path": "/target/call-target-report",
+                        "icon": "📞",
                         "order": 1,
-                    },
-                    {
-                        "name": "Travel Report",
-                        "key": "report_travel",
-                        "path": "/vehicle/travel-report",
-                        "icon": "🗺️",
-                        "order": 2,
                     },
                     {
                         "name": "Delivery Report",
                         "key": "report_delivery",
                         "path": "/delivery-management/report",
                         "icon": "🚚",
+                        "order": 2,
+                    },
+                    {
+                        "name": "Marketing Target Report",
+                        "key": "report_marketing_target",
+                        "path": "/target/marketing-target-report",
+                        "icon": "📢",
                         "order": 3,
                     },
                     {
@@ -506,17 +506,17 @@ class Command(BaseCommand):
                         "order": 4,
                     },
                     {
-                        "name": "Call Target Report",
-                        "key": "report_call_target",
-                        "path": "/target/call-target-report",
-                        "icon": "📞",
+                        "name": "Travel Report",
+                        "key": "report_travel",
+                        "path": "/vehicle/travel-report",
+                        "icon": "🗺️",
                         "order": 5,
                     },
                     {
-                        "name": "Marketing Target Report",
-                        "key": "report_marketing_target",
-                        "path": "/target/marketing-target-report",
-                        "icon": "📢",
+                        "name": "Warehouse Duty Report",
+                        "key": "report_warehouse_duty",
+                        "path": "/warehouse/duty-report",
+                        "icon": "📋",
                         "order": 6,
                     },
                 ],
@@ -655,6 +655,6 @@ class Command(BaseCommand):
         self.stdout.write("   4. Warehouse Management — /under-construction (direct link)")
         self.stdout.write("   5. Delivery Management — List Deliveries, Create Delivery, Employee Delivery View, Courier")
         self.stdout.write("   6. User Management     — Add User, User Control")
-        self.stdout.write("   8. Report              — Warehouse Duty, Travel, Delivery, Route Target, Call Target, Marketing Target")
+        self.stdout.write("   8. Report              — Call Target, Delivery, Marketing Target, Route Target, Travel, Warehouse Duty")
         self.stdout.write("   9. Master              — Department, Vehicle Master")
         self.stdout.write("\n" + "=" * 110 + "\n")

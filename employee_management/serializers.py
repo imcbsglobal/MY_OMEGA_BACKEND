@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from django.apps import apps
 from .models import Employee, EmployeeDocument
+from cv_management.models import Department
 
 # Try to get AppUser model
 UserModel = None
@@ -24,6 +25,7 @@ class JobInfoSerializer(serializers.ModelSerializer):
     reporting_manager_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
     user_name = serializers.SerializerMethodField()
+    department = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -66,6 +68,13 @@ class JobInfoSerializer(serializers.ModelSerializer):
                     return value
 
         return str(u)
+
+    def get_department(self, obj):
+        try:
+            return [d.name for d in obj.department.all()]
+        except Exception:
+            val = getattr(obj, 'department', None)
+            return [val] if isinstance(val, str) and val else []
 
 
 class ContactInfoSerializer(serializers.ModelSerializer):
@@ -122,6 +131,8 @@ class EmployeeListSerializer(serializers.ModelSerializer):
             'job_info', 'phone_number', 'work_type'
         ]
 
+    department = serializers.SerializerMethodField()
+
     def get_full_name(self, obj):
         return obj.get_full_name()
 
@@ -143,6 +154,12 @@ class EmployeeListSerializer(serializers.ModelSerializer):
 
     def get_profile_picture(self, obj):
         return self.get_avatar_url(obj)
+
+    def get_department(self, obj):
+        try:
+            return [d.name for d in obj.department.all()]
+        except Exception:
+            return getattr(obj, 'department', '')
 
 
 class EmployeeDetailSerializer(serializers.ModelSerializer):
@@ -228,6 +245,8 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
             'documents',
         ]
 
+    department = serializers.SerializerMethodField()
+
     def get_full_name(self, obj):
         return obj.get_full_name()
 
@@ -241,6 +260,12 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
         if obj.user and hasattr(obj.user, "photo") and obj.user.photo:
             return request.build_absolute_uri(obj.user.photo.url) if request else obj.user.photo.url
         return None
+
+    def get_department(self, obj):
+        try:
+            return [d.name for d in obj.department.all()]
+        except Exception:
+            return getattr(obj, 'department', '')
 
 
 class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
@@ -318,6 +343,30 @@ class EmployeeCreateUpdateSerializer(serializers.ModelSerializer):
             'work_type',
             'is_active',
         ]
+
+    # Accept department ids for ManyToMany relation
+    department = serializers.PrimaryKeyRelatedField(many=True, queryset=Department.objects.all(), required=False)
+
+    def create(self, validated_data):
+        dept = validated_data.pop('department', None)
+        instance = super().create(validated_data)
+        if dept is not None:
+            try:
+                instance.department.set(dept)
+            except Exception:
+                # fallback: ignore if unable to set
+                pass
+        return instance
+
+    def update(self, instance, validated_data):
+        dept = validated_data.pop('department', None)
+        instance = super().update(instance, validated_data)
+        if dept is not None:
+            try:
+                instance.department.set(dept)
+            except Exception:
+                pass
+        return instance
 
     def validate_user(self, value):
         if self.instance is None:

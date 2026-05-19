@@ -28,6 +28,8 @@ class WarehouseTaskSerializer(serializers.ModelSerializer):
             'remarks',
             'start_datetime',
             'completed_datetime',
+            'start_time',
+            'end_time',
             'duration_display',
             'duration_hours',
             'created_at',
@@ -69,7 +71,7 @@ class WarehouseTaskCreateSerializer(serializers.ModelSerializer):
 class WarehouseTaskUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = WarehouseTask
-        fields = ['completed_work', 'status', 'remarks']
+        fields = ['completed_work', 'status', 'remarks', 'start_time', 'end_time']
 
     def validate(self, data):
         instance = self.instance

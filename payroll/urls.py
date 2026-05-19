@@ -1,10 +1,11 @@
-# payroll/urls.py - UPDATED WITH ATTENDANCE SUMMARY ENDPOINTS
+# payroll/urls.py - UPDATED WITH SALARY INCREMENT ENDPOINTS
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     PayrollViewSet,
     PayrollAllowanceViewSet,
+    SalaryIncrementViewSet,
     DeductionListView,
     AllowanceListView,
     AddDeductionView,
@@ -17,8 +18,19 @@ from .views import (
 router = DefaultRouter()
 router.register(r'', PayrollViewSet, basename='payroll')
 router.register(r'allowances', PayrollAllowanceViewSet, basename='payroll-allowances')
+router.register(r'salary-increments', SalaryIncrementViewSet, basename='salary-increments')
 
 urlpatterns = [
+    # ==================== SALARY INCREMENT ENDPOINTS ====================
+    path('salary-increments/', SalaryIncrementViewSet.as_view({'get': 'list', 'post': 'create'}), name='salary-increments-list'),
+    path('salary-increments/<int:pk>/', SalaryIncrementViewSet.as_view({
+        'get': 'retrieve', 
+        'put': 'update', 
+        'patch': 'partial_update', 
+        'delete': 'destroy'
+    }), name='salary-increments-detail'),
+    path('salary-increments/employee/<int:employee_id>/', SalaryIncrementViewSet.as_view({'get': 'by_employee'}), name='salary-increments-by-employee'),
+    
     # ==================== NEW ATTENDANCE SUMMARY ENDPOINTS ====================
     # Get attendance summary for single employee
     path('attendance-summary/', 

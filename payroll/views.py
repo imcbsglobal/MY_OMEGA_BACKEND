@@ -10,10 +10,11 @@ from rest_framework.views import APIView
 from django.http import HttpResponse
 from django.db.models import Sum, Q
 
-from .models import Payroll, PayrollDeduction, PayrollAllowance
+from .models import Payroll, PayrollDeduction, PayrollAllowance, SalaryIncrement
 from .serializers import (
     PayrollSerializer, PayrollListSerializer,
     PayrollDeductionSerializer, PayrollAllowanceSerializer,
+    SalaryIncrementSerializer, SalaryIncrementListSerializer,
     generate_payslip_pdf
 )
 from .services import PayrollCalculationService
@@ -875,3 +876,214 @@ def all_attendance_summaries(self, request):
     Can be called as: /api/payroll/all_attendance_summaries/?month=November&year=2024
     """
     return get_all_employees_attendance_summary(request)        
+
+
+# =========================
+# SALARY INCREMENT VIEWSET
+# =========================
+class SalaryIncrementViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing employee salary increments
+    Endpoints:
+    - GET /api/payroll/salary-increments/ - List all increments
+    - POST /api/payroll/salary-increments/ - Create new increment
+    - GET /api/payroll/salary-increments/{id}/ - Get specific increment
+    - PUT /api/payroll/salary-increments/{id}/ - Update increment
+    - DELETE /api/payroll/salary-increments/{id}/ - Delete increment
+    - GET /api/payroll/salary-increments/employee/{employee_id}/ - Get all increments for employee
+    """
+    permission_classes = [permissions.AllowAny]
+    queryset = SalaryIncrement.objects.select_related('employee', 'created_by').all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return SalaryIncrementListSerializer
+        return SalaryIncrementSerializer
+
+    def get_queryset(self):
+        qs = SalaryIncrement.objects.select_related('employee', 'created_by').all()
+        
+        # Filter by employee if provided
+        employee_id = self.request.query_params.get('employee_id')
+        if employee_id:
+            qs = qs.filter(employee_id=employee_id)
+        
+        # Filter by date range if provided
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(increment_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(increment_date__lte=date_to)
+        
+        return qs.order_by('-increment_date')
+
+    @action(detail=False, methods=['get'], url_path='employee/(?P<employee_id>[^/.]+)')
+    def by_employee(self, request, employee_id=None):
+        """
+        Get all increments for a specific employee
+        GET /api/payroll/salary-increments/employee/{employee_id}/
+        """
+        if not employee_id:
+            return Response(
+                {'error': 'employee_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            employee = Employee.objects.get(id=employee_id)
+        except Employee.DoesNotExist:
+            return Response(
+                {'error': 'Employee not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        increments = SalaryIncrement.objects.filter(
+            employee=employee
+        ).select_related('employee', 'created_by').order_by('-increment_date')
+        
+        # Get employee current salary from latest increment
+        latest_increment = increments.first()
+        current_salary = latest_increment.new_salary if latest_increment else (employee.basic_salary or employee.gross_salary or 0)
+        
+        # Get employee details
+        emp_name = getattr(employee, 'full_name', None) or getattr(employee, 'name', None) or getattr(employee, 'employee_id', f'Employee_{employee_id}')
+        emp_code = getattr(employee, 'employee_id', 'N/A')
+        emp_role = getattr(employee, 'designation', None) or getattr(employee, 'role', 'N/A')
+        try:
+            emp_dept = ', '.join(
+                department.name
+                for department in employee.department.all()
+                if getattr(department, 'name', None)
+            ) or 'N/A'
+        except Exception:
+            emp_dept = 'N/A'
+        
+        if not current_salary:
+            current_salary = 0
+        
+        serializer = SalaryIncrementListSerializer(increments, many=True)
+        
+        return Response({
+            'success': True,
+            'employee': {
+                'id': employee.id,
+                'name': emp_name,
+                'code': emp_code,
+                'role': emp_role,
+                'department': emp_dept,
+            },
+            'current_salary': float(current_salary) if current_salary else 0,
+            'total_increments': increments.count(),
+            'increments': serializer.data,
+        })
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new salary increment
+        POST /api/payroll/salary-increments/
+        
+        Request body:
+        {
+            "employee_id": 1,
+            "increment_date": "2026-05-14",
+            "previous_salary": 25000,
+            "new_salary": 28000,
+            "increment_cycle": "Custom / Manual",
+            "next_increment_date": "2026-06-10",
+            "notes": "Annual performance increment"
+        }
+        """
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['employee_id', 'increment_date', 'previous_salary', 'new_salary']
+        for field in required_fields:
+            if field not in data or data[field] is None:
+                return Response(
+                    {'error': f'{field} is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        try:
+            employee = Employee.objects.get(id=data['employee_id'])
+        except Employee.DoesNotExist:
+            return Response(
+                {'error': 'Employee not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Calculate increment values
+        try:
+            prev_salary = Decimal(str(data['previous_salary']))
+            new_salary = Decimal(str(data['new_salary']))
+            increment_amount = new_salary - prev_salary
+            increment_percent = (increment_amount / prev_salary * 100) if prev_salary > 0 else Decimal('0')
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'Invalid salary values'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create increment
+        try:
+            increment = SalaryIncrement.objects.create(
+                employee=employee,
+                increment_date=data['increment_date'],
+                previous_salary=prev_salary,
+                new_salary=new_salary,
+                increment_amount=increment_amount,
+                increment_percent=increment_percent,
+                increment_cycle=data.get('increment_cycle', 'Custom / Manual'),
+                next_increment_date=data.get('next_increment_date'),
+                notes=data.get('notes', ''),
+                created_by=request.user if request.user.is_authenticated else None,
+            )
+            
+            serializer = SalaryIncrementSerializer(increment)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create increment: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update an existing salary increment
+        PUT /api/payroll/salary-increments/{id}/
+        """
+        increment = self.get_object()
+        data = request.data
+        
+        # Update fields if provided
+        if 'increment_date' in data:
+            increment.increment_date = data['increment_date']
+        
+        if 'previous_salary' in data and 'new_salary' in data:
+            prev_salary = Decimal(str(data['previous_salary']))
+            new_salary = Decimal(str(data['new_salary']))
+            increment.previous_salary = prev_salary
+            increment.new_salary = new_salary
+            increment.increment_amount = new_salary - prev_salary
+            increment.increment_percent = (increment.increment_amount / prev_salary * 100) if prev_salary > 0 else Decimal('0')
+        
+        if 'increment_cycle' in data:
+            increment.increment_cycle = data['increment_cycle']
+        
+        if 'next_increment_date' in data:
+            increment.next_increment_date = data['next_increment_date']
+        
+        if 'notes' in data:
+            increment.notes = data['notes']
+        
+        try:
+            increment.save()
+            serializer = SalaryIncrementSerializer(increment)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to update increment: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )

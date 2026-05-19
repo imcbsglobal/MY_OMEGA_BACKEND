@@ -6,7 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
 
-from .models import Vehicle, Trip, VehicleChallan
+from .models import Vehicle, Trip, VehicleChallan, Maintenance
 from .serializers import (
     VehicleListSerializer,
     VehicleDetailSerializer,
@@ -21,6 +21,8 @@ from .serializers import (
     VehicleChallanCreateSerializer,
     VehicleChallanUpdateSerializer,
     ChallanPaymentSerializer,
+    MaintenanceSerializer,
+    MaintenanceCreateUpdateSerializer,
 )
 
 
@@ -191,7 +193,7 @@ class TripListAPIView(generics.ListAPIView):
         # Filter by status
         status_filter = self.request.query_params.get('status', None)
         if status_filter:
-            queryset = queryset.filter(status=status_filter)
+            queryset = queryset.filter(status__iexact=status_filter)
         
         # Filter by vehicle
         vehicle_id = self.request.query_params.get('vehicle', None)
@@ -608,3 +610,107 @@ def owner_challans(request):
     
     serializer = VehicleChallanListSerializer(challans, many=True, context={'request': request})
     return Response(serializer.data)
+
+
+# ==================== MAINTENANCE VIEWS ====================
+
+class MaintenanceListCreateAPIView(generics.ListCreateAPIView):
+    """
+    GET: List all maintenance records
+    POST: Create new maintenance record
+    """
+    queryset = Maintenance.objects.all()
+    permission_classes = [permissions.AllowAny]
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return MaintenanceCreateUpdateSerializer
+        return MaintenanceSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Search functionality
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(vehicle_name__icontains=search) |
+                Q(vehicle_number__icontains=search) |
+                Q(driver_name__icontains=search) |
+                Q(service_center_name__icontains=search)
+            )
+        
+        # Filter by status
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        # Pagination
+        page_size = self.request.query_params.get('page_size', 10)
+        
+        return queryset.order_by('-service_date', '-created_at')
+    
+    def perform_create(self, serializer):
+        """Save maintenance record with created_by"""
+        if self.request.user.is_authenticated:
+            serializer.save(created_by=self.request.user)
+        else:
+            serializer.save()
+
+
+class MaintenanceDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET: Retrieve maintenance record detail
+    PUT/PATCH: Update maintenance record
+    DELETE: Delete maintenance record
+    """
+    queryset = Maintenance.objects.all()
+    permission_classes = [permissions.AllowAny]
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return MaintenanceCreateUpdateSerializer
+        return MaintenanceSerializer
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def maintenance_list_paginated(request):
+    """
+    Get paginated maintenance records with filters
+    """
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 10))
+    search = request.query_params.get('search', '')
+    status_filter = request.query_params.get('status', '')
+    
+    queryset = Maintenance.objects.all()
+    
+    # Apply filters
+    if search:
+        queryset = queryset.filter(
+            Q(vehicle_name__icontains=search) |
+            Q(vehicle_number__icontains=search) |
+            Q(driver_name__icontains=search)
+        )
+    
+    if status_filter and status_filter.lower() != 'all':
+        queryset = queryset.filter(status__iexact=status_filter)
+    
+    # Count total
+    total_count = queryset.count()
+    
+    # Paginate
+    start = (page - 1) * page_size
+    end = start + page_size
+    maintenance_records = queryset.order_by('-service_date', '-created_at')[start:end]
+    
+    serializer = MaintenanceSerializer(maintenance_records, many=True, context={'request': request})
+    
+    return Response({
+        'count': total_count,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total_count + page_size - 1) // page_size,
+        'results': serializer.data,
+    })

@@ -672,3 +672,178 @@ class VehicleChallan(models.Model):
         """Calculate days since challan was issued"""
         from datetime import date
         return (date.today() - self.challan_date).days
+
+
+class Maintenance(models.Model):
+    """
+    Vehicle Maintenance Records - tracks all maintenance and service activities
+    """
+    
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('In-Progress', 'In Progress'),
+        ('Completed', 'Completed'),
+    ]
+    
+    # Vehicle Information
+    vehicle_name = models.CharField(
+        max_length=255,
+        verbose_name='Vehicle Name'
+    )
+    
+    vehicle_number = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name='Vehicle Number/Registration'
+    )
+    
+    driver_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='Driver Name'
+    )
+    
+    # Service Date & Information
+    service_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Service Date'
+    )
+    
+    service_center_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='Service Center Name'
+    )
+    
+    # Odometer Reading
+    odometer_reading = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Odometer Reading (KM)'
+    )
+    
+    # Services Performed
+    engine_oil_change = models.BooleanField(
+        default=False,
+        verbose_name='Engine Oil Change'
+    )
+    
+    tyre_replacement = models.BooleanField(
+        default=False,
+        verbose_name='Tyre Replacement'
+    )
+    
+    battery_replacement = models.BooleanField(
+        default=False,
+        verbose_name='Battery Replacement'
+    )
+    
+    brake_service = models.BooleanField(
+        default=False,
+        verbose_name='Brake Service'
+    )
+    
+    insurance_renewal = models.BooleanField(
+        default=False,
+        verbose_name='Insurance Renewal'
+    )
+    
+    puc_renewal = models.BooleanField(
+        default=False,
+        verbose_name='PUC Renewal'
+    )
+    
+    road_tax_renewal = models.BooleanField(
+        default=False,
+        verbose_name='Road Tax Renewal'
+    )
+    
+    general_repair = models.BooleanField(
+        default=False,
+        verbose_name='General Repair'
+    )
+    # Optional human-friendly service_type (was previously modelled via booleans)
+    service_type = models.CharField(
+        max_length=128,
+        null=True,
+        blank=True,
+        verbose_name='Service Type'
+    )
+    
+    # Next Service Due
+    next_service_due_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Next Service Due Date'
+    )
+    
+    # Maintenance Image
+    maintenance_image = models.ImageField(
+        upload_to='maintenance_images/',
+        null=True,
+        blank=True,
+        verbose_name='Maintenance Image'
+    )
+    
+    # Status & Remarks
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='Pending',
+        verbose_name='Status'
+    )
+    
+    remarks = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Remarks / Notes'
+    )
+    
+    # Audit Fields
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_maintenance_records',
+        verbose_name='Created By'
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'vehicle_management_maintenance'
+        verbose_name = 'Vehicle Maintenance'
+        verbose_name_plural = 'Vehicle Maintenance Records'
+        ordering = ['-service_date', '-created_at']
+    
+    def __str__(self):
+        return f"Maintenance {self.id} - {self.vehicle_name} ({self.service_date})"
+    
+    @property
+    def services_performed(self):
+        """Get list of all services performed"""
+        services = []
+        if self.engine_oil_change:
+            services.append('Engine Oil Change')
+        if self.tyre_replacement:
+            services.append('Tyre Replacement')
+        if self.battery_replacement:
+            services.append('Battery Replacement')
+        if self.brake_service:
+            services.append('Brake Service')
+        if self.insurance_renewal:
+            services.append('Insurance Renewal')
+        if self.puc_renewal:
+            services.append('PUC Renewal')
+        if self.road_tax_renewal:
+            services.append('Road Tax Renewal')
+        if self.general_repair:
+            services.append('General Repair')
+        return services if services else ['None']

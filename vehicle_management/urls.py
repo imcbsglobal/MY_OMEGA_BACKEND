@@ -102,4 +102,21 @@ urlpatterns = [
     path('challans/my-challans/', 
          views.owner_challans, 
          name='my-challans'),
+    
+    # ==================== MAINTENANCE ENDPOINTS ====================
+    
+    # Maintenance List & Create
+    path('maintenance/', 
+         views.MaintenanceListCreateAPIView.as_view(), 
+         name='maintenance-list-create'),
+    
+    # Maintenance paginated list with filters
+    path('maintenance/list/', 
+         views.maintenance_list_paginated, 
+         name='maintenance-list-paginated'),
+    
+    # Maintenance Detail, Update, Delete
+    path('maintenance/<int:pk>/', 
+         views.MaintenanceDetailAPIView.as_view(), 
+         name='maintenance-detail'),
 ]

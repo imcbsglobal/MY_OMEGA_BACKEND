@@ -1,6 +1,10 @@
 # employee_management/views.py
 # TEMPORARY: Authentication disabled for development
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+import logging
+
+logger = logging.getLogger(__name__)
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Q
@@ -21,6 +25,7 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
     queryset = Employee.objects.select_related('user').all()
     # TEMPORARY: Allow any access for development
     permission_classes = [permissions.AllowAny]  # Change back to IsAuthenticated in production!
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -38,7 +43,7 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
                 Q(user__name__icontains=search) |
                 Q(user__email__icontains=search) |
                 Q(designation__icontains=search) |
-                Q(department__icontains=search)
+                Q(department__name__icontains=search)
             )
 
         # Filter by employee is_active status only (Employee.is_active is independent of AppUser.is_active)
@@ -53,11 +58,55 @@ class EmployeeListAPIView(generics.ListCreateAPIView):
         return queryset.order_by('-created_at')
     
     def perform_create(self, serializer):
+        # Log incoming payload for debugging
+        try:
+            logger.info("Employee create payload: %s", getattr(self.request, 'data', {}))
+        except Exception:
+            pass
+
         # Save without created_by if user is not authenticated
         if self.request.user.is_authenticated:
             serializer.save(created_by=self.request.user)
         else:
             serializer.save()
+
+    def create(self, request, *args, **kwargs):
+        # Override to log validation errors when creation fails
+        logger.info("Employee POST received: files=%s data=%s", bool(request.FILES), request.data)
+        # Coerce repeated 'department' fields from multipart/form into a list
+        data = request.data
+        try:
+            # QueryDict supports getlist; make a mutable copy
+            if hasattr(request.data, 'getlist'):
+                data = request.data.copy()
+                dept_list = request.data.getlist('department')
+                if dept_list:
+                    data.setlist('department', dept_list)
+        except Exception:
+            pass
+
+        # Ensure single string department becomes a list for serializer without clobbering getlist
+        dept_value = None
+        try:
+            dept_value = data.get('department', None)
+        except Exception:
+            dept_value = None
+        if dept_value is not None and not isinstance(dept_value, (list, tuple)):
+            try:
+                if hasattr(data, 'getlist') and data.getlist('department'):
+                    data.setlist('department', data.getlist('department'))
+                else:
+                    data['department'] = [dept_value]
+            except Exception:
+                pass
+
+        serializer = self.get_serializer(data=data)
+        if not serializer.is_valid():
+            logger.error("Employee create validation errors: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class EmployeeDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -71,11 +120,50 @@ class EmployeeDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     ).prefetch_related('additional_documents')
     # TEMPORARY: Allow any access for development
     permission_classes = [permissions.AllowAny]  # Change back to IsAuthenticated in production!
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
             return EmployeeCreateUpdateSerializer
         return EmployeeDetailSerializer
+
+    def update(self, request, *args, **kwargs):
+        # Log incoming payload for debugging
+        logger.info("Employee UPDATE received: files=%s data=%s", bool(request.FILES), request.data)
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        data = request.data
+        try:
+            if hasattr(request.data, 'getlist'):
+                data = request.data.copy()
+                dept_list = request.data.getlist('department')
+                if dept_list:
+                    data.setlist('department', dept_list)
+        except Exception:
+            pass
+
+        # Ensure single string department becomes a list for serializer without clobbering getlist
+        dept_value = None
+        try:
+            dept_value = data.get('department', None)
+        except Exception:
+            dept_value = None
+        if dept_value is not None and not isinstance(dept_value, (list, tuple)):
+            try:
+                if hasattr(data, 'getlist') and data.getlist('department'):
+                    data.setlist('department', data.getlist('department'))
+                else:
+                    data['department'] = [dept_value]
+            except Exception:
+                pass
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        if not serializer.is_valid():
+            logger.error("Employee update validation errors: %s", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 @api_view(['GET'])
@@ -97,12 +185,17 @@ def employees_sidebar(request):
             except:
                 pass
         
+        try:
+            dept_list = [d.name for d in emp.department.all()]
+        except Exception:
+            dept_list = [emp.department] if emp.department else []
+
         result.append({
             'id': emp.id,
             'employee_id': emp.employee_id or '',
             'name': emp.get_full_name(),
             'designation': emp.designation or '',
-            'department': emp.department or '',
+            'department': dept_list,
             'avatar': avatar_url
         })
     

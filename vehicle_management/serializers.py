@@ -1,7 +1,7 @@
 # vehicle_management/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Vehicle, Trip, VehicleChallan
+from .models import Vehicle, Trip, VehicleChallan, Maintenance
 from datetime import datetime
 
 # Always get the correct user model — never None, never a string
@@ -761,3 +761,94 @@ class ChallanPaymentSerializer(serializers.ModelSerializer):
         if not validated_data.get('payment_date'):
             validated_data['payment_date'] = datetime.now().date()
         return super().update(instance, validated_data)
+
+
+class MaintenanceSerializer(serializers.ModelSerializer):
+    """Serializer for vehicle maintenance records"""
+    services_performed = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Maintenance
+        fields = [
+            'id',
+            'vehicle_name',
+            'vehicle_number',
+            'driver_name',
+            'service_date',
+            'service_center_name',
+            'odometer_reading',
+            'engine_oil_change',
+            'tyre_replacement',
+            'battery_replacement',
+            'brake_service',
+            'insurance_renewal',
+            'puc_renewal',
+            'road_tax_renewal',
+            'general_repair',
+            'service_type',
+            'next_service_due_date',
+            'maintenance_image',
+            'status',
+            'remarks',
+            'services_performed',
+            'created_by_name',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'services_performed', 'created_by_name']
+    
+    def get_services_performed(self, obj):
+        """Get list of all services performed"""
+        return obj.services_performed
+    
+    def get_created_by_name(self, obj):
+        """Get creator's name"""
+        if obj.created_by:
+            return getattr(obj.created_by, 'name', obj.created_by.email)
+        return None
+
+
+class MaintenanceCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for creating and updating maintenance records"""
+    
+    class Meta:
+        model = Maintenance
+        fields = [
+            'vehicle_name',
+            'vehicle_number',
+            'driver_name',
+            'service_date',
+            'service_center_name',
+            'odometer_reading',
+            'engine_oil_change',
+            'tyre_replacement',
+            'battery_replacement',
+            'brake_service',
+            'insurance_renewal',
+            'puc_renewal',
+            'road_tax_renewal',
+            'general_repair',
+            'service_type',
+            'next_service_due_date',
+            'maintenance_image',
+            'status',
+            'remarks',
+        ]
+    
+    
+    def validate_service_date(self, value):
+        """Ensure service date is not in the future"""
+        from datetime import date
+        if value is None:
+            return value
+        if value > date.today():
+            raise serializers.ValidationError("Service date cannot be in the future.")
+        return value
+    
+    def create(self, validated_data):
+        """Create maintenance record"""
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)

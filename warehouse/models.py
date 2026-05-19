@@ -34,6 +34,8 @@ class WarehouseTask(models.Model):
     remarks = models.TextField(null=True, blank=True)
     start_datetime = models.DateTimeField(null=True, blank=True)
     completed_datetime = models.DateTimeField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True, help_text='Task start time (HH:MM)')
+    end_time = models.TimeField(null=True, blank=True, help_text='Task end time (HH:MM)')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

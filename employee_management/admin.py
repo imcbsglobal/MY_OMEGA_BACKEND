@@ -9,7 +9,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'employee_id', 
         'get_full_name', 
         'designation', 
-        'department', 
+        'get_departments', 
         'employment_status',
         'location',
         'is_active',
@@ -19,7 +19,6 @@ class EmployeeAdmin(admin.ModelAdmin):
         'is_active', 
         'employment_status', 
         'employment_type',
-        'department',
         'created_at'
     ]
     search_fields = [
@@ -27,7 +26,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         'user__email', 
         'user__name',
         'designation',
-        'department',
+        'department__name',
         'location'
     ]
     readonly_fields = ['created_at', 'updated_at']
@@ -115,6 +114,14 @@ class EmployeeAdmin(admin.ModelAdmin):
     def get_full_name(self, obj):
         return obj.get_full_name()
     get_full_name.short_description = 'Full Name'
+
+    def get_departments(self, obj):
+        try:
+            return ', '.join([d.name for d in obj.department.all()])
+        except Exception:
+            # Fallback for older string field
+            return getattr(obj, 'department', '') or ''
+    get_departments.short_description = 'Departments'
 
 
 @admin.register(EmployeeDocument)
