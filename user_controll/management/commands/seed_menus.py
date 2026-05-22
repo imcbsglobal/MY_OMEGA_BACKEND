@@ -252,6 +252,13 @@ class Command(BaseCommand):
                         "icon": "📋",
                         "order": 3,
                     },
+                    {
+                        "name": "Vehicle Maintenance",
+                        "key": "vehicle_maintenance",
+                        "path": "/vehicle/maintenance",
+                        "icon": "🔧",
+                        "order": 4,
+                    },
                 ],
             },
 

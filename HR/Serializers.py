@@ -9,6 +9,7 @@ from .models import (
 from master.models import LeaveMaster
 from master.serializers import LeaveMasterSerializer
 from User.models import AppUser
+from HR.utils.attendance_penalties import calculate_monthly_penalties
 
 
 # ========== LEAVE REQUEST SERIALIZERS ==========
@@ -284,6 +285,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
     verified_by_name = serializers.CharField(source='verified_by.name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     verification_status_display = serializers.CharField(source='get_verification_status_display', read_only=True)
+    attendance_penalty = serializers.SerializerMethodField()
     
     # Leave Master information
     leave_master_details = LeaveMasterSerializer(source='leave_master', read_only=True)
@@ -327,6 +329,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'status_display',
             'verification_status',
             'verification_status_display',
+            'attendance_penalty',
             # Leave Master fields
             'is_leave',
             'leave_master',
@@ -357,6 +360,27 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+
+    def get_attendance_penalty(self, obj):
+        cache = self.context.setdefault('_penalty_cache', {})
+        key = (obj.user_id, obj.date.year, obj.date.month)
+        if key not in cache:
+            cache[key] = calculate_monthly_penalties(obj.user, obj.date.year, obj.date.month)
+
+        per_date = cache[key].get('per_date', {})
+        return per_date.get(obj.date, {
+            'late_minutes': 0,
+            'late_bucket': None,
+            'late_grace_applied': False,
+            'late_deduction_days': 0.0,
+            'missed_punch': False,
+            'missed_punch_grace_applied': False,
+            'missed_punch_deduction_days': 0.0,
+            'early_exit_minutes': 0,
+            'early_exit_grace_applied': False,
+            'early_exit_deduction_days': 0.0,
+            'total_deduction_days': 0.0,
+        })
 
 
 class PunchInSerializer(serializers.Serializer):

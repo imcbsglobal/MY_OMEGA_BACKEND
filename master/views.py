@@ -5,8 +5,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import LeaveMaster
-from .serializers import LeaveMasterSerializer
+from .models import LeaveMaster, AssetMaster
+from .serializers import LeaveMasterSerializer, AssetMasterSerializer
 
 class LeaveMasterViewSet(viewsets.ModelViewSet):
     """
@@ -129,4 +129,93 @@ class LeaveMasterViewSet(viewsets.ModelViewSet):
                 'categories': categories,
                 'payment_statuses': payment_statuses
             }
+        })
+
+
+class AssetMasterViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for Asset Master management
+    
+    Endpoints:
+    - GET /api/master/assets/ - List all master assets
+    - POST /api/master/assets/ - Create new master asset
+    - GET /api/master/assets/{id}/ - Get specific master asset
+    - PUT /api/master/assets/{id}/ - Update master asset
+    - PATCH /api/master/assets/{id}/ - Partial update master asset
+    - DELETE /api/master/assets/{id}/ - Delete master asset
+    - GET /api/master/assets/active/ - Get only active master assets
+    """
+    queryset = AssetMaster.objects.all()
+    serializer_class = AssetMasterSerializer
+    permission_classes = [AllowAny]
+    
+    def list(self, request, *args, **kwargs):
+        """Get all master assets"""
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'success': True,
+            'data': serializer.data,
+            'count': queryset.count()
+        })
+    
+    def create(self, request, *args, **kwargs):
+        """Create new master asset"""
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Asset created successfully',
+                'data': serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get single master asset"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'success': True,
+            'data': serializer.data
+        })
+    
+    def update(self, request, *args, **kwargs):
+        """Update master asset"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Asset updated successfully',
+                'data': serializer.data
+            })
+        return Response({
+            'success': False,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete master asset"""
+        instance = self.get_object()
+        instance.delete()
+        return Response({
+            'success': True,
+            'message': 'Asset deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        """Get only active master assets"""
+        queryset = self.get_queryset().filter(is_active=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'success': True,
+            'data': serializer.data,
+            'count': queryset.count()
         })

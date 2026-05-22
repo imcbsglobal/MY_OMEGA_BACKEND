@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from django.db.models import Q, Sum
 from django.db import transaction
 from HR.models import Attendance, Holiday, EmployeeLeaveBalance
+from HR.utils.attendance_penalties import calculate_monthly_penalties
 from master.models import LeaveMaster
 
 
@@ -335,6 +336,11 @@ class PayrollCalculationService:
         leave_balance.unpaid_leave_taken += unpaid_leave_days
         leave_balance.save()
         
+        # Attendance penalty deductions (late/early/missed punch)
+        penalty_data = calculate_monthly_penalties(user_for_attendance, year, month)
+        penalty_summary = penalty_data['summary']
+        penalty_deduction_days = float(penalty_summary.get('total_deduction_days', 0))
+
         # Calculate totals
         total_working_days = total_days_in_month - sundays_count - total_paid_holidays
         
@@ -352,11 +358,11 @@ class PayrollCalculationService:
         # Total paid days = paid working days + Sundays + paid holidays
         total_paid_days = paid_working_days + sundays_count + total_paid_holidays
         
-        # Days to deduct from salary = unpaid leaves + not marked days
-        days_to_deduct = float(unpaid_leave_days) + not_marked_days
-        
+        # Days to deduct from salary = unpaid leaves + not marked days + penalties
+        days_to_deduct = float(unpaid_leave_days) + not_marked_days + penalty_deduction_days
+
         # Effective paid days for salary calculation
-        effective_paid_days = float(paid_working_days)
+        effective_paid_days = max(0.0, float(paid_working_days) - penalty_deduction_days)
         
         return {
             'month': month,
@@ -388,6 +394,42 @@ class PayrollCalculationService:
             'total_paid_days': float(total_paid_days),
             'days_to_deduct': days_to_deduct,
             'effective_paid_days': effective_paid_days,
+
+            # Attendance penalties
+            'penalty_deduction_days': penalty_deduction_days,
+            'penalty_counts': penalty_summary,
+            'penalty_items': [
+                {
+                    'name': 'Late <= 15 mins (grace exceeded)',
+                    'count': penalty_summary.get('late_under_15_deducted', 0),
+                    'deduction_days': float(penalty_summary.get('late_under_15_deducted', 0)) * 0.5,
+                },
+                {
+                    'name': 'Late 16-30 mins',
+                    'count': penalty_summary.get('late_16_30_count', 0),
+                    'deduction_days': float(penalty_summary.get('late_16_30_count', 0)) * 0.5,
+                },
+                {
+                    'name': 'Late 31-60 mins',
+                    'count': penalty_summary.get('late_31_60_count', 0),
+                    'deduction_days': float(penalty_summary.get('late_31_60_count', 0)) * 1.0,
+                },
+                {
+                    'name': 'Late over 60 mins (Absent)',
+                    'count': penalty_summary.get('late_over_60_count', 0),
+                    'deduction_days': float(penalty_summary.get('late_over_60_count', 0)) * 1.0,
+                },
+                {
+                    'name': 'Missed punch (after 1 grace)',
+                    'count': penalty_summary.get('missed_punch_deducted_count', 0),
+                    'deduction_days': float(penalty_summary.get('missed_punch_deducted_count', 0)) * 0.5,
+                },
+                {
+                    'name': 'Early exit >= 30 mins (after 1 grace)',
+                    'count': penalty_summary.get('early_exit_deducted_count', 0),
+                    'deduction_days': float(penalty_summary.get('early_exit_deducted_count', 0)) * 0.5,
+                },
+            ],
             
             # Leave balance information
             'leave_balance': {

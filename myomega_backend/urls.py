@@ -22,6 +22,7 @@ urlpatterns = [
 
     # Employee
     path('api/employee-management/', include('employee_management.urls')),
+    path('api/asset-management/', include('asset_management.urls')),
 
     # Payroll
     path('api/payroll/', include('payroll.urls')),

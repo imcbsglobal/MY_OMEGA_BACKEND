@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "offer_letter",
     'certificate_hub',
     'employee_management',
+    'asset_management',
     "payroll",
     'whatsapp_service',
     'master',

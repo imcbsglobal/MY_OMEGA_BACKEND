@@ -160,6 +160,8 @@ class PayrollViewSet(viewsets.ModelViewSet):
                     'mandatory_holidays': preview['attendance_breakdown']['mandatory_holidays'],
                     'special_holidays': preview['attendance_breakdown']['special_holidays'],
                     'total_paid_holidays': preview['attendance_breakdown']['total_paid_holidays'],
+                    'penalty_deduction_days': preview['attendance_breakdown'].get('penalty_deduction_days', 0),
+                    'penalty_items': preview['attendance_breakdown'].get('penalty_items', []),
                 },
                 
                 # Leave breakdown
@@ -696,6 +698,8 @@ def get_attendance_summary_for_payroll(request):
                 'effective_paid_days': attendance_data['effective_paid_days'],
                 'days_to_deduct': attendance_data['days_to_deduct'],
                 'not_marked_days': attendance_data['not_marked_days'],
+                'penalty_deduction_days': attendance_data.get('penalty_deduction_days', 0),
+                'penalty_items': attendance_data.get('penalty_items', []),
             },
             
             # Quick stats
