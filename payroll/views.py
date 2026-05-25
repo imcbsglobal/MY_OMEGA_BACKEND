@@ -103,9 +103,9 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 total=Sum('amount')
             )['total'] or Decimal('0.00')
             
-            deductions_total = payroll_obj.deduction_items.aggregate(
-                total=Sum('amount')
-            )['total'] or Decimal('0.00')
+            deductions_total = payroll_obj.deduction_items.exclude(
+                deduction_type='ATTENDANCE PENALTY'
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
             
             allowances = allowances_total
             deductions = deductions_total
@@ -144,6 +144,7 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 'deductions': preview['salary_calculation']['deductions'],
                 'tax': preview['salary_calculation']['tax'],
                 'net_pay': preview['salary_calculation']['net_pay'],
+                'penalty_deduction': preview.get('penalty_deduction', {}),
                 
                 # Days breakdown
                 'total_days_in_month': preview['attendance_breakdown']['total_days_in_month'],
@@ -160,8 +161,6 @@ class PayrollViewSet(viewsets.ModelViewSet):
                     'mandatory_holidays': preview['attendance_breakdown']['mandatory_holidays'],
                     'special_holidays': preview['attendance_breakdown']['special_holidays'],
                     'total_paid_holidays': preview['attendance_breakdown']['total_paid_holidays'],
-                    'penalty_deduction_days': preview['attendance_breakdown'].get('penalty_deduction_days', 0),
-                    'penalty_items': preview['attendance_breakdown'].get('penalty_items', []),
                 },
                 
                 # Leave breakdown
@@ -190,6 +189,10 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 'allowance_items': [],
                 'deduction_items': [],
             }
+
+            penalty_items = preview.get('penalty_deduction', {}).get('items', []) or []
+            if penalty_items:
+                response_data['deduction_items'].extend(penalty_items)
             
             # Add items if payroll exists
             if payroll_obj:
@@ -201,6 +204,15 @@ class PayrollViewSet(viewsets.ModelViewSet):
                     payroll_obj.deduction_items.all(), 
                     many=True
                 ).data
+                if penalty_items:
+                    existing_keys = {
+                        (item.get('what') or item.get('deduction_type') or '').strip().lower()
+                        for item in response_data['deduction_items']
+                    }
+                    for item in penalty_items:
+                        item_key = (item.get('what') or item.get('deduction_type') or '').strip().lower()
+                        if item_key and item_key not in existing_keys:
+                            response_data['deduction_items'].append(item)
             
             return Response(response_data)
             
@@ -245,6 +257,20 @@ class PayrollViewSet(viewsets.ModelViewSet):
                     'net_pay': Decimal(str(preview_data['net_pay'])),
                 }
             )
+
+            penalty_info = preview_data.get('penalty_deduction', {}) or {}
+            penalty_amount = Decimal(str(penalty_info.get('amount', 0) or 0))
+            if penalty_amount > 0:
+                PayrollDeduction.objects.update_or_create(
+                    payroll=payroll,
+                    deduction_type='ATTENDANCE PENALTY',
+                    defaults={
+                        'amount': penalty_amount,
+                        'description': f'Attendance penalties for {preview_data["month"]} {preview_data["year"]}',
+                    }
+                )
+            else:
+                PayrollDeduction.objects.filter(payroll=payroll, deduction_type='ATTENDANCE PENALTY').delete()
             
             # Generate PDF
             pdf = generate_payslip_pdf(payroll)
@@ -298,9 +324,9 @@ class PayrollViewSet(viewsets.ModelViewSet):
                 total=Sum('amount')
             )['total'] or Decimal('0.00')
             
-            deductions_total = payroll_obj.deduction_items.aggregate(
-                total=Sum('amount')
-            )['total'] or Decimal('0.00')
+            deductions_total = payroll_obj.deduction_items.exclude(
+                deduction_type='ATTENDANCE PENALTY'
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         else:
             # Get from request data
             try:
@@ -318,6 +344,8 @@ class PayrollViewSet(viewsets.ModelViewSet):
             allowances=allowances_total,
             deductions=deductions_total
         )
+        penalty_info = preview.get('penalty_deduction', {}) or {}
+        penalty_amount = Decimal(str(penalty_info.get('amount', 0) or 0))
 
         # Create or update payroll
         payroll_vals = {
@@ -338,6 +366,18 @@ class PayrollViewSet(viewsets.ModelViewSet):
             year=int(year), 
             defaults=payroll_vals
         )
+
+        if penalty_amount > 0:
+            PayrollDeduction.objects.update_or_create(
+                payroll=payroll_obj,
+                deduction_type='ATTENDANCE PENALTY',
+                defaults={
+                    'amount': penalty_amount,
+                    'description': f'Attendance penalties for {month} {year}',
+                }
+            )
+        else:
+            PayrollDeduction.objects.filter(payroll=payroll_obj, deduction_type='ATTENDANCE PENALTY').delete()
 
         serializer = PayrollSerializer(payroll_obj)
         return Response(
@@ -530,6 +570,146 @@ class PayrollAllowanceViewSet(viewsets.ModelViewSet):
     serializer_class = PayrollAllowanceSerializer
 
 
+class PayrollSettingsUniversalView(APIView):
+    """Read-only universal payroll settings payload built from existing payroll data."""
+    permission_classes = [permissions.AllowAny]
+
+    def _get_employee_name(self, employee):
+        if not employee:
+            return 'Unknown'
+
+        if hasattr(employee, 'get_full_name') and callable(employee.get_full_name):
+            try:
+                full_name = employee.get_full_name()
+                if full_name and full_name.strip():
+                    return full_name
+            except Exception:
+                pass
+
+        for field in ('full_name', 'name'):
+            value = getattr(employee, field, None)
+            if value:
+                return value
+
+        first_name = getattr(employee, 'first_name', '') or ''
+        last_name = getattr(employee, 'last_name', '') or ''
+        if first_name or last_name:
+            return f"{first_name} {last_name}".strip()
+
+        employee_code = getattr(employee, 'employee_id', None) or getattr(employee, 'id', None)
+        return f'Employee_{employee_code}' if employee_code else 'Unknown'
+
+    def _serialize_payroll(self, payroll_obj):
+        if not payroll_obj:
+            return None
+
+        return {
+            'id': payroll_obj.id,
+            'employee_id': payroll_obj.employee_id,
+            'employee_name': self._get_employee_name(getattr(payroll_obj, 'employee', None)),
+            'month': payroll_obj.month,
+            'year': payroll_obj.year,
+            'salary': str(payroll_obj.salary),
+            'attendance_days': payroll_obj.attendance_days,
+            'working_days': payroll_obj.working_days,
+            'earned_salary': str(payroll_obj.earned_salary),
+            'allowances': str(payroll_obj.allowances),
+            'gross_pay': str(payroll_obj.gross_pay),
+            'deductions': str(payroll_obj.deductions),
+            'tax': str(payroll_obj.tax),
+            'net_pay': str(payroll_obj.net_pay),
+            'status': payroll_obj.status,
+            'paid_date': payroll_obj.paid_date,
+            'created_at': payroll_obj.created_at,
+            'updated_at': payroll_obj.updated_at,
+            'allowance_items': PayrollAllowanceSerializer(
+                payroll_obj.allowance_items.all(),
+                many=True
+            ).data,
+            'deduction_items': PayrollDeductionSerializer(
+                payroll_obj.deduction_items.all(),
+                many=True
+            ).data,
+        }
+
+    def get(self, request):
+        payroll_id = request.query_params.get('payroll_id') or request.query_params.get('id')
+        employee_id = request.query_params.get('employee_id')
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+
+        payroll_qs = Payroll.objects.select_related('employee').prefetch_related('allowance_items', 'deduction_items')
+        payroll_obj = None
+        resolved_by = 'latest'
+
+        if payroll_id:
+            payroll_obj = payroll_qs.filter(id=payroll_id).first()
+            resolved_by = 'payroll_id'
+        elif employee_id:
+            payroll_qs = payroll_qs.filter(employee_id=employee_id)
+            resolved_by = 'employee_id'
+            if month:
+                payroll_qs = payroll_qs.filter(month=month)
+            if year:
+                try:
+                    payroll_qs = payroll_qs.filter(year=int(year))
+                except Exception:
+                    pass
+            payroll_obj = payroll_qs.order_by('-year', '-created_at').first()
+        else:
+            payroll_obj = payroll_qs.order_by('-year', '-created_at').first()
+
+        if payroll_id and not payroll_obj:
+            return Response({
+                'success': False,
+                'message': 'Payroll not found',
+                'data': None,
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        latest_payrolls = [self._serialize_payroll(item) for item in payroll_qs.order_by('-year', '-created_at')[:5]]
+        payroll_count = Payroll.objects.count()
+        total_allowances = Payroll.objects.aggregate(total=Sum('allowances'))['total'] or Decimal('0.00')
+        total_deductions = Payroll.objects.aggregate(total=Sum('deductions'))['total'] or Decimal('0.00')
+        allowance_items_total = PayrollAllowance.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        deduction_items_total = PayrollDeduction.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        summary = {
+            'payroll_count': payroll_count,
+            'paid_count': Payroll.objects.filter(status='Paid').count(),
+            'pending_count': Payroll.objects.filter(status='Pending').count(),
+            'cancelled_count': Payroll.objects.filter(status='Cancelled').count(),
+            'total_allowances': str(total_allowances),
+            'total_deductions': str(total_deductions),
+            'allowance_items_total': str(allowance_items_total),
+            'deduction_items_total': str(deduction_items_total),
+        }
+
+        data = {
+            'resolved_by': resolved_by,
+            'payroll': self._serialize_payroll(payroll_obj),
+            'summary': summary,
+            'latest_payrolls': latest_payrolls,
+            'filters': {
+                'payroll_id': payroll_id,
+                'employee_id': employee_id,
+                'month': month,
+                'year': year,
+            },
+            'available_months': list(
+                Payroll.objects.order_by('month').values_list('month', flat=True).distinct()
+            ),
+            'available_employee_ids': list(
+                Payroll.objects.order_by('employee_id').values_list('employee_id', flat=True).distinct()
+            ),
+        }
+
+        return Response({
+            'success': True,
+            'message': 'Payroll settings loaded successfully',
+            'data': data,
+        })
+
+
 class DebugRoutesView(APIView):
     """Return which named routes resolve successfully for payroll endpoints."""
     permission_classes = [permissions.AllowAny]
@@ -613,6 +793,14 @@ def get_attendance_summary_for_payroll(request):
             employee=employee,
             year=int(year),
             month=month_number
+        )
+        base_salary = PayrollCalculationService.get_employee_salary(employee)
+        penalty_info = PayrollCalculationService.calculate_attendance_penalty_deduction(
+            employee=employee,
+            year=int(year),
+            month_number=month_number,
+            working_days=attendance_data['total_working_days'],
+            base_salary=base_salary,
         )
         
         # Get employee name safely
@@ -698,8 +886,8 @@ def get_attendance_summary_for_payroll(request):
                 'effective_paid_days': attendance_data['effective_paid_days'],
                 'days_to_deduct': attendance_data['days_to_deduct'],
                 'not_marked_days': attendance_data['not_marked_days'],
-                'penalty_deduction_days': attendance_data.get('penalty_deduction_days', 0),
-                'penalty_items': attendance_data.get('penalty_items', []),
+                'attendance_penalty_days': penalty_info['total_days'],
+                'attendance_penalty_amount': float(penalty_info['amount']),
             },
             
             # Quick stats

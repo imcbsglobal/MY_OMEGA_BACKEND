@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     PayrollViewSet,
     PayrollAllowanceViewSet,
+    PayrollSettingsUniversalView,
     SalaryIncrementViewSet,
     DeductionListView,
     AllowanceListView,
@@ -44,6 +45,8 @@ urlpatterns = [
     
     # ==================== EXISTING ENDPOINTS ====================
     # Payroll preview and payslip generation
+    path('settings/universal/', PayrollSettingsUniversalView.as_view(), name='payroll-settings-universal'),
+
     path('calculate_payroll_preview/', 
          PayrollViewSet.as_view({'get': 'calculate_payroll_preview', 'post': 'calculate_payroll_preview'}), 
          name='calculate-payroll-preview'),

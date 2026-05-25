@@ -9,6 +9,9 @@ from .views import (
     LeaveMasterViewSet,
     LateRequestViewSet,
     EarlyRequestViewSet,
+    attendance_penalty_review,
+    attendance_penalty_review_action,
+    attendance_penalty_apply_deduction,
     reverse_geocode,
     reverse_geocode_bigdata
 )
@@ -38,6 +41,11 @@ urlpatterns = [
     # Geocoding endpoints
     path('reverse-geocode/', reverse_geocode, name='reverse-geocode'),
     path('reverse-geocode-bigdata/', reverse_geocode_bigdata, name='reverse-geocode-bigdata'),
+
+    # Attendance penalty review
+    path('penalty-review/', attendance_penalty_review, name='attendance-penalty-review'),
+    path('penalty-review/action/', attendance_penalty_review_action, name='attendance-penalty-review-action'),
+    path('penalty-review/deduct/', attendance_penalty_apply_deduction, name='attendance-penalty-review-deduct'),
     
     # Office geofence info (available to all users)
     path('geofence-info/', get_office_geofence_info, name='geofence-info'),

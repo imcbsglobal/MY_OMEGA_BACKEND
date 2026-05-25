@@ -1,11 +1,12 @@
 # payroll/services.py - FIXED LEAVE BALANCE HANDLING
 
 from decimal import Decimal
+
+from HR.utils.attendance_penalties import calculate_monthly_penalties
 from datetime import datetime, timedelta
 from django.db.models import Q, Sum
 from django.db import transaction
 from HR.models import Attendance, Holiday, EmployeeLeaveBalance
-from HR.utils.attendance_penalties import calculate_monthly_penalties
 from master.models import LeaveMaster
 
 
@@ -336,11 +337,6 @@ class PayrollCalculationService:
         leave_balance.unpaid_leave_taken += unpaid_leave_days
         leave_balance.save()
         
-        # Attendance penalty deductions (late/early/missed punch)
-        penalty_data = calculate_monthly_penalties(user_for_attendance, year, month)
-        penalty_summary = penalty_data['summary']
-        penalty_deduction_days = float(penalty_summary.get('total_deduction_days', 0))
-
         # Calculate totals
         total_working_days = total_days_in_month - sundays_count - total_paid_holidays
         
@@ -358,11 +354,11 @@ class PayrollCalculationService:
         # Total paid days = paid working days + Sundays + paid holidays
         total_paid_days = paid_working_days + sundays_count + total_paid_holidays
         
-        # Days to deduct from salary = unpaid leaves + not marked days + penalties
-        days_to_deduct = float(unpaid_leave_days) + not_marked_days + penalty_deduction_days
+        # Days to deduct from salary = unpaid leaves + not marked days
+        days_to_deduct = float(unpaid_leave_days) + not_marked_days
 
         # Effective paid days for salary calculation
-        effective_paid_days = max(0.0, float(paid_working_days) - penalty_deduction_days)
+        effective_paid_days = max(0.0, float(paid_working_days))
         
         return {
             'month': month,
@@ -395,42 +391,6 @@ class PayrollCalculationService:
             'days_to_deduct': days_to_deduct,
             'effective_paid_days': effective_paid_days,
 
-            # Attendance penalties
-            'penalty_deduction_days': penalty_deduction_days,
-            'penalty_counts': penalty_summary,
-            'penalty_items': [
-                {
-                    'name': 'Late <= 15 mins (grace exceeded)',
-                    'count': penalty_summary.get('late_under_15_deducted', 0),
-                    'deduction_days': float(penalty_summary.get('late_under_15_deducted', 0)) * 0.5,
-                },
-                {
-                    'name': 'Late 16-30 mins',
-                    'count': penalty_summary.get('late_16_30_count', 0),
-                    'deduction_days': float(penalty_summary.get('late_16_30_count', 0)) * 0.5,
-                },
-                {
-                    'name': 'Late 31-60 mins',
-                    'count': penalty_summary.get('late_31_60_count', 0),
-                    'deduction_days': float(penalty_summary.get('late_31_60_count', 0)) * 1.0,
-                },
-                {
-                    'name': 'Late over 60 mins (Absent)',
-                    'count': penalty_summary.get('late_over_60_count', 0),
-                    'deduction_days': float(penalty_summary.get('late_over_60_count', 0)) * 1.0,
-                },
-                {
-                    'name': 'Missed punch (after 1 grace)',
-                    'count': penalty_summary.get('missed_punch_deducted_count', 0),
-                    'deduction_days': float(penalty_summary.get('missed_punch_deducted_count', 0)) * 0.5,
-                },
-                {
-                    'name': 'Early exit >= 30 mins (after 1 grace)',
-                    'count': penalty_summary.get('early_exit_deducted_count', 0),
-                    'deduction_days': float(penalty_summary.get('early_exit_deducted_count', 0)) * 0.5,
-                },
-            ],
-            
             # Leave balance information
             'leave_balance': {
                 'casual_balance': float(leave_balance.casual_leave_balance),
@@ -490,6 +450,50 @@ class PayrollCalculationService:
             'tax': float(tax),
             'net_pay': float(net_pay),
         }
+
+    @staticmethod
+    def calculate_attendance_penalty_deduction(employee, year, month_number, working_days, base_salary):
+        user = getattr(employee, 'user', None)
+        if not user:
+            return {
+                'total_days': 0.0,
+                'amount': Decimal('0.00'),
+                'summary': {},
+                'per_date': {},
+                'items': [],
+            }
+
+        penalty_data = calculate_monthly_penalties(user, int(year), int(month_number))
+        summary = penalty_data.get('summary', {}) or {}
+        per_date = penalty_data.get('per_date', {}) or {}
+        total_days = float(summary.get('total_deduction_days', 0) or 0)
+
+        try:
+            working_days_value = Decimal(str(working_days))
+            salary_value = Decimal(str(base_salary))
+            daily_rate = salary_value / working_days_value if working_days_value > 0 else Decimal('0.00')
+        except Exception:
+            daily_rate = Decimal('0.00')
+
+        amount = (daily_rate * Decimal(str(total_days))).quantize(Decimal('0.01'))
+
+        items = []
+        if total_days > 0:
+            items.append({
+                'deduction_type': 'ATTENDANCE PENALTY',
+                'what': 'Attendance Penalty',
+                'amount': float(amount),
+                'description': f'Attendance penalties for {month_number}/{year}',
+                'deduction_days': total_days,
+            })
+
+        return {
+            'total_days': total_days,
+            'amount': amount,
+            'summary': summary,
+            'per_date': per_date,
+            'items': items,
+        }
     
     @staticmethod
     def calculate_preview(employee, month, year, base_salary, allowances=0, deductions=0):
@@ -505,18 +509,34 @@ class PayrollCalculationService:
             month=month_number
         )
         
+        penalty_deduction = PayrollCalculationService.calculate_attendance_penalty_deduction(
+            employee=employee,
+            year=int(year),
+            month_number=month_number,
+            working_days=attendance_breakdown['total_working_days'],
+            base_salary=base_salary,
+        )
+
+        total_deductions = Decimal(str(deductions)) + penalty_deduction['amount']
+
         # Calculate salary without tax
         salary_calculation = PayrollCalculationService.calculate_salary(
             base_salary=base_salary,
             working_days=attendance_breakdown['total_working_days'],
             paid_days=attendance_breakdown['effective_paid_days'],
             allowances=allowances,
-            deductions=deductions
+            deductions=total_deductions
         )
         
         return {
             'attendance_breakdown': attendance_breakdown,
             'salary_calculation': salary_calculation,
+            'penalty_deduction': {
+                'total_days': penalty_deduction['total_days'],
+                'amount': float(penalty_deduction['amount']),
+                'summary': penalty_deduction['summary'],
+                'items': penalty_deduction['items'],
+            },
             'month': month,
             'year': year,
             
@@ -544,7 +564,7 @@ class PayrollCalculationService:
                 'not_marked': attendance_breakdown['not_marked_days'],
                 
                 'effective_paid_days': attendance_breakdown['effective_paid_days'],
-                'days_deducted': attendance_breakdown['days_to_deduct'],
+                'days_deducted': attendance_breakdown['days_to_deduct'] + penalty_deduction['total_days'],
             }
         }
     

@@ -36,10 +36,10 @@ try:
         format_early_approval_message,
     )
     WHATSAPP_ENABLED = True
-    logger.info("✅ WhatsApp service loaded (DATABASE-DRIVEN)")
+    logger.info("WhatsApp service loaded (DATABASE-DRIVEN)")
 except Exception as e:
     WHATSAPP_ENABLED = False
-    logger.error(f"❌ WhatsApp service not available — notifications disabled: {e}")
+    logger.error(f"WhatsApp service not available — notifications disabled: {e}")
 
 
 # ============================================================================

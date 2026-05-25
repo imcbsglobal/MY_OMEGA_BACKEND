@@ -14,6 +14,7 @@ class PayrollDeductionSerializer(serializers.ModelSerializer):
         read_only=True
     )
     employee_name = serializers.SerializerMethodField()
+    what = serializers.SerializerMethodField()
     year = serializers.IntegerField(source='payroll.year', read_only=True)
     month = serializers.CharField(source='payroll.month', read_only=True)
 
@@ -24,11 +25,15 @@ class PayrollDeductionSerializer(serializers.ModelSerializer):
             'deduction_type',
             'amount',
             'description',
+            'what',
             'employee_id',
             'employee_name',
             'year',
             'month',
         ]
+
+    def get_what(self, obj):
+        return getattr(obj, 'deduction_type', None) or getattr(obj, 'description', None) or 'Deduction'
 
     def get_employee_name(self, obj):
         """
@@ -89,6 +94,7 @@ class PayrollAllowanceSerializer(serializers.ModelSerializer):
         read_only=True
     )
     employee_name = serializers.SerializerMethodField()
+    what = serializers.SerializerMethodField()
     year = serializers.IntegerField(source='payroll.year', read_only=True)
     month = serializers.CharField(source='payroll.month', read_only=True)
 
@@ -99,11 +105,15 @@ class PayrollAllowanceSerializer(serializers.ModelSerializer):
             'allowance_type',
             'amount',
             'description',
+            'what',
             'employee_id',
             'employee_name',
             'year',
             'month',
         ]
+
+    def get_what(self, obj):
+        return getattr(obj, 'allowance_type', None) or getattr(obj, 'description', None) or 'Allowance'
 
     def get_employee_name(self, obj):
         """
