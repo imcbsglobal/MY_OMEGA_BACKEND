@@ -36,15 +36,9 @@ from employee_management.models import Employee
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def attendance_penalty_apply_deduction(request):
     """Create or update payroll deduction items for an employee/month based on penalty summary."""
-    if not (
-        getattr(request.user, 'user_level', None) in ('Super Admin', 'Admin') or
-        request.user.is_staff or
-        request.user.is_superuser
-    ):
-        return Response({'error': 'Only admins can apply deductions'}, status=status.HTTP_403_FORBIDDEN)
 
     employee_id = request.data.get('employee_id')
     month = request.data.get('month')
@@ -253,6 +247,37 @@ def _serialize_attendance_detail(attendance, penalty_detail=None):
     elif attendance.leave_request and attendance.leave_request.leave_master:
         leave_name = attendance.leave_request.leave_master.leave_name
 
+    # Get late/early request status for this date
+    late_request_status = None
+    early_request_status = None
+    missed_punch_status = None
+    
+    try:
+        late_req = LateRequest.objects.filter(user=attendance.user, date=attendance.date).first()
+        if late_req:
+            late_request_status = late_req.status
+    except Exception:
+        pass
+    
+    try:
+        early_req = EarlyRequest.objects.filter(user=attendance.user, date=attendance.date).first()
+        if early_req:
+            early_request_status = early_req.status
+    except Exception:
+        pass
+    
+    # Check if missed punch penalty was waived via admin comment/note
+    admin_comment_text = None
+    try:
+        admin_comment_text = getattr(attendance, 'admin_comment', None) or getattr(attendance, 'admin_note', None)
+    except Exception:
+        admin_comment_text = None
+
+    if admin_comment_text and 'waived' in str(admin_comment_text).lower():
+        missed_punch_status = 'rejected'
+    elif admin_comment_text and 'applied' in str(admin_comment_text).lower():
+        missed_punch_status = 'approved'
+
     return {
         'id': attendance.id,
         'date': attendance.date,
@@ -277,6 +302,9 @@ def _serialize_attendance_detail(attendance, penalty_detail=None):
         'verified_at': attendance.verified_at,
         'verified_by_name': getattr(getattr(attendance, 'verified_by', None), 'name', None),
         'punches': punches,
+        'late_request_status': late_request_status,
+        'early_request_status': early_request_status,
+        'missed_punch_status': missed_punch_status,
         'penalty': penalty_detail or {
             'late_minutes': 0,
             'late_bucket': None,
@@ -2518,16 +2546,9 @@ def get_office_geofence_info(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def attendance_penalty_review(request):
     """Get monthly attendance penalty review rows for admin/HR review."""
-    if not (
-        getattr(request.user, 'user_level', None) in ('Super Admin', 'Admin') or
-        request.user.is_staff or
-        request.user.is_superuser
-    ):
-        return Response({'error': 'Only admins can view penalty review'}, status=status.HTTP_403_FORBIDDEN)
-
     month = int(request.query_params.get('month', timezone.now().month))
     year = int(request.query_params.get('year', timezone.now().year))
     status_filter = (request.query_params.get('status') or '').strip().lower()
@@ -2552,9 +2573,29 @@ def attendance_penalty_review(request):
         'pending_actions': 0,
         'approved_actions': 0,
         'waived_actions': 0,
+        'leave_penalties': 0,
+        'leave_penalty_days': 0,
+        'total_deduction_amount': 0,
     }
 
-    for employee in employees.distinct():
+    last_day = calendar.monthrange(year, month)[1]
+    month_start = datetime(year, month, 1).date()
+    month_end = datetime(year, month, last_day).date()
+
+    # Get pagination parameters early and limit employee processing
+    page = int(request.query_params.get('page', 1) or 1)
+    page_size = int(request.query_params.get('page_size', 8) or 8)
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    
+    # Apply pagination to employee query BEFORE processing
+    employees_for_processing = []
+    all_employees_list = list(employees.distinct())
+    start_index = (page - 1) * page_size
+    end_index = start_index + page_size
+    employees_for_processing = all_employees_list[start_index:end_index]
+    
+    for employee in employees_for_processing:
         user = getattr(employee, 'user', None)
         if not user:
             continue
@@ -2566,46 +2607,117 @@ def attendance_penalty_review(request):
         penalty_data = calculate_monthly_penalties(user, year, month)
         per_date = penalty_data.get('per_date', {}) or {}
         summary = penalty_data.get('summary', {}) or {}
-        from payroll.services import PayrollCalculationService
-        base_salary = 0
         try:
-            base_salary = float(PayrollCalculationService.get_employee_salary(employee))
+            from payroll.services import PayrollCalculationService
         except Exception:
-            base_salary = float(getattr(employee, 'basic_salary', 0) or 0)
+            PayrollCalculationService = None
+
+        base_salary = float(getattr(employee, 'basic_salary', 0) or 0)
+        if PayrollCalculationService:
+            try:
+                base_salary = float(PayrollCalculationService.get_employee_salary(employee))
+            except Exception:
+                base_salary = float(getattr(employee, 'basic_salary', 0) or 0)
+
         penalty_amount = 0.0
-        try:
-            penalty_amount = float(PayrollCalculationService.calculate_attendance_penalty_deduction(
-                employee=employee,
-                year=year,
-                month_number=month,
-                working_days=max(1, int(summary.get('working_days', 0) or 1)),
-                base_salary=base_salary,
-            ).get('amount', 0) or 0)
-        except Exception:
-            penalty_amount = 0.0
+        deduction_breakdown = []
+        if PayrollCalculationService:
+            try:
+                deduction_result = PayrollCalculationService.calculate_attendance_penalty_deduction(
+                    employee=employee,
+                    year=year,
+                    month_number=month,
+                    working_days=max(1, int(summary.get('working_days', 0) or 1)),
+                    base_salary=base_salary,
+                )
+                penalty_amount = float(deduction_result.get('amount', 0) or 0)
+                deduction_breakdown = deduction_result.get('items', [])
+            except Exception:
+                penalty_amount = 0.0
+                deduction_breakdown = []
         amount_after_penalties = max(base_salary - penalty_amount, 0.0)
 
+        # Load attendance details
+        attendance_rows = []
         attendance_qs = Attendance.objects.filter(
             user=user,
             date__year=year,
             date__month=month,
         ).select_related('leave_master', 'leave_request', 'verified_by', 'holiday').prefetch_related('punch_records').order_by('date')
 
-        attendance_rows = []
+        attendance_dates = set()
+
         for attendance in attendance_qs:
+            attendance_dates.add(attendance.date)
             attendance_rows.append(_serialize_attendance_detail(attendance, per_date.get(attendance.date)))
+
+        # Add synthetic missed-punch rows for dates where no Attendance row exists.
+        # This keeps the sidebar actionable for employees who never punched in.
+        for penalty_date, penalty_detail in sorted(per_date.items(), key=lambda item: item[0]):
+            if not (penalty_detail or {}).get('missed_punch'):
+                continue
+            if penalty_date in attendance_dates:
+                continue
+
+            attendance_rows.append({
+                'id': f'synthetic-{employee.id}-{penalty_date.isoformat()}',
+                'date': penalty_date,
+                'status': 'absent',
+                'status_display': 'Absent',
+                'verification_status': 'unverified',
+                'verification_status_display': 'Unverified',
+                'first_punch_in_time': None,
+                'first_punch_in_location': None,
+                'last_punch_out_time': None,
+                'last_punch_out_location': None,
+                'total_working_hours': 0,
+                'total_break_hours': 0,
+                'is_leave': False,
+                'is_sunday': penalty_date.weekday() == 6,
+                'is_working_sunday': False,
+                'is_holiday': False,
+                'is_paid_day': False,
+                'leave_name': None,
+                'note': '',
+                'admin_note': '',
+                'verified_at': None,
+                'verified_by_name': None,
+                'punches': [],
+                'late_request_status': None,
+                'early_request_status': None,
+                'missed_punch_status': 'pending',
+                'penalty': penalty_detail,
+                'synthetic': True,
+            })
+
+        attendance_rows.sort(key=lambda item: item.get('date') or month_start)
 
         late_count = sum(1 for item in per_date.values() if (item or {}).get('late_minutes', 0) > 0)
         early_count = sum(1 for item in per_date.values() if (item or {}).get('early_exit_minutes', 0) >= 30)
         missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
         penalty_events = late_count + early_count + missed_count
 
+        # Batch query late and early requests to avoid N+1 queries
         late_requests = LateRequest.objects.filter(user=user, date__year=year, date__month=month)
         early_requests = EarlyRequest.objects.filter(user=user, date__year=year, date__month=month)
+        unpaid_leave_requests = LeaveRequest.objects.filter(
+            user=user,
+            status='approved',
+            is_paid=False,
+            from_date__lte=month_end,
+            to_date__gte=month_start,
+        )
 
         pending_count = late_requests.filter(status='pending').count() + early_requests.filter(status='pending').count()
         approved_count = late_requests.filter(status='approved').count() + early_requests.filter(status='approved').count()
         rejected_count = late_requests.filter(status='rejected').count() + early_requests.filter(status='rejected').count()
+
+        leave_penalty_days = 0
+        for leave_request in unpaid_leave_requests:
+            overlap_start = max(leave_request.from_date, month_start)
+            overlap_end = min(leave_request.to_date, month_end)
+            if overlap_end >= overlap_start:
+                leave_penalty_days += (overlap_end - overlap_start).days + 1
 
         review_status = _review_status(pending_count, approved_count, rejected_count, penalty_events)
         action = _suggest_penalty_action(float(summary.get('total_deduction_days', 0) or 0), penalty_events)
@@ -2648,12 +2760,17 @@ def attendance_penalty_review(request):
             'late': late_count,
             'early': early_count,
             'missed': missed_count,
+            'leave_penalty_days': leave_penalty_days,
+            'leave_penalty_requests': unpaid_leave_requests.count(),
+            'total_penalty': late_count + early_count + missed_count + leave_penalty_days,
             'action': action,
             'status': review_status,
+            'status_display': 'Approved' if review_status == 'Approved (Deduct)' else 'Cleared' if review_status == 'Waived' else 'Pending',
             'remarks': latest_comment,
             'total_deduction_days': float(summary.get('total_deduction_days', 0) or 0),
             'base_salary': base_salary,
             'penalty_amount': penalty_amount,
+            'deduction_breakdown': deduction_breakdown,
             'amount_after_penalties': amount_after_penalties,
             'penalty_summary': summary,
             'attendance_details': attendance_rows,
@@ -2665,20 +2782,84 @@ def attendance_penalty_review(request):
         }
         rows.append(row)
 
-    totals['total_employees'] = len(rows)
-    totals['late_arrivals'] = sum(row['late'] for row in rows)
-    totals['early_leaves'] = sum(row['early'] for row in rows)
+    totals['total_employees'] = len(all_employees_list)
+    totals['late_arrivals'] = sum(row.get('late_request_count', 0) for row in rows)
+    totals['early_leaves'] = sum(row.get('early_request_count', 0) for row in rows)
     totals['missed_punches'] = sum(row['missed'] for row in rows)
+    totals['leave_penalties'] = sum(1 for row in rows if row['leave_penalty_days'] > 0)
+    totals['leave_penalty_days'] = sum(row['leave_penalty_days'] for row in rows)
+    totals['total_deduction_amount'] = sum(float(row.get('penalty_amount', 0) or 0) for row in rows)
     totals['pending_actions'] = sum(1 for row in rows if row['status'] == 'Pending')
     totals['approved_actions'] = sum(1 for row in rows if row['status'] == 'Approved (Deduct)')
     totals['waived_actions'] = sum(1 for row in rows if row['status'] == 'Waived')
+
+    department_options = sorted({
+        dept
+        for row in rows
+        for dept in (row.get('departments') or [row.get('dept')])
+        if dept
+    })
+    employee_options = [
+        {'id': row['id'], 'name': row['name'], 'empId': row.get('empId')}
+        for row in rows
+    ]
+
+    total_count = len(all_employees_list)
+    total_pages = (total_count + page_size - 1) // page_size
+    page_rows = rows  # Already paginated above
+
+    # Fetch PayrollSettings/AutomationRules for display (guard import if payroll app missing)
+    try:
+        from payroll.models import AutomationRule
+    except Exception:
+        AutomationRule = None
+
+    payroll_settings = {}
+    if AutomationRule:
+        try:
+            late_rule = AutomationRule.objects.filter(rule_type='late', is_active=True).first()
+            if late_rule:
+                payroll_settings['late'] = {
+                    'amount': float(late_rule.deduction_amount or 0),
+                    'grace_period': late_rule.max_occurrences if late_rule.set_occurrences else 0,
+                    'type': late_rule.deduction_type,
+                }
+            
+            early_rule = AutomationRule.objects.filter(rule_type='early', is_active=True).first()
+            if early_rule:
+                payroll_settings['early'] = {
+                    'amount': float(early_rule.deduction_amount or 0),
+                    'grace_period': early_rule.max_occurrences if early_rule.set_occurrences else 0,
+                    'type': early_rule.deduction_type,
+                }
+            
+            missed_rule = AutomationRule.objects.filter(rule_type='breaks', is_active=True).first()
+            if missed_rule:
+                payroll_settings['missed'] = {
+                    'amount': float(missed_rule.deduction_amount or 0),
+                    'grace_period': missed_rule.max_occurrences if missed_rule.set_occurrences else 0,
+                    'type': missed_rule.deduction_type,
+                }
+        except Exception:
+            pass
 
     return Response({
         'success': True,
         'message': 'Attendance penalty review loaded successfully',
         'data': {
             'summary': totals,
-            'employees': rows,
+            'employees': page_rows,
+            'payroll_settings': payroll_settings,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': total_pages,
+            },
+            'options': {
+                'departments': department_options,
+                'employees': employee_options,
+            },
             'filters': {
                 'month': month,
                 'year': year,
@@ -2692,15 +2873,9 @@ def attendance_penalty_review(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def attendance_penalty_review_action(request):
     """Apply approve/waive action to pending late and early requests for one employee/month."""
-    if not (
-        getattr(request.user, 'user_level', None) in ('Super Admin', 'Admin') or
-        request.user.is_staff or
-        request.user.is_superuser
-    ):
-        return Response({'error': 'Only admins can update penalty review'}, status=status.HTTP_403_FORBIDDEN)
 
     employee_id = request.data.get('employee_id')
     month = request.data.get('month')

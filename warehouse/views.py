@@ -224,6 +224,7 @@ def duty_report(request):
             'task_title': task.task_title,
             'description': task.description,
             'status': task.status,
+            'assigned_to_id': task.assigned_to_id,
             'assigned_to_name': assigned_to_name,
             'completed_work': task.completed_work,
             'total_work': task.total_work,

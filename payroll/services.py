@@ -8,6 +8,7 @@ from django.db.models import Q, Sum
 from django.db import transaction
 from HR.models import Attendance, Holiday, EmployeeLeaveBalance
 from master.models import LeaveMaster
+from payroll.models import AutomationRule
 
 
 class PayrollCalculationService:
@@ -452,7 +453,12 @@ class PayrollCalculationService:
         }
 
     @staticmethod
+    @staticmethod
     def calculate_attendance_penalty_deduction(employee, year, month_number, working_days, base_salary):
+        """
+        Calculate attendance penalty deduction based on AutomationRules from Payroll Settings.
+        Applies rules for: late arrivals, early exits, missed punches
+        """
         user = getattr(employee, 'user', None)
         if not user:
             return {
@@ -463,33 +469,130 @@ class PayrollCalculationService:
                 'items': [],
             }
 
+        # Get penalty data by type
         penalty_data = calculate_monthly_penalties(user, int(year), int(month_number))
         summary = penalty_data.get('summary', {}) or {}
         per_date = penalty_data.get('per_date', {}) or {}
-        total_days = float(summary.get('total_deduction_days', 0) or 0)
 
-        try:
-            working_days_value = Decimal(str(working_days))
-            salary_value = Decimal(str(base_salary))
-            daily_rate = salary_value / working_days_value if working_days_value > 0 else Decimal('0.00')
-        except Exception:
-            daily_rate = Decimal('0.00')
+        # Extract counts by type from the actual penalty data structure
+        # Count all late arrivals (sum of all late buckets and deducted amounts)
+        late_count = sum(1 for item in per_date.values() if (item or {}).get('late_minutes', 0) > 0)
+        # Count all early exits (>= 30 minutes)
+        early_count = sum(1 for item in per_date.values() if (item or {}).get('early_exit_minutes', 0) >= 30)
+        # Count all missed punches
+        missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
+        leave_penalty_days = float(summary.get('leave_penalty_days', 0) or 0)
 
-        amount = (daily_rate * Decimal(str(total_days))).quantize(Decimal('0.01'))
+        # Fetch active automation rules (late and early are standard, missed can use 'breaks')
+        rules = {
+            'late': AutomationRule.objects.filter(rule_type='late', is_active=True).first(),
+            'early': AutomationRule.objects.filter(rule_type='early', is_active=True).first(),
+            # For missed punches, we use 'breaks' rule type as a proxy
+            'missed': AutomationRule.objects.filter(rule_type='breaks', is_active=True).first(),
+        }
 
+        total_deduction_amount = Decimal('0.00')
         items = []
-        if total_days > 0:
+
+        # Helper function to calculate deduction for a rule
+        def apply_rule(rule, count, penalty_type):
+            if not rule or count == 0:
+                return Decimal('0.00')
+
+            try:
+                # Check grace period (max_occurrences)
+                grace_count = 0
+                if rule.set_occurrences and rule.max_occurrences:
+                    grace_count = int(rule.max_occurrences)
+                
+                # Count after grace period
+                billable_count = max(0, count - grace_count)
+                if billable_count == 0:
+                    return Decimal('0.00')
+
+                salary_dec = Decimal(str(base_salary))
+                daily_rate = salary_dec / Decimal(str(working_days if working_days > 0 else 22))
+
+                deduction = Decimal('0.00')
+
+                if rule.deduction_type == 'Fixed Amount':
+                    # Fixed amount × billable count
+                    deduction = Decimal(str(rule.deduction_amount)) * Decimal(str(billable_count))
+
+                elif rule.deduction_type == 'Percentage Per Day':
+                    # (Daily rate × percentage/100) × billable count
+                    pct_amount = (daily_rate * Decimal(str(rule.deduction_amount)) / Decimal('100'))
+                    deduction = pct_amount * Decimal(str(billable_count))
+
+                elif rule.deduction_type == 'Half Day':
+                    # (Daily rate × 0.5) × billable count
+                    deduction = (daily_rate * Decimal('0.5')) * Decimal(str(billable_count))
+
+                elif rule.deduction_type == 'Full Day':
+                    # Daily rate × billable count
+                    deduction = daily_rate * Decimal(str(billable_count))
+
+                return deduction.quantize(Decimal('0.01'))
+
+            except Exception:
+                return Decimal('0.00')
+
+        # Apply rules for each penalty type
+        late_deduction = apply_rule(rules['late'], late_count, 'late')
+        if late_deduction > 0:
             items.append({
-                'deduction_type': 'ATTENDANCE PENALTY',
-                'what': 'Attendance Penalty',
-                'amount': float(amount),
-                'description': f'Attendance penalties for {month_number}/{year}',
-                'deduction_days': total_days,
+                'deduction_type': 'LATE ARRIVAL',
+                'what': f'Late Arrivals ({late_count} times)',
+                'amount': float(late_deduction),
+                'description': f'Late arrival penalty: {late_count} times',
+                'deduction_days': float(late_deduction / (Decimal(str(base_salary)) / Decimal(str(working_days)))),
             })
+            total_deduction_amount += late_deduction
+
+        early_deduction = apply_rule(rules['early'], early_count, 'early')
+        if early_deduction > 0:
+            items.append({
+                'deduction_type': 'EARLY EXIT',
+                'what': f'Early Exits ({early_count} times)',
+                'amount': float(early_deduction),
+                'description': f'Early exit penalty: {early_count} times',
+                'deduction_days': float(early_deduction / (Decimal(str(base_salary)) / Decimal(str(working_days)))),
+            })
+            total_deduction_amount += early_deduction
+
+        missed_deduction = apply_rule(rules['missed'], missed_count, 'missed')
+        if missed_deduction > 0:
+            items.append({
+                'deduction_type': 'MISSED PUNCH',
+                'what': f'Missed Punches ({missed_count} times)',
+                'amount': float(missed_deduction),
+                'description': f'Missed punch penalty: {missed_count} times',
+                'deduction_days': float(missed_deduction / (Decimal(str(base_salary)) / Decimal(str(working_days)))),
+            })
+            total_deduction_amount += missed_deduction
+
+        # Leave penalties (simple per-day deduction)
+        if leave_penalty_days > 0:
+            try:
+                daily_rate = Decimal(str(base_salary)) / Decimal(str(working_days if working_days > 0 else 22))
+                leave_deduction = (daily_rate * Decimal(str(leave_penalty_days))).quantize(Decimal('0.01'))
+                items.append({
+                    'deduction_type': 'LEAVE PENALTY',
+                    'what': f'Leave Penalties ({leave_penalty_days:.1f} days)',
+                    'amount': float(leave_deduction),
+                    'description': f'Leave penalty deduction: {leave_penalty_days:.1f} days',
+                    'deduction_days': leave_penalty_days,
+                })
+                total_deduction_amount += leave_deduction
+            except Exception:
+                pass
+
+        # Calculate total deduction days
+        total_days = float(summary.get('total_deduction_days', 0) or 0)
 
         return {
             'total_days': total_days,
-            'amount': amount,
+            'amount': total_deduction_amount,
             'summary': summary,
             'per_date': per_date,
             'items': items,

@@ -10,11 +10,12 @@ from rest_framework.views import APIView
 from django.http import HttpResponse
 from django.db.models import Sum, Q
 
-from .models import Payroll, PayrollDeduction, PayrollAllowance, SalaryIncrement
+from .models import Payroll, PayrollDeduction, PayrollAllowance, SalaryIncrement, AutomationRule
 from .serializers import (
     PayrollSerializer, PayrollListSerializer,
     PayrollDeductionSerializer, PayrollAllowanceSerializer,
     SalaryIncrementSerializer, SalaryIncrementListSerializer,
+    AutomationRuleSerializer, AutomationRuleListSerializer,
     generate_payslip_pdf
 )
 from .services import PayrollCalculationService
@@ -1279,3 +1280,185 @@ class SalaryIncrementViewSet(viewsets.ModelViewSet):
                 {'error': f'Failed to update increment: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+
+# =========================
+# AUTOMATION RULE VIEWSET
+# =========================
+class AutomationRuleViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing payroll automation rules (Late Entry, Early Exit, Overtime, etc.)
+    
+    Endpoints:
+    - GET /api/payroll/automation-rules/ - List all rules
+    - POST /api/payroll/automation-rules/ - Create new rule
+    - GET /api/payroll/automation-rules/{id}/ - Get specific rule
+    - PUT /api/payroll/automation-rules/{id}/ - Update rule
+    - PATCH /api/payroll/automation-rules/{id}/ - Partial update rule
+    - DELETE /api/payroll/automation-rules/{id}/ - Delete rule
+    - GET /api/payroll/automation-rules/by_type/{rule_type}/ - Get rules by type
+    """
+    permission_classes = [permissions.AllowAny]
+    queryset = AutomationRule.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AutomationRuleListSerializer
+        return AutomationRuleSerializer
+
+    def get_queryset(self):
+        qs = AutomationRule.objects.all()
+        
+        # Filter by rule_type if provided
+        rule_type = self.request.query_params.get('rule_type')
+        if rule_type:
+            qs = qs.filter(rule_type=rule_type)
+        
+        # Filter by is_active if provided
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active.lower() in ['true', '1', 'yes'])
+        
+        return qs.order_by('rule_type', '-created_at')
+
+    @action(detail=False, methods=['get'], url_path='by_type/(?P<rule_type>[^/.]+)')
+    def by_type(self, request, rule_type=None):
+        """
+        Get all rules for a specific type
+        GET /api/payroll/automation-rules/by_type/{rule_type}/
+        
+        Valid rule_types: late, early, overtime, breaks, earlyOvertime
+        """
+        if not rule_type:
+            return Response(
+                {'error': 'rule_type is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate rule_type
+        valid_types = ['late', 'early', 'overtime', 'breaks', 'earlyOvertime']
+        if rule_type not in valid_types:
+            return Response(
+                {'error': f'Invalid rule_type. Must be one of: {", ".join(valid_types)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        rules = AutomationRule.objects.filter(rule_type=rule_type).order_by('-created_at')
+        serializer = AutomationRuleListSerializer(rules, many=True)
+        
+        return Response({
+            'success': True,
+            'rule_type': rule_type,
+            'total_rules': rules.count(),
+            'active_rules': rules.filter(is_active=True).count(),
+            'rules': serializer.data,
+        })
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new automation rule
+        POST /api/payroll/automation-rules/
+        
+        Request body:
+        {
+            "rule_type": "late",
+            "rule_name": "Late Entry Penalty",
+            "threshold_hours": 0,
+            "threshold_minutes": 15,
+            "deduct_salary": true,
+            "deduction_type": "Fixed Amount",
+            "deduction_amount": 100,
+            "deduct_half_day": false,
+            "deduct_full_day": false,
+            "set_occurrences": true,
+            "max_occurrences": 3,
+            "is_active": true
+        }
+        """
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['rule_type', 'rule_name']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return Response(
+                    {'error': f'{field} is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Validate rule_type
+        valid_types = ['late', 'early', 'overtime', 'breaks', 'earlyOvertime']
+        if data['rule_type'] not in valid_types:
+            return Response(
+                {'error': f'Invalid rule_type. Must be one of: {", ".join(valid_types)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create serializer with context
+        serializer = AutomationRuleSerializer(data=data, context={'request': request})
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update an existing automation rule
+        PUT /api/payroll/automation-rules/{id}/
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = AutomationRuleSerializer(
+            instance, 
+            data=request.data, 
+            partial=partial,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update an automation rule
+        PATCH /api/payroll/automation-rules/{id}/
+        """
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='toggle_active')
+    def toggle_active(self, request, pk=None):
+        """
+        Toggle the is_active status of a rule
+        POST /api/payroll/automation-rules/{id}/toggle_active/
+        """
+        rule = self.get_object()
+        rule.is_active = not rule.is_active
+        rule.save()
+        
+        serializer = AutomationRuleSerializer(rule)
+        return Response({
+            'success': True,
+            'message': f'Rule {"activated" if rule.is_active else "deactivated"} successfully',
+            'rule': serializer.data,
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete an automation rule
+        DELETE /api/payroll/automation-rules/{id}/
+        """
+        instance = self.get_object()
+        rule_name = instance.rule_name
+        self.perform_destroy(instance)
+        
+        return Response({
+            'success': True,
+            'message': f'Rule "{rule_name}" deleted successfully',
+        }, status=status.HTTP_200_OK)

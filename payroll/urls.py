@@ -7,6 +7,7 @@ from .views import (
     PayrollAllowanceViewSet,
     PayrollSettingsUniversalView,
     SalaryIncrementViewSet,
+    AutomationRuleViewSet,
     DeductionListView,
     AllowanceListView,
     AddDeductionView,
@@ -20,8 +21,20 @@ router = DefaultRouter()
 router.register(r'', PayrollViewSet, basename='payroll')
 router.register(r'allowances', PayrollAllowanceViewSet, basename='payroll-allowances')
 router.register(r'salary-increments', SalaryIncrementViewSet, basename='salary-increments')
+router.register(r'automation-rules', AutomationRuleViewSet, basename='automation-rules')
 
 urlpatterns = [
+    # ==================== AUTOMATION RULES ENDPOINTS ====================
+    path('automation-rules/', AutomationRuleViewSet.as_view({'get': 'list', 'post': 'create'}), name='automation-rules-list'),
+    path('automation-rules/<int:pk>/', AutomationRuleViewSet.as_view({
+        'get': 'retrieve', 
+        'put': 'update', 
+        'patch': 'partial_update', 
+        'delete': 'destroy'
+    }), name='automation-rules-detail'),
+    path('automation-rules/<int:pk>/toggle_active/', AutomationRuleViewSet.as_view({'post': 'toggle_active'}), name='automation-rules-toggle'),
+    path('automation-rules/by_type/<str:rule_type>/', AutomationRuleViewSet.as_view({'get': 'by_type'}), name='automation-rules-by-type'),
+    
     # ==================== SALARY INCREMENT ENDPOINTS ====================
     path('salary-increments/', SalaryIncrementViewSet.as_view({'get': 'list', 'post': 'create'}), name='salary-increments-list'),
     path('salary-increments/<int:pk>/', SalaryIncrementViewSet.as_view({

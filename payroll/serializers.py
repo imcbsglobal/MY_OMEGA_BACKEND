@@ -1,7 +1,7 @@
 # payroll/serializers.py - Fixed with defensive employee name handling
 
 from rest_framework import serializers
-from .models import Payroll, PayrollDeduction, PayrollAllowance, SalaryIncrement
+from .models import Payroll, PayrollDeduction, PayrollAllowance, SalaryIncrement, AutomationRule
 
 
 # =========================
@@ -768,3 +768,78 @@ def generate_payslip_pdf(payroll):
     pdf = buffer.getvalue()
     buffer.close()
     return pdf
+
+
+
+# =========================
+# AUTOMATION RULE SERIALIZER
+# =========================
+class AutomationRuleSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.SerializerMethodField()
+    rule_type_display = serializers.CharField(source='get_rule_type_display', read_only=True)
+    deduction_type_display = serializers.CharField(source='get_deduction_type_display', read_only=True)
+    threshold_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AutomationRule
+        fields = [
+            'id',
+            'rule_type',
+            'rule_type_display',
+            'rule_name',
+            'threshold_hours',
+            'threshold_minutes',
+            'threshold_display',
+            'deduct_salary',
+            'deduction_type',
+            'deduction_type_display',
+            'deduction_amount',
+            'deduct_half_day',
+            'deduct_full_day',
+            'set_occurrences',
+            'max_occurrences',
+            'is_active',
+            'created_at',
+            'updated_at',
+            'created_by_email',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_created_by_email(self, obj):
+        if obj.created_by:
+            return getattr(obj.created_by, 'email', 'system')
+        return 'system'
+
+    def get_threshold_display(self, obj):
+        return obj.get_threshold_display()
+
+    def create(self, validated_data):
+        # Set created_by from request user if available
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
+
+
+class AutomationRuleListSerializer(serializers.ModelSerializer):
+    """Simplified serializer for list view"""
+    rule_type_display = serializers.CharField(source='get_rule_type_display', read_only=True)
+    threshold_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AutomationRule
+        fields = [
+            'id',
+            'rule_type',
+            'rule_type_display',
+            'rule_name',
+            'threshold_display',
+            'deduct_salary',
+            'deduction_type',
+            'deduction_amount',
+            'is_active',
+            'created_at',
+        ]
+
+    def get_threshold_display(self, obj):
+        return obj.get_threshold_display()

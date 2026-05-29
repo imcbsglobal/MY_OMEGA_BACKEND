@@ -173,3 +173,66 @@ class SalaryIncrement(models.Model):
     def __str__(self):
         emp_name = getattr(self.employee, 'name', None) or getattr(self.employee, 'employee_id', None)
         return f"{emp_name} - {self.increment_date} (INR {self.increment_amount})"
+
+
+class AutomationRule(models.Model):
+    """
+    Automation rules for attendance penalties (Late Entry, Early Exit, Overtime, Breaks, etc.)
+    """
+    RULE_TYPES = [
+        ('late', 'Late Entry Rules'),
+        ('early', 'Early Exit Rules'),
+        ('missed', 'Punch Miss Rules'),
+    ]
+
+    DEDUCTION_TYPES = [
+        ('Fixed Amount', 'Fixed Amount'),
+        ('Percentage Per Day', 'Percentage Per Day'),
+        ('Half Day', 'Half Day'),
+        ('Full Day', 'Full Day'),
+    ]
+
+    rule_type = models.CharField(max_length=20, choices=RULE_TYPES)
+    rule_name = models.CharField(max_length=200)
+    
+    # Time threshold (in minutes)
+    threshold_hours = models.IntegerField(default=0)
+    threshold_minutes = models.IntegerField(default=0)
+    
+    # Deduction configuration
+    deduct_salary = models.BooleanField(default=False)
+    deduction_type = models.CharField(max_length=20, choices=DEDUCTION_TYPES, null=True, blank=True)
+    deduction_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    # Additional options
+    deduct_half_day = models.BooleanField(default=False)
+    deduct_full_day = models.BooleanField(default=False)
+    set_occurrences = models.BooleanField(default=False)
+    max_occurrences = models.IntegerField(null=True, blank=True)
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_automation_rules'
+    )
+
+    class Meta:
+        ordering = ['rule_type', '-created_at']
+        db_table = 'payroll_automationrule'
+
+    def __str__(self):
+        return f"{self.get_rule_type_display()} - {self.rule_name}"
+
+    def get_threshold_display(self):
+        """Return threshold in readable format"""
+        if self.threshold_hours == 0 and self.threshold_minutes == 0:
+            return "No threshold"
+        return f"{self.threshold_hours:02d}:{self.threshold_minutes:02d}"

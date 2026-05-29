@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from django.utils import timezone
 
-from HR.models import Attendance
+from HR.models import Attendance, LeaveRequest
 
 
 def _get_month_bounds(year, month):
@@ -51,6 +51,22 @@ def calculate_monthly_penalties(user, year, month):
         date__lte=end_date
     ).order_by('date')
 
+    approved_leaves = LeaveRequest.objects.filter(
+        user=user,
+        status='approved',
+        from_date__lte=end_date,
+        to_date__gte=start_date,
+    ).only('from_date', 'to_date')
+
+    approved_leave_dates = set()
+    for leave in approved_leaves:
+        overlap_start = max(leave.from_date, start_date)
+        overlap_end = min(leave.to_date, end_date)
+        day_cursor = overlap_start
+        while day_cursor <= overlap_end:
+            approved_leave_dates.add(day_cursor)
+            day_cursor += timedelta(days=1)
+
     per_date = {}
 
     late_grace_used = 0
@@ -71,23 +87,44 @@ def calculate_monthly_penalties(user, year, month):
 
     total_deduction_days = 0.0
 
-    for att in attendances:
-        if att.status in ('leave', 'holiday', 'sunday', 'absent', 'special_leave', 'mandatory_holiday'):
+    # Pre-fetch company holidays in range
+    try:
+        from HR.models import Holiday
+        holidays = set(Holiday.objects.filter(date__gte=start_date, date__lte=end_date, is_active=True).values_list('date', flat=True))
+    except Exception:
+        holidays = set()
+
+    # Build a map of date->Attendance for quick lookup
+    attendances_by_date = {a.date: a for a in attendances}
+
+    day = start_date
+    while day <= end_date:
+        att = attendances_by_date.get(day)
+
+        # If Attendance exists and is a non-working/leave type, skip
+        if att and att.status in ('leave', 'holiday', 'sunday', 'absent', 'special_leave', 'mandatory_holiday'):
+            day += timedelta(days=1)
             continue
 
-        duty_start = getattr(att.user, 'duty_time_start', None)
-        duty_end = getattr(att.user, 'duty_time_end', None)
+        # If Attendance missing, skip Sundays/holidays
+        if not att:
+            if day.weekday() == 6 or day in holidays or day in approved_leave_dates:
+                day += timedelta(days=1)
+                continue
 
-        first_in = att.first_punch_in_time
-        last_out = att.last_punch_out_time
+        duty_start = getattr(att.user, 'duty_time_start', None) if att else getattr(user, 'duty_time_start', None)
+        duty_end = getattr(att.user, 'duty_time_end', None) if att else getattr(user, 'duty_time_end', None)
+
+        first_in = att.first_punch_in_time if att else None
+        last_out = att.last_punch_out_time if att else None
 
         if first_in:
             first_in = timezone.localtime(first_in)
         if last_out:
             last_out = timezone.localtime(last_out)
 
-        scheduled_start = _make_aware_dt(att.date, duty_start) if duty_start else None
-        scheduled_end = _make_aware_dt(att.date, duty_end) if duty_end else None
+        scheduled_start = _make_aware_dt(day, duty_start) if duty_start else None
+        scheduled_end = _make_aware_dt(day, duty_end) if duty_end else None
 
         late_minutes = _minutes_diff(first_in, scheduled_start) if scheduled_start else None
         early_minutes = _minutes_diff(scheduled_end, last_out) if scheduled_end else None
@@ -126,7 +163,15 @@ def calculate_monthly_penalties(user, year, month):
                 summary_counts['late_over_60_count'] += 1
                 late_over_60_absent = True
 
-        missed_punch = not (first_in and last_out)
+        has_approved_leave = (
+            day in approved_leave_dates
+            or (
+                att and getattr(att, 'leave_request_id', None)
+                and getattr(att.leave_request, 'status', None) == 'approved'
+            )
+        )
+
+        missed_punch = (not has_approved_leave) and (not (first_in and last_out))
         if missed_punch:
             if missed_punch_grace_used < 1:
                 missed_punch_grace_used += 1
@@ -148,7 +193,7 @@ def calculate_monthly_penalties(user, year, month):
         total_for_day = late_deduction + missed_punch_deduction + early_deduction
         total_deduction_days += total_for_day
 
-        per_date[att.date] = {
+        per_date[day] = {
             'late_minutes': late_minutes or 0,
             'late_bucket': late_bucket,
             'late_over_60_absent': late_over_60_absent,
@@ -162,6 +207,8 @@ def calculate_monthly_penalties(user, year, month):
             'early_exit_deduction_days': early_deduction,
             'total_deduction_days': total_for_day,
         }
+
+        day += timedelta(days=1)
 
     return {
         'per_date': per_date,

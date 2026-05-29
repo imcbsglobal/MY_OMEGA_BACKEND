@@ -64,6 +64,12 @@ class WarehouseTask(models.Model):
             if not self.completed_datetime:
                 self.completed_datetime = timezone.now()
 
+        # Keep time-only fields in sync when timestamps are available
+        if self.start_datetime and not self.start_time:
+            self.start_time = timezone.localtime(self.start_datetime).time()
+        if self.completed_datetime and not self.end_time:
+            self.end_time = timezone.localtime(self.completed_datetime).time()
+
         super().save(*args, **kwargs)
 
     @property

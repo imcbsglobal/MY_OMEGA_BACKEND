@@ -15,6 +15,7 @@ from .views import (
     reverse_geocode,
     reverse_geocode_bigdata
 )
+from .daily_penalty_action import apply_daily_penalty_action
 from .views_office_config import (
     OfficeLocationViewSet,
     get_office_geofence_info,
@@ -46,6 +47,7 @@ urlpatterns = [
     path('penalty-review/', attendance_penalty_review, name='attendance-penalty-review'),
     path('penalty-review/action/', attendance_penalty_review_action, name='attendance-penalty-review-action'),
     path('penalty-review/deduct/', attendance_penalty_apply_deduction, name='attendance-penalty-review-deduct'),
+    path('penalty-review/daily-action/', apply_daily_penalty_action, name='daily-penalty-action'),
     
     # Office geofence info (available to all users)
     path('geofence-info/', get_office_geofence_info, name='geofence-info'),
