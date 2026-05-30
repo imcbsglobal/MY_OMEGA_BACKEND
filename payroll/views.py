@@ -1337,7 +1337,7 @@ class AutomationRuleViewSet(viewsets.ModelViewSet):
             )
         
         # Validate rule_type
-        valid_types = ['late', 'early', 'overtime', 'breaks', 'earlyOvertime']
+        valid_types = ['late', 'early', 'overtime', 'breaks', 'earlyOvertime', 'missed']
         if rule_type not in valid_types:
             return Response(
                 {'error': f'Invalid rule_type. Must be one of: {", ".join(valid_types)}'},
@@ -1388,7 +1388,7 @@ class AutomationRuleViewSet(viewsets.ModelViewSet):
                 )
         
         # Validate rule_type
-        valid_types = ['late', 'early', 'overtime', 'breaks', 'earlyOvertime']
+        valid_types = ['late', 'early', 'overtime', 'breaks', 'earlyOvertime', 'missed']
         if data['rule_type'] not in valid_types:
             return Response(
                 {'error': f'Invalid rule_type. Must be one of: {", ".join(valid_types)}'},

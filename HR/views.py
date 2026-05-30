@@ -2833,7 +2833,7 @@ def attendance_penalty_review(request):
                     'type': early_rule.deduction_type,
                 }
             
-            missed_rule = AutomationRule.objects.filter(rule_type='breaks', is_active=True).first()
+            missed_rule = AutomationRule.objects.filter(rule_type='missed', is_active=True).first()
             if missed_rule:
                 payroll_settings['missed'] = {
                     'amount': float(missed_rule.deduction_amount or 0),

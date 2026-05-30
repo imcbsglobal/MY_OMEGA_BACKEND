@@ -487,8 +487,8 @@ class PayrollCalculationService:
         rules = {
             'late': AutomationRule.objects.filter(rule_type='late', is_active=True).first(),
             'early': AutomationRule.objects.filter(rule_type='early', is_active=True).first(),
-            # For missed punches, we use 'breaks' rule type as a proxy
-            'missed': AutomationRule.objects.filter(rule_type='breaks', is_active=True).first(),
+            # For missed punches, use explicit 'missed' rule type
+            'missed': AutomationRule.objects.filter(rule_type='missed', is_active=True).first(),
         }
 
         total_deduction_amount = Decimal('0.00')
@@ -497,6 +497,10 @@ class PayrollCalculationService:
         # Helper function to calculate deduction for a rule
         def apply_rule(rule, count, penalty_type):
             if not rule or count == 0:
+                return Decimal('0.00')
+
+            # If rule is configured to not deduct salary, skip
+            if not getattr(rule, 'deduct_salary', False):
                 return Decimal('0.00')
 
             try:

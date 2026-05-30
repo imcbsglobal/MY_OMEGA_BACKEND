@@ -38,9 +38,9 @@ early_rule, created = AutomationRule.objects.update_or_create(
 )
 print(f"{'Created' if created else 'Updated'} Early Exit Rule: ₹25 per occurrence (grace: 1)")
 
-# Create Missed Punch Rule (using 'breaks' rule_type as proxy)
+# Create Missed Punch Rule
 missed_rule, created = AutomationRule.objects.update_or_create(
-    rule_type='breaks',
+    rule_type='missed',
     rule_name='Missed Punch Penalty',
     defaults={
         'deduction_type': 'Fixed Amount',

@@ -67,6 +67,21 @@ def calculate_monthly_penalties(user, year, month):
             approved_leave_dates.add(day_cursor)
             day_cursor += timedelta(days=1)
 
+    leave_requests = LeaveRequest.objects.filter(
+        user=user,
+        from_date__lte=end_date,
+        to_date__gte=start_date,
+    ).only('from_date', 'to_date', 'status')
+
+    leave_request_dates = set()
+    for leave in leave_requests:
+        overlap_start = max(leave.from_date, start_date)
+        overlap_end = min(leave.to_date, end_date)
+        day_cursor = overlap_start
+        while day_cursor <= overlap_end:
+            leave_request_dates.add(day_cursor)
+            day_cursor += timedelta(days=1)
+
     per_date = {}
 
     late_grace_used = 0
@@ -163,15 +178,19 @@ def calculate_monthly_penalties(user, year, month):
                 summary_counts['late_over_60_count'] += 1
                 late_over_60_absent = True
 
-        has_approved_leave = (
-            day in approved_leave_dates
+        has_leave_day = (
+            day in leave_request_dates
+            or day in approved_leave_dates
             or (
-                att and getattr(att, 'leave_request_id', None)
-                and getattr(att.leave_request, 'status', None) == 'approved'
+                att and (
+                    getattr(att, 'leave_request_id', None)
+                    or getattr(att, 'leave_master_id', None)
+                    or att.status in ('leave', 'special_leave', 'mandatory_holiday')
+                )
             )
         )
 
-        missed_punch = (not has_approved_leave) and (not (first_in and last_out))
+        missed_punch = (not has_leave_day) and (not (first_in and last_out))
         if missed_punch:
             if missed_punch_grace_used < 1:
                 missed_punch_grace_used += 1
