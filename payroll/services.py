@@ -4,9 +4,10 @@ from decimal import Decimal
 
 from HR.utils.attendance_penalties import calculate_monthly_penalties
 from datetime import datetime, timedelta
+from django.utils import timezone
 from django.db.models import Q, Sum
 from django.db import transaction
-from HR.models import Attendance, Holiday, EmployeeLeaveBalance
+from HR.models import Attendance, Holiday, EmployeeLeaveBalance, LateRequest, EarlyRequest
 from master.models import LeaveMaster
 from payroll.models import AutomationRule
 
@@ -25,7 +26,8 @@ class PayrollCalculationService:
     
     # Leave rules
     CASUAL_LEAVE_YEARLY = 12  # 12 casual leaves per year (accumulate monthly: 1 per month)
-    SICK_LEAVE_YEARLY = 3     # 3 sick leaves per year (no accumulation)
+    CASUAL_LEAVE_MONTHLY = 6  # Maximum 6 casual leaves per month
+    SICK_LEAVE_YEARLY = 3     # 3 sick leaves per year (no accumulation, no monthly limit)
     
     @staticmethod
     def get_month_dates(year, month):
@@ -35,6 +37,10 @@ class PayrollCalculationService:
             last_day = datetime(year, 12, 31).date()
         else:
             last_day = (datetime(year, month + 1, 1) - timedelta(days=1)).date()
+
+        today = timezone.localdate()
+        if year == today.year and month == today.month and last_day > today:
+            last_day = today
         
         dates = []
         current = first_day
@@ -187,6 +193,14 @@ class PayrollCalculationService:
     def calculate_employee_payroll_data(employee, year, month):
         """
         Calculate comprehensive payroll data for an employee with FULL leave integration
+        
+        Leave Rules Applied:
+        - Casual Leave: 12 per year, max 6 per month
+          * 1 leave credited each month (accumulates up to 12)
+          * Beyond 6 in a single month = unpaid
+        - Sick Leave: 3 per year (yearly total, no monthly limit)
+        - Special Leave: Company-defined (typically 7 per year)
+        - Unpaid Leave: Leaves beyond the allowed paid leaves
         """
         dates = PayrollCalculationService.get_month_dates(year, month)
         total_days_in_month = len(dates)
@@ -271,25 +285,31 @@ class PayrollCalculationService:
                         is_paid = att.leave_master.payment_status == 'paid'
                         
                         # Casual Leave
+                        # Rule: Max 6 per month, 12 per year
                         if leave_category == 'casual':
                             casual_used_this_month += Decimal('1.00')
                             
-                            # Check if within balance
-                            if casual_used_this_month <= leave_balance.casual_leave_balance:
+                            # Check monthly limit (max 6 per month)
+                            if casual_used_this_month > PayrollCalculationService.CASUAL_LEAVE_MONTHLY:
+                                # Exceeded monthly limit - treat as unpaid
+                                unpaid_leave_days += Decimal('1.00')  # Unpaid - exceeded monthly limit
+                            # Also check if within yearly balance
+                            elif casual_used_this_month <= leave_balance.casual_leave_balance:
                                 casual_leave_days += Decimal('1.00')  # Paid
                             else:
-                                unpaid_leave_days += Decimal('1.00')  # Unpaid - exceeded limit
+                                unpaid_leave_days += Decimal('1.00')  # Unpaid - exceeded yearly balance
                         
                         # Sick Leave
+                        # Rule: 3 per year (yearly total only, no monthly limit)
                         elif leave_category == 'sick':
                             sick_used_this_month += 1
                             
-                            # Check if within yearly limit (3 days)
+                            # Check if within yearly limit (3 days total per year)
                             total_sick_used = leave_balance.sick_leave_used + sick_used_this_month
                             if total_sick_used <= PayrollCalculationService.SICK_LEAVE_YEARLY:
                                 sick_leave_days += Decimal('1.00')  # Paid
                             else:
-                                unpaid_leave_days += Decimal('1.00')  # Unpaid - exceeded limit
+                                unpaid_leave_days += Decimal('1.00')  # Unpaid - exceeded yearly limit
                         
                         # Special Leave
                         elif leave_category == 'special':
@@ -474,11 +494,13 @@ class PayrollCalculationService:
         summary = penalty_data.get('summary', {}) or {}
         per_date = penalty_data.get('per_date', {}) or {}
 
+        late_requests = LateRequest.objects.filter(user=user, date__year=year, date__month=month_number)
+        early_requests = EarlyRequest.objects.filter(user=user, date__year=year, date__month=month_number)
+
         # Extract counts by type from the actual penalty data structure
-        # Count all late arrivals (sum of all late buckets and deducted amounts)
-        late_count = sum(1 for item in per_date.values() if (item or {}).get('late_minutes', 0) > 0)
-        # Count all early exits (>= 30 minutes)
-        early_count = sum(1 for item in per_date.values() if (item or {}).get('early_exit_minutes', 0) >= 30)
+        # Only count penalties that have not been waived/rejected in review.
+        late_count = late_requests.exclude(status='rejected').count()
+        early_count = early_requests.exclude(status='rejected').count()
         # Count all missed punches
         missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
         leave_penalty_days = float(summary.get('leave_penalty_days', 0) or 0)

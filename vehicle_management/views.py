@@ -640,7 +640,12 @@ class MaintenanceListCreateAPIView(generics.ListCreateAPIView):
                 Q(service_center_name__icontains=search)
             )
         
-        # Filter by status
+        # Filter by service type
+        service_type_filter = self.request.query_params.get('service_type', None)
+        if service_type_filter:
+            queryset = queryset.filter(service_type__iexact=service_type_filter)
+
+        # Backward-compatible status filter
         status_filter = self.request.query_params.get('status', None)
         if status_filter:
             queryset = queryset.filter(status=status_filter)
@@ -682,6 +687,7 @@ def maintenance_list_paginated(request):
     page = int(request.query_params.get('page', 1))
     page_size = int(request.query_params.get('page_size', 10))
     search = request.query_params.get('search', '')
+    service_type_filter = request.query_params.get('service_type', '')
     status_filter = request.query_params.get('status', '')
     
     queryset = Maintenance.objects.all()
@@ -694,6 +700,9 @@ def maintenance_list_paginated(request):
             Q(driver_name__icontains=search)
         )
     
+    if service_type_filter and service_type_filter.lower() != 'all':
+        queryset = queryset.filter(service_type__iexact=service_type_filter)
+
     if status_filter and status_filter.lower() != 'all':
         queryset = queryset.filter(status__iexact=status_filter)
     

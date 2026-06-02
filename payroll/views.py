@@ -790,19 +790,36 @@ def get_attendance_summary_for_payroll(request):
     
     try:
         # Get comprehensive attendance data
-        attendance_data = PayrollCalculationService.calculate_employee_payroll_data(
-            employee=employee,
-            year=int(year),
-            month=month_number
-        )
+        try:
+            attendance_data = PayrollCalculationService.calculate_employee_payroll_data(
+                employee=employee,
+                year=int(year),
+                month=month_number
+            )
+        except Exception as e:
+            print(f"Error calculating payroll data: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+        
+        # Verify required attendance data keys
+        required_keys = ['total_working_days', 'leave_balance', 'this_month_usage', 'casual_leave_days', 'sick_leave_days', 'special_leave_days']
+        for key in required_keys:
+            if key not in attendance_data:
+                print(f"Warning: Missing key in attendance_data: {key}")
+        
         base_salary = PayrollCalculationService.get_employee_salary(employee)
-        penalty_info = PayrollCalculationService.calculate_attendance_penalty_deduction(
-            employee=employee,
-            year=int(year),
-            month_number=month_number,
-            working_days=attendance_data['total_working_days'],
-            base_salary=base_salary,
-        )
+        try:
+            penalty_info = PayrollCalculationService.calculate_attendance_penalty_deduction(
+                employee=employee,
+                year=int(year),
+                month_number=month_number,
+                working_days=attendance_data['total_working_days'],
+                base_salary=base_salary,
+            )
+        except Exception as e:
+            print(f"Error calculating penalty deduction: {e}")
+            penalty_info = {'total_days': 0, 'amount': 0, 'summary': '', 'items': []}
         
         # Get employee name safely
         employee_name = (
@@ -828,88 +845,88 @@ def get_attendance_summary_for_payroll(request):
             
             # Days breakdown
             'days_summary': {
-                'total_days_in_month': attendance_data['total_days_in_month'],
-                'total_working_days': attendance_data['total_working_days'],
-                'sundays': attendance_data['sundays'],
+                'total_days_in_month': attendance_data.get('total_days_in_month', 0),
+                'total_working_days': attendance_data.get('total_working_days', 0),
+                'sundays': attendance_data.get('sundays', 0),
                 'holidays': {
-                    'mandatory': attendance_data['mandatory_holidays'],
-                    'special': attendance_data['special_holidays'],
-                    'total_paid': attendance_data['total_paid_holidays'],
+                    'mandatory': attendance_data.get('mandatory_holidays', 0),
+                    'special': attendance_data.get('special_holidays', 0),
+                    'total_paid': attendance_data.get('total_paid_holidays', 0),
                 },
             },
             
             # Attendance breakdown
             'attendance': {
-                'full_days_worked': attendance_data['full_days_worked'],
-                'half_days_worked': attendance_data['half_days_worked'],
-                'wfh_days': attendance_data['wfh_days'],
+                'full_days_worked': float(attendance_data.get('full_days_worked', 0)),
+                'half_days_worked': float(attendance_data.get('half_days_worked', 0)),
+                'wfh_days': float(attendance_data.get('wfh_days', 0)),
                 'total_worked': (
-                    attendance_data['full_days_worked'] + 
-                    attendance_data['half_days_worked'] + 
-                    attendance_data['wfh_days']
+                    float(attendance_data.get('full_days_worked', 0)) + 
+                    float(attendance_data.get('half_days_worked', 0)) + 
+                    float(attendance_data.get('wfh_days', 0))
                 ),
             },
             
             # Leave breakdown
             'leaves': {
                 'casual_leave': {
-                    'taken_paid': attendance_data['casual_leave_days'],
-                    'taken_this_month': attendance_data['this_month_usage']['casual_used'],
-                    'balance': attendance_data['leave_balance']['casual_balance'],
-                    'used_total': attendance_data['leave_balance']['casual_used'],
-                    'remaining': attendance_data['leave_balance']['casual_remaining'],
+                    'taken_paid': float(attendance_data.get('casual_leave_days', 0)),
+                    'taken_this_month': float(attendance_data.get('this_month_usage', {}).get('casual_used', 0)),
+                    'balance': float(attendance_data.get('leave_balance', {}).get('casual_balance', 0)),
+                    'used_total': float(attendance_data.get('leave_balance', {}).get('casual_used', 0)),
+                    'remaining': float(attendance_data.get('leave_balance', {}).get('casual_remaining', 0)),
                 },
                 'sick_leave': {
-                    'taken_paid': attendance_data['sick_leave_days'],
-                    'taken_this_month': attendance_data['this_month_usage']['sick_used'],
-                    'balance': attendance_data['leave_balance']['sick_balance'],
-                    'used_total': attendance_data['leave_balance']['sick_used'],
-                    'remaining': attendance_data['leave_balance']['sick_remaining'],
+                    'taken_paid': float(attendance_data.get('sick_leave_days', 0)),
+                    'taken_this_month': attendance_data.get('this_month_usage', {}).get('sick_used', 0),
+                    'balance': attendance_data.get('leave_balance', {}).get('sick_balance', 3),
+                    'used_total': attendance_data.get('leave_balance', {}).get('sick_used', 0),
+                    'remaining': attendance_data.get('leave_balance', {}).get('sick_remaining', 3),
                 },
                 'special_leave': {
-                    'taken_paid': attendance_data['special_leave_days'],
-                    'taken_this_month': attendance_data['this_month_usage']['special_used'],
-                    'balance': attendance_data['leave_balance']['special_balance'],
-                    'used_total': attendance_data['leave_balance']['special_used'],
-                    'remaining': attendance_data['leave_balance']['special_remaining'],
+                    'taken_paid': float(attendance_data.get('special_leave_days', 0)),
+                    'taken_this_month': attendance_data.get('this_month_usage', {}).get('special_used', 0),
+                    'balance': attendance_data.get('leave_balance', {}).get('special_balance', 7),
+                    'used_total': attendance_data.get('leave_balance', {}).get('special_used', 0),
+                    'remaining': attendance_data.get('leave_balance', {}).get('special_remaining', 7),
                 },
-                'mandatory_holiday_leaves': attendance_data['mandatory_holiday_leaves'],
+                'mandatory_holiday_leaves': float(attendance_data.get('mandatory_holiday_leaves', 0)),
                 'unpaid_leave': {
-                    'this_month': attendance_data['unpaid_leave_days'],
-                    'total_year': attendance_data['leave_balance']['unpaid_taken'],
+                    'this_month': float(attendance_data.get('unpaid_leave_days', 0)),
+                    'total_year': float(attendance_data.get('leave_balance', {}).get('unpaid_taken', 0)),
                 },
             },
             
             # Salary calculation summary
             'payroll_summary': {
-                'paid_working_days': attendance_data['paid_working_days'],
-                'total_paid_days': attendance_data['total_paid_days'],
-                'effective_paid_days': attendance_data['effective_paid_days'],
-                'days_to_deduct': attendance_data['days_to_deduct'],
-                'not_marked_days': attendance_data['not_marked_days'],
-                'attendance_penalty_days': penalty_info['total_days'],
-                'attendance_penalty_amount': float(penalty_info['amount']),
+                'paid_working_days': float(attendance_data.get('paid_working_days', 0)),
+                'total_paid_days': float(attendance_data.get('total_paid_days', 0)),
+                'effective_paid_days': float(attendance_data.get('effective_paid_days', 0)),
+                'days_to_deduct': float(attendance_data.get('days_to_deduct', 0)),
+                'not_marked_days': float(attendance_data.get('not_marked_days', 0)),
+                'attendance_penalty_days': penalty_info.get('total_days', 0),
+                'attendance_penalty_amount': float(penalty_info.get('amount', 0)),
             },
             
             # Quick stats
             'quick_stats': {
                 'attendance_percentage': round(
-                    (attendance_data['effective_paid_days'] / attendance_data['total_working_days'] * 100)
-                    if attendance_data['total_working_days'] > 0 else 0,
+                    (attendance_data.get('effective_paid_days', 0) / attendance_data.get('total_working_days', 1) * 100)
+                    if attendance_data.get('total_working_days', 0) > 0 else 0,
                     2
                 ),
                 'total_leaves_taken': (
-                    attendance_data['casual_leave_days'] +
-                    attendance_data['sick_leave_days'] +
-                    attendance_data['special_leave_days'] +
-                    attendance_data['mandatory_holiday_leaves'] +
-                    attendance_data['unpaid_leave_days']
+                    attendance_data.get('casual_leave_days', 0) +
+                    attendance_data.get('sick_leave_days', 0) +
+                    attendance_data.get('special_leave_days', 0) +
+                    attendance_data.get('mandatory_holiday_leaves', 0) +
+                    attendance_data.get('unpaid_leave_days', 0)
                 ),
                 'paid_leaves_taken': (
-                    attendance_data['casual_leave_days'] +
-                    attendance_data['sick_leave_days'] +
-                    attendance_data['special_leave_days'] +
-                    attendance_data['mandatory_holiday_leaves']
+                    attendance_data.get('casual_leave_days', 0) +
+                    attendance_data.get('sick_leave_days', 0) +
+                    attendance_data.get('special_leave_days', 0) +
+                    attendance_data.get('mandatory_holiday_leaves', 0)
                 ),
             }
         }

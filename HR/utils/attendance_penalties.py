@@ -10,6 +10,9 @@ def _get_month_bounds(year, month):
         end_date = datetime(year, 12, 31).date()
     else:
         end_date = (datetime(year, month + 1, 1) - timedelta(days=1)).date()
+    today = timezone.localdate()
+    if year == today.year and month == today.month and end_date > today:
+        end_date = today
     return start_date, end_date
 
 

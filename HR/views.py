@@ -2587,10 +2587,24 @@ def attendance_penalty_review(request):
     page_size = int(request.query_params.get('page_size', 8) or 8)
     page = max(1, page)
     page_size = max(1, min(page_size, 100))
-    
-    # Apply pagination to employee query BEFORE processing
-    employees_for_processing = []
+
     all_employees_list = list(employees.distinct())
+    if search:
+        filtered_employees = []
+        for employee in all_employees_list:
+            user = getattr(employee, 'user', None)
+            employee_name = _get_employee_display_name(employee)
+            employee_id_text = str(getattr(employee, 'employee_id', '') or '').lower()
+            employee_email_text = str(getattr(user, 'email', '') or '').lower() if user else ''
+            if (
+                search in employee_name.lower()
+                or search in employee_id_text
+                or search in employee_email_text
+            ):
+                filtered_employees.append(employee)
+        all_employees_list = filtered_employees
+
+    # Apply pagination after search filtering so search works across the full result set
     start_index = (page - 1) * page_size
     end_index = start_index + page_size
     employees_for_processing = all_employees_list[start_index:end_index]
@@ -2690,13 +2704,6 @@ def attendance_penalty_review(request):
                 'synthetic': True,
             })
 
-        attendance_rows.sort(key=lambda item: item.get('date') or month_start)
-
-        late_count = sum(1 for item in per_date.values() if (item or {}).get('late_minutes', 0) > 0)
-        early_count = sum(1 for item in per_date.values() if (item or {}).get('early_exit_minutes', 0) >= 30)
-        missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
-        penalty_events = late_count + early_count + missed_count
-
         # Batch query late and early requests to avoid N+1 queries
         late_requests = LateRequest.objects.filter(user=user, date__year=year, date__month=month)
         early_requests = EarlyRequest.objects.filter(user=user, date__year=year, date__month=month)
@@ -2707,6 +2714,13 @@ def attendance_penalty_review(request):
             from_date__lte=month_end,
             to_date__gte=month_start,
         )
+
+        attendance_rows.sort(key=lambda item: item.get('date') or month_start)
+
+        late_count = late_requests.exclude(status='rejected').count()
+        early_count = early_requests.exclude(status='rejected').count()
+        missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
+        penalty_events = late_count + early_count + missed_count
 
         pending_count = late_requests.filter(status='pending').count() + early_requests.filter(status='pending').count()
         approved_count = late_requests.filter(status='approved').count() + early_requests.filter(status='approved').count()
@@ -2940,9 +2954,9 @@ def attendance_penalty_review_action(request):
             early_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'admin_comment', 'updated_at'])
             updated_early += 1
 
-        # Optional: sync payroll deductions when requests are approved
+        # Optional: sync payroll deductions whenever review status changes.
         sync_payroll = str(request.data.get('sync_payroll', 'false')).lower() in ['1', 'true', 'yes']
-        if sync_payroll and action == 'approve':
+        if sync_payroll:
             try:
                 from payroll.services import PayrollCalculationService
                 from payroll.models import Payroll, PayrollDeduction
