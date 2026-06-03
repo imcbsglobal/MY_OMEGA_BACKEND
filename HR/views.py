@@ -2717,11 +2717,21 @@ def attendance_penalty_review(request):
 
         attendance_rows.sort(key=lambda item: item.get('date') or month_start)
 
-        late_count = late_requests.exclude(status='rejected').count()
-        early_count = early_requests.exclude(status='rejected').count()
+        # Only count penalties that have been APPROVED for deduction (not pending or waived)
+        late_count_approved = late_requests.filter(status='approved').count()
+        early_count_approved = early_requests.filter(status='approved').count()
+        
+        # For missed punches, count from per_date where missed_punch=True
+        # These are not tracked in LateRequest/EarlyRequest but in per_date structure
         missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
-        penalty_events = late_count + early_count + missed_count
+        
+        # For status display: count ALL penalties (pending + approved + rejected) to determine if there are penalties to review
+        late_total = late_requests.count()
+        early_total = early_requests.count()
+        penalty_events = late_total + early_total + missed_count
 
+        # Count penalties by status for determining overall review status
+        # Late and Early: tracked in LateRequest/EarlyRequest
         pending_count = late_requests.filter(status='pending').count() + early_requests.filter(status='pending').count()
         approved_count = late_requests.filter(status='approved').count() + early_requests.filter(status='approved').count()
         rejected_count = late_requests.filter(status='rejected').count() + early_requests.filter(status='rejected').count()
@@ -2732,6 +2742,12 @@ def attendance_penalty_review(request):
             overlap_end = min(leave_request.to_date, month_end)
             if overlap_end >= overlap_start:
                 leave_penalty_days += (overlap_end - overlap_start).days + 1
+
+        review_status = _review_status(pending_count, approved_count, rejected_count, penalty_events)
+        action = _suggest_penalty_action(float(summary.get('total_deduction_days', 0) or 0), penalty_events)
+        
+        # Store approved counts for deduction calculation later
+        # We'll use late_count_approved and early_count_approved below
 
         review_status = _review_status(pending_count, approved_count, rejected_count, penalty_events)
         action = _suggest_penalty_action(float(summary.get('total_deduction_days', 0) or 0), penalty_events)
@@ -2771,12 +2787,12 @@ def attendance_penalty_review(request):
             'email': getattr(user, 'email', None),
             'date_of_joining': getattr(employee, 'date_of_joining', None),
             'work_type': getattr(employee, 'work_type', None),
-            'late': late_count,
-            'early': early_count,
+            'late': late_total,
+            'early': early_total,
             'missed': missed_count,
             'leave_penalty_days': leave_penalty_days,
             'leave_penalty_requests': unpaid_leave_requests.count(),
-            'total_penalty': late_count + early_count + missed_count + leave_penalty_days,
+            'total_penalty': late_total + early_total + missed_count + leave_penalty_days,
             'action': action,
             'status': review_status,
             'status_display': 'Approved' if review_status == 'Approved (Deduct)' else 'Cleared' if review_status == 'Waived' else 'Pending',

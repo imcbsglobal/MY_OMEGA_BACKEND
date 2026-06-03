@@ -498,10 +498,12 @@ class PayrollCalculationService:
         early_requests = EarlyRequest.objects.filter(user=user, date__year=year, date__month=month_number)
 
         # Extract counts by type from the actual penalty data structure
-        # Only count penalties that have not been waived/rejected in review.
-        late_count = late_requests.exclude(status='rejected').count()
-        early_count = early_requests.exclude(status='rejected').count()
-        # Count all missed punches
+        # Only count penalties that have been APPROVED for deduction (not pending or waived)
+        late_count = late_requests.filter(status='approved').count()
+        early_count = early_requests.filter(status='approved').count()
+        
+        # For missed punches, count from per_date where missed_punch=True
+        # These are not tracked in LateRequest/EarlyRequest but in per_date structure
         missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
         leave_penalty_days = float(summary.get('leave_penalty_days', 0) or 0)
 
