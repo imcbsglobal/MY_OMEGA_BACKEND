@@ -11,6 +11,7 @@ from django.conf import settings
 from master.models import LeaveMaster  # ✅ CORRECT - Import from master app
 from .models import LeaveRequest  # ✅ LeaveRequest is in HR.models
 from master.serializers import LeaveMasterCreateSerializer
+from payroll.models import AutomationRule  # For grace period configuration
 
 import calendar
 import requests
@@ -248,34 +249,50 @@ def _serialize_attendance_detail(attendance, penalty_detail=None):
         leave_name = attendance.leave_request.leave_master.leave_name
 
     # Get late/early request status for this date
+    # PRIMARY: check admin_note (written by daily_penalty_action endpoint)
+    # FALLBACK: check LateRequest/EarlyRequest.status
     late_request_status = None
     early_request_status = None
     missed_punch_status = None
-    
-    try:
-        late_req = LateRequest.objects.filter(user=attendance.user, date=attendance.date).first()
-        if late_req:
-            late_request_status = late_req.status
-    except Exception:
-        pass
-    
-    try:
-        early_req = EarlyRequest.objects.filter(user=attendance.user, date=attendance.date).first()
-        if early_req:
-            early_request_status = early_req.status
-    except Exception:
-        pass
-    
-    # Check if missed punch penalty was waived via admin comment/note
-    admin_comment_text = None
-    try:
-        admin_comment_text = getattr(attendance, 'admin_comment', None) or getattr(attendance, 'admin_note', None)
-    except Exception:
-        admin_comment_text = None
 
-    if admin_comment_text and 'waived' in str(admin_comment_text).lower():
+    admin_note_text = ''
+    try:
+        admin_note_text = str(getattr(attendance, 'admin_note', '') or '').lower()
+    except Exception:
+        admin_note_text = ''
+
+    # Late status — check admin_note first (daily_penalty_action writes here)
+    if 'late penalty waived' in admin_note_text:
+        late_request_status = 'rejected'
+    elif 'late penalty deducted' in admin_note_text:
+        late_request_status = 'approved'
+    else:
+        # Fallback to LateRequest.status
+        try:
+            late_req = LateRequest.objects.filter(user=attendance.user, date=attendance.date).first()
+            if late_req:
+                late_request_status = late_req.status
+        except Exception:
+            pass
+
+    # Early status — check admin_note first
+    if 'early exit penalty waived' in admin_note_text:
+        early_request_status = 'rejected'
+    elif 'early exit penalty deducted' in admin_note_text:
+        early_request_status = 'approved'
+    else:
+        # Fallback to EarlyRequest.status
+        try:
+            early_req = EarlyRequest.objects.filter(user=attendance.user, date=attendance.date).first()
+            if early_req:
+                early_request_status = early_req.status
+        except Exception:
+            pass
+
+    # Missed punch status — read from admin_note (this was already correct)
+    if 'missed punch penalty waived' in admin_note_text or ('waived' in admin_note_text and 'missed' in admin_note_text):
         missed_punch_status = 'rejected'
-    elif admin_comment_text and 'applied' in str(admin_comment_text).lower():
+    elif 'missed punch penalty deducted' in admin_note_text or ('deducted' in admin_note_text and 'missed' in admin_note_text) or ('applied' in admin_note_text and 'missed' in admin_note_text):
         missed_punch_status = 'approved'
 
     return {
@@ -2637,11 +2654,16 @@ def attendance_penalty_review(request):
         deduction_breakdown = []
         if PayrollCalculationService:
             try:
+                # Calculate working days (default to 22 if not in summary)
+                working_days = int(summary.get('working_days', 0) or 22)
+                if working_days <= 0:
+                    working_days = 22
+                    
                 deduction_result = PayrollCalculationService.calculate_attendance_penalty_deduction(
                     employee=employee,
                     year=year,
                     month_number=month,
-                    working_days=max(1, int(summary.get('working_days', 0) or 1)),
+                    working_days=working_days,
                     base_salary=base_salary,
                 )
                 penalty_amount = float(deduction_result.get('amount', 0) or 0)
@@ -2721,14 +2743,47 @@ def attendance_penalty_review(request):
         late_count_approved = late_requests.filter(status='approved').count()
         early_count_approved = early_requests.filter(status='approved').count()
         
-        # For missed punches, count from per_date where missed_punch=True
-        # These are not tracked in LateRequest/EarlyRequest but in per_date structure
-        missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
+        # For missed punches, count only DEDUCTED ones, but only AFTER grace period exhausted
+        attendance_records = Attendance.objects.filter(
+            user=user,
+            date__year=month_start.year,
+            date__month=month_start.month
+        ).values('date', 'admin_note')
         
-        # For status display: count ALL penalties (pending + approved + rejected) to determine if there are penalties to review
+        # Get grace period for missed punch
+        missed_grace = 1  # Default
+        try:
+            rule = AutomationRule.objects.filter(rule_type='missed', is_active=True, deduction_type='Fixed Amount').first()
+            if rule:
+                missed_grace = int(rule.max_occurrences or 1)
+        except Exception:
+            pass
+        
+        # Count ALL missed and DEDUCTED separately
+        all_missed_dates = set()
+        deducted_missed_dates = set()
+        for att in attendance_records:
+            if att['admin_note']:
+                admin_lower = str(att['admin_note']).lower()
+                # Check if reviewed (deducted or waived)
+                if ('deduct' in admin_lower or 'applied' in admin_lower or 'waive' in admin_lower) and 'missed punch' in admin_lower:
+                    all_missed_dates.add(att['date'])
+                # Check if deducted
+                if ('deduct' in admin_lower or 'applied' in admin_lower) and 'missed punch' in admin_lower:
+                    deducted_missed_dates.add(att['date'])
+        
+        # Only count deductions AFTER grace reached
+        total_missed = len(all_missed_dates)
+        if total_missed > missed_grace:
+            missed_count_approved = len(deducted_missed_dates)
+        else:
+            missed_count_approved = 0
+        
+        # For ALL penalties (for status display)
         late_total = late_requests.count()
         early_total = early_requests.count()
-        penalty_events = late_total + early_total + missed_count
+        missed_total = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
+        penalty_events = late_total + early_total + missed_total
 
         # Count penalties by status for determining overall review status
         # Late and Early: tracked in LateRequest/EarlyRequest
@@ -2789,10 +2844,10 @@ def attendance_penalty_review(request):
             'work_type': getattr(employee, 'work_type', None),
             'late': late_total,
             'early': early_total,
-            'missed': missed_count,
+            'missed': missed_total,
             'leave_penalty_days': leave_penalty_days,
             'leave_penalty_requests': unpaid_leave_requests.count(),
-            'total_penalty': late_total + early_total + missed_count + leave_penalty_days,
+            'total_penalty': late_total + early_total + missed_total + leave_penalty_days,
             'action': action,
             'status': review_status,
             'status_display': 'Approved' if review_status == 'Approved (Deduct)' else 'Cleared' if review_status == 'Waived' else 'Pending',

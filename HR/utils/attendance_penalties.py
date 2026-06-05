@@ -240,5 +240,6 @@ def calculate_monthly_penalties(user, year, month):
             'missed_punch_grace_used_total': missed_punch_grace_used,
             'early_exit_grace_used_total': early_exit_grace_used,
             'total_deduction_days': total_deduction_days,
+            'working_days': 22,  # Standard working days per month
         }
     }

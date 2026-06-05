@@ -822,7 +822,7 @@ class AutomationRuleSerializer(serializers.ModelSerializer):
 
 
 class AutomationRuleListSerializer(serializers.ModelSerializer):
-    """Simplified serializer for list view"""
+    """Simplified serializer for list view - includes all fields needed for view modal"""
     rule_type_display = serializers.CharField(source='get_rule_type_display', read_only=True)
     threshold_display = serializers.SerializerMethodField()
 
@@ -833,10 +833,16 @@ class AutomationRuleListSerializer(serializers.ModelSerializer):
             'rule_type',
             'rule_type_display',
             'rule_name',
+            'threshold_hours',
+            'threshold_minutes',
             'threshold_display',
             'deduct_salary',
             'deduction_type',
             'deduction_amount',
+            'deduct_half_day',
+            'deduct_full_day',
+            'set_occurrences',
+            'max_occurrences',
             'is_active',
             'created_at',
         ]

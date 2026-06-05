@@ -59,76 +59,52 @@ def apply_daily_penalty_action(request):
         
         with transaction.atomic():
             if penalty_type == 'late':
-                # Update or create late requests for this date
-                late_reqs = LateRequest.objects.filter(
-                    user=user,
-                    date=penalty_date
-                )
+                # Don't change LateRequest status - that's for Leave Management approval
+                # Only record the waive/deduct decision in Attendance for payroll
+                attendance = Attendance.objects.filter(user=user, date=penalty_date).first()
                 
-                if late_reqs.exists():
-                    updated_count = late_reqs.update(
-                        status=new_status,
-                        reviewed_by=request.user if request.user.is_authenticated else None,
-                        reviewed_at=timezone.now(),
-                        admin_comment=f'Daily penalty {action}d via review'
-                    )
+                if attendance:
+                    # Record waive/deduct in admin_note for payroll tracking
+                    if action == 'waive':
+                        admin_note = f'Late penalty waived on {timezone.now().strftime("%Y-%m-%d")}'
+                    else:  # deduct
+                        admin_note = f'Late penalty deducted on {timezone.now().strftime("%Y-%m-%d")}'
+                    
+                    # Add to existing admin_note
+                    if attendance.admin_note:
+                        attendance.admin_note += f"\n{admin_note}"
+                    else:
+                        attendance.admin_note = admin_note
+                    attendance.save()
+                    updated_count = 1
                     message = f'Successfully {action}d late penalty for {date_str}'
                 else:
-                    # Get the actual late minutes from attendance record
-                    attendance = Attendance.objects.filter(user=user, date=penalty_date).first()
-                    late_minutes = 1  # Default
-                    if attendance and hasattr(attendance, 'late_by_minutes'):
-                        late_minutes = attendance.late_by_minutes or 1
-                    
-                    # Create a late request if it doesn't exist (for tracking purposes)
-                    LateRequest.objects.create(
-                        user=user,
-                        date=penalty_date,
-                        late_by_minutes=late_minutes,
-                        status=new_status,
-                        reviewed_by=request.user if request.user.is_authenticated else None,
-                        reviewed_at=timezone.now(),
-                        admin_comment=f'Daily penalty {action}d via review',
-                        reason='Created from penalty review'
-                    )
-                    updated_count = 1
-                    message = f'Created and {action}d late penalty for {date_str}'
+                    message = f'No attendance record found for {date_str}'
+                    updated_count = 0
             
             elif penalty_type == 'early':
-                # Update or create early requests for this date
-                early_reqs = EarlyRequest.objects.filter(
-                    user=user,
-                    date=penalty_date
-                )
+                # Don't change EarlyRequest status - that's for Leave Management approval
+                # Only record the waive/deduct decision in Attendance for payroll
+                attendance = Attendance.objects.filter(user=user, date=penalty_date).first()
                 
-                if early_reqs.exists():
-                    updated_count = early_reqs.update(
-                        status=new_status,
-                        reviewed_by=request.user if request.user.is_authenticated else None,
-                        reviewed_at=timezone.now(),
-                        admin_comment=f'Daily penalty {action}d via review'
-                    )
+                if attendance:
+                    # Record waive/deduct in admin_note for payroll tracking
+                    if action == 'waive':
+                        admin_note = f'Early exit penalty waived on {timezone.now().strftime("%Y-%m-%d")}'
+                    else:  # deduct
+                        admin_note = f'Early exit penalty deducted on {timezone.now().strftime("%Y-%m-%d")}'
+                    
+                    # Add to existing admin_note
+                    if attendance.admin_note:
+                        attendance.admin_note += f"\n{admin_note}"
+                    else:
+                        attendance.admin_note = admin_note
+                    attendance.save()
+                    updated_count = 1
                     message = f'Successfully {action}d early exit penalty for {date_str}'
                 else:
-                    # Get the actual early minutes from attendance record
-                    attendance = Attendance.objects.filter(user=user, date=penalty_date).first()
-                    early_minutes = 1  # Default
-                    if attendance and hasattr(attendance, 'early_by_minutes'):
-                        early_minutes = attendance.early_by_minutes or 1
-                    
-                    # Create an early request if it doesn't exist
-                    EarlyRequest.objects.create(
-                        user=user,
-                        date=penalty_date,
-                        early_by_minutes=early_minutes,
-                        status=new_status,
-                        reviewed_by=request.user if request.user.is_authenticated else None,
-                        reviewed_at=timezone.now(),
-                        admin_comment=f'Daily penalty {action}d via review',
-                        reason='Created from penalty review'
-                    )
-                    updated_count = 1
-                    message = f'Created and {action}d early exit penalty for {date_str}'
+                    message = f'No attendance record found for {date_str}'
+                    updated_count = 0
             
             elif penalty_type == 'missed':
                 # For missed punches, update the attendance record's penalty waiver flag
@@ -203,7 +179,7 @@ def apply_daily_penalty_action(request):
                     if action == 'waive':
                         _stamp_admin_note(attendance, f'Missed punch penalty waived on {timezone.now().strftime("%Y-%m-%d")}')
                     else:
-                        _stamp_admin_note(attendance, f'Missed punch penalty applied on {timezone.now().strftime("%Y-%m-%d")}')
+                        _stamp_admin_note(attendance, f'Missed punch penalty deducted on {timezone.now().strftime("%Y-%m-%d")}')
 
                     attendance.save()
                     updated_count = 1
@@ -247,7 +223,7 @@ def apply_daily_penalty_action(request):
                             user=user,
                             date=penalty_date,
                             status='absent',
-                            admin_note=f'Missed punch penalty applied on {timezone.now().strftime("%Y-%m-%d")}')
+                            admin_note=f'Missed punch penalty deducted on {timezone.now().strftime("%Y-%m-%d")}')
                     updated_count = 1
                     message = f'Created and {action}d missed punch penalty for {date_str}'
         

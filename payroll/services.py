@@ -473,7 +473,6 @@ class PayrollCalculationService:
         }
 
     @staticmethod
-    @staticmethod
     def calculate_attendance_penalty_deduction(employee, year, month_number, working_days, base_salary):
         """
         Calculate attendance penalty deduction based on AutomationRules from Payroll Settings.
@@ -498,13 +497,81 @@ class PayrollCalculationService:
         early_requests = EarlyRequest.objects.filter(user=user, date__year=year, date__month=month_number)
 
         # Extract counts by type from the actual penalty data structure
-        # Only count penalties that have been APPROVED for deduction (not pending or waived)
-        late_count = late_requests.filter(status='approved').count()
-        early_count = early_requests.filter(status='approved').count()
+        # Count penalties: only charge AFTER grace period is exhausted
+        # Grace period comes from PayrollSetting (max_occurrences)
+        # Only show 1 deduction per violation type (capped at 1)
         
-        # For missed punches, count from per_date where missed_punch=True
-        # These are not tracked in LateRequest/EarlyRequest but in per_date structure
-        missed_count = sum(1 for item in per_date.values() if (item or {}).get('missed_punch'))
+        # For late: read grace from current rule
+        late_approved = late_requests.filter(status='approved').count()
+        late_rejected = late_requests.filter(status='rejected').count()
+        late_grace = 0
+        
+        # Get current grace period from PayrollSetting
+        late_rule = AutomationRule.objects.filter(rule_type='late', is_active=True).first()
+        if late_rule:
+            late_grace = int(late_rule.max_occurrences or 0)
+        
+        # Only show 1 if grace exhausted (cap at 1)
+        if (late_approved + late_rejected) > late_grace and late_approved > 0:
+            late_count = 1  # Only 1 × penalty amount
+        else:
+            late_count = 0
+        
+        # For early: read grace from current rule
+        early_approved = early_requests.filter(status='approved').count()
+        early_rejected = early_requests.filter(status='rejected').count()
+        early_grace = 0
+        
+        # Get current grace period from PayrollSetting
+        early_rule = AutomationRule.objects.filter(rule_type='early', is_active=True).first()
+        if early_rule:
+            early_grace = int(early_rule.max_occurrences or 0)
+        
+        # Only show 1 if grace exhausted (cap at 1)
+        if (early_approved + early_rejected) > early_grace and early_approved > 0:
+            early_count = 1  # Only 1 × penalty amount
+        else:
+            early_count = 0
+        
+        # For missed punches, only show 1 deduction AFTER grace period exhausted
+        missed_count = 0
+        try:
+            # Get the grace period for missed punch rule
+            missed_grace = 1  # Default
+            rule = AutomationRule.objects.filter(rule_type='missed', is_active=True, deduction_type='Fixed Amount').first()
+            if rule:
+                missed_grace = int(rule.max_occurrences or 1)
+            
+            attendance_records = Attendance.objects.filter(
+                user=user,
+                date__year=year,
+                date__month=month_number
+            ).values('date', 'admin_note')
+            
+            # Count ALL missed punch records (deducted + waived)
+            all_missed_dates = set()
+            deducted_missed_dates = set()
+            
+            for att in attendance_records:
+                if att['admin_note']:
+                    admin_lower = str(att['admin_note']).lower()
+                    # Check if it's any reviewed missed punch (deducted or waived)
+                    if ('deduct' in admin_lower or 'applied' in admin_lower or 'waive' in admin_lower) and 'missed punch' in admin_lower:
+                        all_missed_dates.add(att['date'])
+                    # Check if it's deducted
+                    if ('deduct' in admin_lower or 'applied' in admin_lower) and 'missed punch' in admin_lower:
+                        deducted_missed_dates.add(att['date'])
+            
+            # Only charge 1 deduction if grace exhausted
+            total_missed = len(all_missed_dates)
+            if total_missed > missed_grace and len(deducted_missed_dates) > 0:
+                missed_count = 1  # Only count 1, not all deducted
+            else:
+                missed_count = 0
+        except Exception:
+            # Fallback
+            missed_count = 0
+        
         leave_penalty_days = float(summary.get('leave_penalty_days', 0) or 0)
 
         # Fetch active automation rules (late and early are standard, missed can use 'breaks')
@@ -528,15 +595,11 @@ class PayrollCalculationService:
                 return Decimal('0.00')
 
             try:
-                # Check grace period (max_occurrences)
-                grace_count = 0
-                if rule.set_occurrences and rule.max_occurrences:
-                    grace_count = int(rule.max_occurrences)
-                
-                # Count after grace period
-                billable_count = max(0, count - grace_count)
-                if billable_count == 0:
-                    return Decimal('0.00')
+                # Simply multiply count by penalty amount
+                # Grace period is NOT subtracted - it's just for admin reference
+                # Admin can waive penalties as warnings, then deduct the final one
+                # Each deducted violation costs the full penalty amount
+                billable_count = count
 
                 salary_dec = Decimal(str(base_salary))
                 daily_rate = salary_dec / Decimal(str(working_days if working_days > 0 else 22))
@@ -544,7 +607,7 @@ class PayrollCalculationService:
                 deduction = Decimal('0.00')
 
                 if rule.deduction_type == 'Fixed Amount':
-                    # Fixed amount × billable count
+                    # Fixed amount × billable count (each deduction costs full amount)
                     deduction = Decimal(str(rule.deduction_amount)) * Decimal(str(billable_count))
 
                 elif rule.deduction_type == 'Percentage Per Day':
