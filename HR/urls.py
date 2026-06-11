@@ -35,6 +35,10 @@ router.register(r'early-requests', EarlyRequestViewSet, basename='early-request'
 # NEW: Office configuration endpoints (Admin only)
 router.register(r'office-locations', OfficeLocationViewSet, basename='office-location')
 
+# NEW: Parameter Master endpoints
+from .views import ParameterViewSet
+router.register(r'parameters', ParameterViewSet, basename='parameter')
+
 urlpatterns = [
     # Router URLs
     path('', include(router.urls)),

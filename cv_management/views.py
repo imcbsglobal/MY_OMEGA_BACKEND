@@ -42,6 +42,27 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     serializer_class = DepartmentSerializer
     # add permission_classes if you use custom permissions
 
+    def list(self, request, *args, **kwargs):
+        """List all departments with proper error handling"""
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            
+            return Response({
+                'status': 'success',
+                'data': serializer.data,
+                'count': queryset.count()
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Error listing departments: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Failed to retrieve departments'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=True, methods=['get', 'post'])
     def job_titles(self, request, pk=None):
         dept = self.get_object()

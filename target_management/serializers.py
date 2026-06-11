@@ -326,6 +326,8 @@ class RouteTargetProductDetailSerializer(serializers.ModelSerializer):
 class TargetParametersSerializer(serializers.ModelSerializer):
     parameter_type_display = serializers.CharField(source='get_parameter_type_display', read_only=True)
     achievement_percentage = serializers.ReadOnlyField()
+    # Override to accept free-form parameter names from the Parameter Master
+    parameter_type = serializers.CharField(max_length=255)
     
     class Meta:
         model = TargetParameters

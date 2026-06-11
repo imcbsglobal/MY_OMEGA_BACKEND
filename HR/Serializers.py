@@ -700,3 +700,109 @@ class OfficeLocationSummarySerializer(serializers.ModelSerializer):
             'is_active',
             'configured_at'
         ]
+
+
+
+# ============================================================================
+# PARAMETER MASTER SERIALIZERS
+# ============================================================================
+
+from .models import Parameter, ParameterDepartment
+
+
+class ParameterDepartmentSerializer(serializers.ModelSerializer):
+    """Serializer for department info in parameter response"""
+    id = serializers.IntegerField(source='department.id', read_only=True)
+    name = serializers.CharField(source='department.name', read_only=True)
+    
+    class Meta:
+        model = ParameterDepartment
+        fields = ['id', 'name']
+
+
+class ParameterSerializer(serializers.ModelSerializer):
+    """Complete serializer for Parameter with departments"""
+    departments = ParameterDepartmentSerializer(source='parameter_departments', many=True, read_only=True)
+    department_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        help_text='List of department IDs to associate with this parameter'
+    )
+    created_by_name = serializers.CharField(source='created_by.name', read_only=True, allow_null=True)
+    input_type_display = serializers.CharField(source='get_input_type_display', read_only=True)
+    
+    class Meta:
+        model = Parameter
+        fields = [
+            'id',
+            'name',
+            'input_type',
+            'input_type_display',
+            'description',
+            'is_active',
+            'target_dept_keys',
+            'dept_params',
+            'created_at',
+            'updated_at',
+            'created_by',
+            'created_by_name',
+            'departments',
+            'department_ids'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def create(self, validated_data):
+        """Create parameter and associate with departments"""
+        department_ids = validated_data.pop('department_ids', [])
+        
+        # Set created_by from request user if available
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['created_by'] = request.user
+        
+        # Create parameter (target_dept_keys and dept_params are already in validated_data)
+        parameter = Parameter.objects.create(**validated_data)
+        
+        # Create department associations for HR departments if integer IDs provided
+        from cv_management.models import Department
+        for dept_id in department_ids:
+            if isinstance(dept_id, int):
+                try:
+                    department = Department.objects.get(id=dept_id)
+                    ParameterDepartment.objects.create(
+                        parameter=parameter,
+                        department=department
+                    )
+                except Department.DoesNotExist:
+                    pass
+        
+        return parameter
+    
+    def update(self, instance, validated_data):
+        """Update parameter and manage department associations"""
+        department_ids = validated_data.pop('department_ids', None)
+        
+        # Update parameter fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update departments if provided
+        if department_ids is not None:
+            # Remove existing associations
+            instance.parameter_departments.all().delete()
+            
+            # Create new associations
+            from cv_management.models import Department
+            for dept_id in department_ids:
+                try:
+                    department = Department.objects.get(id=dept_id)
+                    ParameterDepartment.objects.create(
+                        parameter=instance,
+                        department=department
+                    )
+                except Department.DoesNotExist:
+                    pass  # Skip invalid department IDs
+        
+        return instance

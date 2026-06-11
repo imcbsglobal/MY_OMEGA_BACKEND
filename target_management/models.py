@@ -426,12 +426,6 @@ class TargetParameters(models.Model):
     """
     Target Parameters - Defines various parameter types and their targets/incentives
     """
-    PARAMETER_CHOICES = [
-        ('TPA', 'TPA'),
-        ('T_COLLECTION', 'T/Collection'),
-        ('POM', 'POM'),
-        ('SALES_TARGET', 'Sales Target'),
-    ]
 
     route_target_period = models.ForeignKey(
         RouteTargetPeriod,
@@ -439,9 +433,8 @@ class TargetParameters(models.Model):
         related_name='target_parameters'
     )
     parameter_type = models.CharField(
-        max_length=20,
-        choices=PARAMETER_CHOICES,
-        help_text='Type of parameter'
+        max_length=255,
+        help_text='Type/name of parameter (free-form, from Parameter Master)'
     )
     target_value = models.DecimalField(
         max_digits=12,

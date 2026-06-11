@@ -22,7 +22,7 @@ from .models import (
     Attendance, Holiday, LeaveRequest, LateRequest,
     EarlyRequest, PunchRecord
 )
-from .Serializers import (
+from .serializers import (
     AttendanceSerializer, PunchInSerializer, PunchOutSerializer,
     HolidaySerializer, LeaveRequestSerializer,
     LeaveRequestCreateSerializer, LeaveRequestReviewSerializer,
@@ -2074,7 +2074,7 @@ from django.utils import timezone
 
 from master.models import LeaveMaster  # ✅ Import from master app
 from .models import LeaveRequest 
-from .Serializers import (
+from .serializers import (
     LeaveMasterSerializer,
     LeaveRequestSerializer,
     LeaveRequestCreateSerializer,
@@ -3078,3 +3078,181 @@ def attendance_penalty_review_action(request):
 
 # Keep all your other existing ViewSets (AttendanceViewSet, HolidayViewSet, etc.)
 # ... unchanged ...
+
+
+
+# ============================================================================
+# PARAMETER MASTER VIEWSET
+# ============================================================================
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+
+class ParameterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing custom parameters.
+    
+    List: GET /api/hr/parameters/
+    Create: POST /api/hr/parameters/
+    Retrieve: GET /api/hr/parameters/{id}/
+    Update: PUT /api/hr/parameters/{id}/
+    Delete: DELETE /api/hr/parameters/{id}/
+    By Department: GET /api/hr/parameters/by_department/?department_id=X
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        from .models import Parameter
+        return Parameter.objects.all()
+    
+    def get_serializer_class(self):
+        from .serializers import ParameterSerializer
+        return ParameterSerializer
+    
+    def list(self, request):
+        """List all parameters with their departments"""
+        try:
+            from .serializers import ParameterSerializer
+            parameters = self.get_queryset()
+            serializer = ParameterSerializer(parameters, many=True, context={'request': request})
+            
+            return Response({
+                'status': 'success',
+                'data': serializer.data,
+                'count': parameters.count()
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Error listing parameters: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Failed to retrieve parameters'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def create(self, request):
+        """Create a new parameter"""
+        try:
+            from .serializers import ParameterSerializer
+            serializer = ParameterSerializer(data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            parameter = serializer.save()
+            
+            return Response({
+                'status': 'success',
+                'message': 'Parameter created successfully',
+                'data': ParameterSerializer(parameter, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print(f"Error creating parameter: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Failed to create parameter'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def retrieve(self, request, pk=None):
+        """Get a single parameter by ID"""
+        try:
+            from .serializers import ParameterSerializer
+            parameter = self.get_object()
+            serializer = ParameterSerializer(parameter, context={'request': request})
+            
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Parameter not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    def update(self, request, pk=None):
+        """Update an existing parameter"""
+        try:
+            from .serializers import ParameterSerializer
+            parameter = self.get_object()
+            serializer = ParameterSerializer(parameter, data=request.data, partial=True, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            parameter = serializer.save()
+            
+            return Response({
+                'status': 'success',
+                'message': 'Parameter updated successfully',
+                'data': ParameterSerializer(parameter, context={'request': request}).data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Error updating parameter: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Failed to update parameter'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request, pk=None):
+        """Delete a parameter"""
+        try:
+            parameter = self.get_object()
+            parameter_name = parameter.name
+            parameter.delete()
+            
+            return Response({
+                'status': 'success',
+                'message': f'Parameter "{parameter_name}" deleted successfully'
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Failed to delete parameter'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def by_department(self, request):
+        """
+        Get parameters for a specific department.
+        Usage: GET /api/hr/parameters/by_department/?department_id=1
+        """
+        try:
+            from .serializers import ParameterSerializer
+            from .models import Parameter
+            
+            department_id = request.query_params.get('department_id')
+            if not department_id:
+                return Response({
+                    'status': 'error',
+                    'error': 'department_id query parameter is required'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            parameters = Parameter.objects.filter(
+                parameter_departments__department_id=department_id,
+                is_active=True
+            ).distinct()
+            
+            serializer = ParameterSerializer(parameters, many=True, context={'request': request})
+            
+            return Response({
+                'status': 'success',
+                'data': serializer.data,
+                'count': parameters.count(),
+                'department_id': department_id
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Error fetching parameters by department: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'status': 'error',
+                'error': str(e),
+                'message': 'Failed to retrieve parameters for department'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db import transaction
 from .models import OfficeLocation
-from .Serializers import (
+from .serializers import (
     OfficeLocationSerializer,
     OfficeLocationCreateSerializer,
     OfficeLocationTestSerializer

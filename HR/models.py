@@ -652,3 +652,102 @@ class OfficeLocation(models.Model):
         if self.geofence_radius_meters >= 1000:
             return f"{self.geofence_radius_meters / 1000:.1f} km"
         return f"{self.geofence_radius_meters} m"
+
+
+
+# ============================================================================
+# PARAMETER MASTER MODELS
+# ============================================================================
+
+class Parameter(models.Model):
+    """
+    Custom parameters that can be assigned to departments.
+    Allows flexible data collection based on department needs.
+    """
+    INPUT_TYPE_CHOICES = [
+        ('manual', 'Manual Entry'),
+        ('dropdown', 'Dropdown Selection'),
+        ('checkbox', 'Checkbox'),
+        ('date', 'Date Picker'),
+        ('number', 'Number'),
+        ('text', 'Text'),
+    ]
+    
+    name = models.CharField(
+        max_length=255,
+        help_text='Parameter name (e.g., "Emergency Contact", "Blood Group")'
+    )
+    input_type = models.CharField(
+        max_length=20,
+        choices=INPUT_TYPE_CHOICES,
+        default='manual',
+        help_text='Type of input field for this parameter'
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Optional description of what this parameter is for'
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Whether this parameter is currently active'
+    )
+    # Target management department keys: e.g. ["sales", "call_target", "marketing"]
+    target_dept_keys = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Target management department keys this parameter applies to'
+    )
+    # Per-department parameter rows: { deptKey: { paramKey: { price, value } } }
+    dept_params = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Parameter rows with price/value per target management department'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        AppUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_parameters',
+        help_text='Admin who created this parameter'
+    )
+    
+    class Meta:
+        db_table = 'hr_parameters'
+        verbose_name = 'Parameter'
+        verbose_name_plural = 'Parameters'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_input_type_display()})"
+
+
+class ParameterDepartment(models.Model):
+    """
+    Many-to-many relationship between Parameters and Departments.
+    Links which parameters are available for which departments.
+    """
+    parameter = models.ForeignKey(
+        Parameter,
+        on_delete=models.CASCADE,
+        related_name='parameter_departments'
+    )
+    department = models.ForeignKey(
+        'cv_management.Department',  # Reference to Department in cv_management app
+        on_delete=models.CASCADE,
+        related_name='department_parameters'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'hr_parameter_departments'
+        verbose_name = 'Parameter Department'
+        verbose_name_plural = 'Parameter Departments'
+        unique_together = ('parameter', 'department')
+        ordering = ['parameter', 'department']
+    
+    def __str__(self):
+        return f"{self.parameter.name} - {self.department.name}"
